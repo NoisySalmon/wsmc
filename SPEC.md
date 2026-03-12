@@ -151,11 +151,11 @@ Ranked by topical team total (Part 1 + Part 2). Awards: 1st, 2nd, 3rd per divisi
 
 #### Topical — Individual
 
-Ranked by individual topical total (Part 1 + Part 2), across all students competing individually. Ranked per grade level (9th, 10th, 11th, 12th). Awards: 1st, 2nd, 3rd per grade per division.
+Ranked by individual topical total (Part 1 + Part 2), across all students competing individually. Awards: 1st, 2nd, 3rd overall per division.
 
 #### Distinguished Students
 
-Per grade level (9th, 10th, 11th, 12th): the top-scoring individual (by individual topical total) whose team did NOT already place in the top 3 of their event. One per grade per division.
+Per grade level (9th, 10th, 11th, 12th): the top-scoring individual (by individual topical total) who did NOT already place in the top 3 overall. One per grade per division. These are highlighted within the Topical Individual leaderboard.
 
 #### Knowdown
 
@@ -227,9 +227,8 @@ Live-updating views, filterable by Division 1 / Division 2 / All:
 1. **Project Rankings** — Teams ranked by project score.
 2. **Team Problem Rankings** — Teams ranked by team problem score.
 3. **Topical Team Rankings** — Teams ranked by topical total.
-4. **Topical Individual Rankings** — Students ranked by individual topical total, per grade.
+4. **Topical Individual Rankings** — Students ranked by individual topical total, with top 3 overall and per-grade distinguished highlights.
 5. **Knowdown Results** — 1st through 4th.
-6. **Distinguished Students** — Per grade, top individual not already in top 3 of their event.
 
 Each leaderboard row shows: rank, student/team name, school, division, score.
 

@@ -148,30 +148,29 @@
 - [x] Project Rankings — teams ranked by score, per division
 - [x] Team Problem Rankings — teams ranked by score, per division
 - [x] Topical Team Rankings — teams ranked by total (Part 1 + Part 2), per division
-- [x] Topical Individual Rankings — students ranked by total, grouped by grade, per division
+- [x] Topical Individual Rankings — students ranked by total in a consolidated list with top-3 and grade-level distinguished highlights
 - [x] Knowdown Results — 1st through 4th with emoji place labels
-- [x] Distinguished Students — top individual per grade/division not on a top-3 topical team
 - [x] Division filter (All / Division 1 / Division 2) across all tabs
 - [x] Tie handling (equal scores get same rank)
-- [x] Top-3 row highlighting
+- [x] Row highlighting for Top-3 and Distinguished students
 - [x] Pure ranking functions in `src/lib/rankings.ts` (no DB deps)
-- [x] 9 unit tests for ranking logic
+- [x] Unit tests for ranking and distinguished logic
 - [x] Seed data expanded: all 5 schools now have students, teams, and scores
 - [x] Link to leaderboard from contest detail page
 
 ### Key Files
-- `src/lib/rankings.ts` — Pure ranking functions: `rankByScore`, `rankIndividuals`, `computeDistinguished`
-- `src/lib/__tests__/rankings.test.ts` — 9 tests covering ranking, ties, filtering, distinguished logic
-- `src/routes/contests/[contestId]/leaderboard/+page.server.ts` — Load all scores, compute rankings + distinguished
-- `src/routes/contests/[contestId]/leaderboard/+page.svelte` — 6-tab leaderboard UI with division filter
+- `src/lib/rankings.ts` — Pure ranking functions: `rankByScore`, `rankIndividuals`, `getDistinguishedIndividualIds`
+- `src/lib/__tests__/rankings.test.ts` — Tests covering ranking, ties, filtering, and consolidated distinguished logic
+- `src/routes/contests/[contestId]/leaderboard/+page.server.ts` — Load all scores and compute rankings
+- `src/routes/contests/[contestId]/leaderboard/+page.svelte` — 5-tab leaderboard UI with division filter
 - `scripts/seed.sql` — Expanded: HHS + CLHS students/teams, all score types seeded
 
 ### Routes
-- `GET /contests/[contestId]/leaderboard` — read-only leaderboard with 6 tabs
+- `GET /contests/[contestId]/leaderboard` — read-only leaderboard with 5 tabs
 
 ### Notes for Milestone 6
 - Rankings are computed client-side from server-loaded score data (no separate API).
-- Distinguished student logic: for each grade+division, finds top individual whose topical team did NOT place top 3 in that division's topical team rankings.
+- Distinguished individual logic: for each grade, identifies the top student who is NOT in the top 3 overall.
 - Knowdown is cross-division (single bracket), not filtered by division.
 - All ranking functions are pure and tested independently of the DB.
 

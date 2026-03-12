@@ -4,7 +4,6 @@ import { error } from '@sveltejs/kit';
 import {
 	rankByScore,
 	rankIndividuals,
-	computeDistinguished,
 	type TeamRankingEntry,
 	type IndividualRankingEntry,
 	type KnowdownEntry,
@@ -20,7 +19,7 @@ export const load: PageServerLoad = async ({ params, platform }) => {
 	const schoolIds = schools.map((s) => s.id);
 
 	if (schoolIds.length === 0) {
-		return { contest, projectRankings: [], teamProblemRankings: [], topicalTeamRankings: [], topicalIndividualRankings: [], knowdownResults: [], distinguished: [] };
+		return { contest, projectRankings: [], teamProblemRankings: [], topicalTeamRankings: [], topicalIndividualRankings: [], knowdownResults: [] };
 	}
 
 	const allTeams = await db.select().from(schema.teams).where(inArray(schema.teams.schoolId, schoolIds));
@@ -123,20 +122,6 @@ export const load: PageServerLoad = async ({ params, platform }) => {
 			};
 		});
 
-	// ── Distinguished students ──
-	// Find students on topical teams that placed top 3 per division
-	const topicalTeamTop3StudentIds = new Set<string>();
-	for (const div of [1, 2]) {
-		const ranked = rankByScore(topTeamEntries, div);
-		const top3TeamIds = ranked.filter((r) => r.rank <= 3).map((r) => r.teamId);
-		for (const tid of top3TeamIds) {
-			for (const m of allMembers.filter((m) => m.teamId === tid)) {
-				topicalTeamTop3StudentIds.add(m.studentId);
-			}
-		}
-	}
-	const distinguished = computeDistinguished(indEntries, topicalTeamTop3StudentIds);
-
 	return {
 		contest,
 		projectRankings: projectEntries,
@@ -144,6 +129,5 @@ export const load: PageServerLoad = async ({ params, platform }) => {
 		topicalTeamRankings: topTeamEntries,
 		topicalIndividualRankings: indEntries,
 		knowdownResults,
-		distinguished,
 	};
 };

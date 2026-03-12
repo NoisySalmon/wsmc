@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { rankByScore, rankIndividuals, type RankedEntry, type TeamRankingEntry, type IndividualRankingEntry } from '$lib/rankings';
+	import { rankByScore, rankIndividuals, getDistinguishedIndividualIds, type RankedEntry, type TeamRankingEntry, type IndividualRankingEntry } from '$lib/rankings';
 
 	let { data } = $props();
 
@@ -9,7 +9,6 @@
 		{ id: 'topical_team', label: 'Topical Team' },
 		{ id: 'topical_individual', label: 'Topical Individual' },
 		{ id: 'knowdown', label: 'Knowdown' },
-		{ id: 'distinguished', label: 'Distinguished' },
 	] as const;
 
 	let activeTab = $state<string>('project');
@@ -21,13 +20,8 @@
 		return rankByScore(entries, divisionFilter || undefined);
 	}
 
-	function filteredIndividualRankings(entries: IndividualRankingEntry[], grade?: number): RankedEntry<IndividualRankingEntry>[] {
-		return rankIndividuals(entries, { division: divisionFilter || undefined, grade });
-	}
-
-	function grades(): number[] {
-		const g = new Set(data.topicalIndividualRankings.map((e) => e.competingGrade));
-		return [...g].sort((a, b) => a - b);
+	function filteredIndividualRankings(entries: IndividualRankingEntry[]): RankedEntry<IndividualRankingEntry>[] {
+		return rankIndividuals(entries, { division: divisionFilter || undefined });
 	}
 </script>
 
@@ -167,41 +161,50 @@
 
 		<!-- ─── TOPICAL INDIVIDUAL ─── -->
 		{:else if activeTab === 'topical_individual'}
+			{@const ranked = filteredIndividualRankings(data.topicalIndividualRankings)}
+			{@const distinguishedIds = getDistinguishedIndividualIds(ranked)}
 			<h2>Topical Individual Rankings</h2>
-			{#each grades() as grade}
-				{@const ranked = filteredIndividualRankings(data.topicalIndividualRankings, grade)}
-				{#if ranked.length > 0}
-					<h3>Grade {grade}</h3>
-					<table>
-						<thead>
-							<tr>
-								<th class="rank-col">#</th>
-								<th>Student</th>
-								<th>School</th>
-								<th>Div</th>
-								<th class="score-col">Part 1</th>
-								<th class="score-col">Part 2</th>
-								<th class="score-col">Total</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each ranked as entry}
-								<tr class:top3={entry.rank <= 3}>
-									<td class="rank">{entry.rank}</td>
-									<td>{entry.name}</td>
-									<td>{entry.schoolName}</td>
-									<td>{entry.division}</td>
-									<td class="score">{entry.part1}</td>
-									<td class="score">{entry.part2}</td>
-									<td class="score total">{entry.total}</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				{/if}
-			{/each}
-			{#if data.topicalIndividualRankings.length === 0}
+			{#if ranked.length === 0}
 				<p class="empty">No individual topical scores recorded yet.</p>
+			{:else}
+				<table>
+					<thead>
+						<tr>
+							<th class="rank-col">#</th>
+							<th>Student</th>
+							<th>School</th>
+							<th>Div</th>
+							<th>Grade</th>
+							<th class="score-col">Part 1</th>
+							<th class="score-col">Part 2</th>
+							<th class="score-col">Total</th>
+							<th>Awards</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each ranked as entry}
+							{@const isDistinguished = distinguishedIds.has(entry.studentId)}
+							<tr class:top3={entry.rank <= 3} class:distinguished={isDistinguished}>
+								<td class="rank">{entry.rank}</td>
+								<td>{entry.name}</td>
+								<td>{entry.schoolName}</td>
+								<td>{entry.division}</td>
+								<td>{entry.competingGrade}</td>
+								<td class="score">{entry.part1}</td>
+								<td class="score">{entry.part2}</td>
+								<td class="score total">{entry.total}</td>
+								<td>
+									{#if entry.rank === 1}🥇 1st Overall
+									{:else if entry.rank === 2}🥈 2nd Overall
+									{:else if entry.rank === 3}🥉 3rd Overall
+									{:else if isDistinguished}
+										<span class="dist-badge">{distinguishedIds.get(entry.studentId)}</span>
+									{/if}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
 			{/if}
 
 		<!-- ─── KNOWDOWN ─── -->
@@ -230,42 +233,6 @@
 				</table>
 			{/if}
 
-		<!-- ─── DISTINGUISHED ─── -->
-		{:else if activeTab === 'distinguished'}
-			<h2>Distinguished Students</h2>
-			<p class="hint">Top individual scorer per grade whose topical team did not place in the top 3.</p>
-			{#if data.distinguished.length === 0}
-				<p class="empty">No distinguished students to display.</p>
-			{:else}
-				{#each [1, 2] as div}
-					{@const divEntries = divisionFilter === 0 || divisionFilter === div
-						? data.distinguished.filter((d) => d.division === div)
-						: []}
-					{#if divEntries.length > 0}
-						<h3>Division {div}</h3>
-						<table>
-							<thead>
-								<tr>
-									<th>Grade</th>
-									<th>Student</th>
-									<th>School</th>
-									<th class="score-col">Score</th>
-								</tr>
-							</thead>
-							<tbody>
-								{#each divEntries.sort((a, b) => a.competingGrade - b.competingGrade) as entry}
-									<tr>
-										<td>{entry.competingGrade}</td>
-										<td>{entry.studentName}</td>
-										<td>{entry.schoolName}</td>
-										<td class="score">{entry.total}</td>
-									</tr>
-								{/each}
-							</tbody>
-						</table>
-					{/if}
-				{/each}
-			{/if}
 		{/if}
 	</div>
 </main>
@@ -396,6 +363,17 @@
 	}
 	tr.top3 .rank {
 		color: #0046a0;
+	}
+	tr.distinguished {
+		background: #fdfae6;
+	}
+	.dist-badge {
+		background: #fff3cd;
+		color: #856404;
+		padding: 0.1rem 0.4rem;
+		border-radius: 4px;
+		font-size: 0.75rem;
+		font-weight: 600;
 	}
 	.knowdown-table {
 		max-width: 600px;

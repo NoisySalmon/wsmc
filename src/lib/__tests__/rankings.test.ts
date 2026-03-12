@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
 	rankByScore,
 	rankIndividuals,
-	computeDistinguished,
+	getDistinguishedIndividualIds,
+	type RankedEntry,
 	type TeamRankingEntry,
 	type IndividualRankingEntry,
 } from '$lib/rankings';
@@ -101,41 +102,36 @@ describe('rankIndividuals', () => {
 	});
 });
 
-describe('computeDistinguished', () => {
-	it('picks top individual not on a top-3 topical team', () => {
-		const individuals: IndividualRankingEntry[] = [
-			makeIndEntry({ studentId: 's1', name: 'Alice', total: 130, division: 1, competingGrade: 12, schoolName: 'A' }),
-			makeIndEntry({ studentId: 's2', name: 'Bob', total: 120, division: 1, competingGrade: 12, schoolName: 'B' }),
+describe('getDistinguishedIndividualIds', () => {
+	it('identifies top student per grade not in top 3 overall', () => {
+		const ranked: RankedEntry<IndividualRankingEntry>[] = [
+			{ ...makeIndEntry({ studentId: 's1', total: 140, competingGrade: 12, division: 1 }), rank: 1 },
+			{ ...makeIndEntry({ studentId: 's2', total: 130, competingGrade: 11, division: 1 }), rank: 2 },
+			{ ...makeIndEntry({ studentId: 's3', total: 125, competingGrade: 12, division: 1 }), rank: 3 },
+			{ ...makeIndEntry({ studentId: 's4', total: 120, competingGrade: 12, division: 1 }), rank: 4 },
+			{ ...makeIndEntry({ studentId: 's5', total: 110, competingGrade: 10, division: 1 }), rank: 5 },
+			{ ...makeIndEntry({ studentId: 's6', total: 100, competingGrade: 11, division: 1 }), rank: 6 },
 		];
 
-		// s1 is on a top-3 topical team
-		const top3 = new Set(['s1']);
-		const result = computeDistinguished(individuals, top3);
-		const div1gr12 = result.find((r) => r.division === 1 && r.competingGrade === 12);
-		expect(div1gr12).toBeDefined();
-		expect(div1gr12!.studentName).toBe('Bob');
+		const result = getDistinguishedIndividualIds(ranked);
+		
+		expect(result.get('s4')).toBe('Distinguished Senior');
+		expect(result.get('s5')).toBe('Distinguished Sophomore');
+		expect(result.get('s6')).toBe('Distinguished Junior');
+		
+		expect(result.has('s1')).toBe(false);
+		expect(result.has('s2')).toBe(false);
+		expect(result.has('s3')).toBe(false);
 	});
 
-	it('returns empty for a grade/division with no eligible students', () => {
-		const individuals: IndividualRankingEntry[] = [
-			makeIndEntry({ studentId: 's1', name: 'Alice', total: 130, division: 1, competingGrade: 12 }),
+	it('returns empty if all students are in top 3', () => {
+		const ranked: RankedEntry<IndividualRankingEntry>[] = [
+			{ ...makeIndEntry({ studentId: 's1', total: 140, competingGrade: 12, division: 1 }), rank: 1 },
+			{ ...makeIndEntry({ studentId: 's2', total: 130, competingGrade: 11, division: 1 }), rank: 2 },
+			{ ...makeIndEntry({ studentId: 's3', total: 125, competingGrade: 10, division: 1 }), rank: 3 },
 		];
-		const top3 = new Set(['s1']);
-		const result = computeDistinguished(individuals, top3);
-		const div1gr12 = result.find((r) => r.division === 1 && r.competingGrade === 12);
-		expect(div1gr12).toBeUndefined();
-	});
 
-	it('computes across multiple grades and divisions', () => {
-		const individuals: IndividualRankingEntry[] = [
-			makeIndEntry({ studentId: 's1', name: 'A', total: 130, division: 1, competingGrade: 12 }),
-			makeIndEntry({ studentId: 's2', name: 'B', total: 100, division: 1, competingGrade: 9 }),
-			makeIndEntry({ studentId: 's3', name: 'C', total: 90, division: 2, competingGrade: 9 }),
-		];
-		const result = computeDistinguished(individuals, new Set());
-		expect(result.length).toBe(3);
-		expect(result.find((r) => r.division === 1 && r.competingGrade === 12)?.studentName).toBe('A');
-		expect(result.find((r) => r.division === 1 && r.competingGrade === 9)?.studentName).toBe('B');
-		expect(result.find((r) => r.division === 2 && r.competingGrade === 9)?.studentName).toBe('C');
+		const result = getDistinguishedIndividualIds(ranked);
+		expect(result.size).toBe(0);
 	});
 });

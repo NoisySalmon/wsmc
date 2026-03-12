@@ -114,7 +114,10 @@ INSERT INTO students (id, school_id, name, actual_grade, competing_grade, is_kno
   ('st500000-0000-0000-0000-000000000001', 's1000000-0000-0000-0000-000000000005', 'Ethan Moore', 12, 12, 1),
   ('st500000-0000-0000-0000-000000000002', 's1000000-0000-0000-0000-000000000005', 'Sofia Rivera', 11, 11, 1),
   ('st500000-0000-0000-0000-000000000003', 's1000000-0000-0000-0000-000000000005', 'James Taylor', 10, 10, 1),
-  ('st500000-0000-0000-0000-000000000004', 's1000000-0000-0000-0000-000000000005', 'Ava Johnson', 9, 9, 0);
+  ('st500000-0000-0000-0000-000000000004', 's1000000-0000-0000-0000-000000000005', 'Ava Johnson', 9, 9, 0),
+  ('st500000-0000-0000-0000-000000000005', 's1000000-0000-0000-0000-000000000005', 'Jack Black', 10, 10, 0),
+  ('st500000-0000-0000-0000-000000000006', 's1000000-0000-0000-0000-000000000005', 'Jill Hill', 11, 11, 0),
+  ('st500000-0000-0000-0000-000000000007', 's1000000-0000-0000-0000-000000000005', 'Kyle Nile', 12, 12, 0);
 
 -- Teams for Hays
 INSERT INTO teams (id, school_id, contest_type, team_number) VALUES
@@ -205,20 +208,18 @@ INSERT INTO topical_team_scores (team_id, part1, part2) VALUES
   ('t5000000-0000-0000-0000-000000000003', 45, 48);
 
 -- Topical Individual Scores
--- Individual topical students (NOT on a topical team):
---   DSHS: Alice Wang (gr12), Brian Foster (gr11), Chloe Martinez (gr10)
---   JHS: Isaac Park (gr9)
---   HHS: Olivia Kim (gr9)
---   WHS: Diana Ross (gr9)
---   CLHS: Ava Johnson (gr9)
 INSERT INTO topical_individual_scores (student_id, part1, part2) VALUES
-  ('st100000-0000-0000-0000-000000000001', 68, 65),
-  ('st100000-0000-0000-0000-000000000002', 60, 58),
-  ('st100000-0000-0000-0000-000000000003', 55, 52),
-  ('st200000-0000-0000-0000-000000000004', 45, 48),
-  ('st400000-0000-0000-0000-000000000004', 42, 40),
-  ('st300000-0000-0000-0000-000000000004', 50, 47),
-  ('st500000-0000-0000-0000-000000000004', 38, 35);
+  ('st100000-0000-0000-0000-000000000001', 72, 70), -- Alice Wang (gr12) -> 142 (1st)
+  ('st500000-0000-0000-0000-000000000007', 70, 68), -- Kyle Nile (gr12) -> 138 (2nd)
+  ('st200000-0000-0000-0000-000000000001', 65, 65), -- Fiona Gallagher (gr12, not on team) -> 130 (3rd)
+  ('st500000-0000-0000-0000-000000000006', 60, 62), -- Jill Hill (gr11) -> 122 (Distinguished Jr)
+  ('st500000-0000-0000-0000-000000000005', 58, 55), -- Jack Black (gr10) -> 113 (Distinguished Soph)
+  ('st300000-0000-0000-0000-000000000004', 55, 50), -- Diana Ross (gr9) -> 105 (Distinguished Fr)
+  ('st100000-0000-0000-0000-000000000002', 50, 48), -- Brian Foster (gr11) -> 98
+  ('st100000-0000-0000-0000-000000000003', 45, 45), -- Chloe Martinez (gr10) -> 90
+  ('st200000-0000-0000-0000-000000000004', 40, 42), -- Isaac Park (gr9) -> 82
+  ('st400000-0000-0000-0000-000000000004', 38, 35), -- Olivia Kim (gr9) -> 73
+  ('st500000-0000-0000-0000-000000000004', 35, 30); -- Ava Johnson (gr9) -> 65
 
 -- Knowdown Results (cross-division, single bracket)
 -- 1st: Alice Wang (DSHS), 2nd: Fiona Gallagher (JHS), 3rd: Alice Wong (WHS), 4th: Liam Chen (HHS)
