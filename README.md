@@ -44,6 +44,10 @@ A modern, web-based scoring and leaderboard system for the WSMC Regional Math Co
    npm run seed
    ```
 
+The project enables npm's `ignore-scripts` setting because Wrangler's optional
+local image dependency does not provide a Node 26 prebuilt binary. The app and
+local D1 workflow do not use that dependency.
+
 4. Start the development server:
    ```bash
    npm run dev
