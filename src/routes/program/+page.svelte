@@ -1,6 +1,7 @@
 <script lang="ts">
 	let { data, form } = $props();
 	const lifecycleOptions = ['setup', 'registration_open', 'roster_locked', 'scoring', 'finalized'];
+	function readinessFor(seasonId: string) { return data.readiness.find((item: { seasonId: string }) => item.seasonId === seasonId); }
 </script>
 
 <svelte:head><title>Program setup — WSMC</title></svelte:head>
@@ -29,6 +30,8 @@
 			<label>Region ID <input name="regionId" placeholder="Required for regional contests" /></label>
 			<label>Name <input name="name" required /></label>
 			<label>Start <input type="datetime-local" name="startsAt" /></label>
+			<label>State: allow all state students in Topical Individual <select name="topicalIndividualAllowed"><option value="yes">Yes</option><option value="no">No</option></select></label>
+			<label>State: allow cross-school Topical Teams <select name="crossSchoolTopicalTeamsAllowed"><option value="yes">Yes</option><option value="no">No</option></select></label>
 			<button type="submit">Create contest</button>
 		</form></div>
 	</section>
@@ -37,7 +40,7 @@
 	{#each data.seasons as season}
 		<section class="card"><div><h3>{season.year} — {season.name}</h3><span class="status">{season.status}</span></div>
 			<form method="POST" action="?/setSeasonStatus"><input type="hidden" name="seasonId" value={season.id} /><select name="status"><option value="setup">setup</option><option value="active">active</option><option value="archived">archived</option></select><button type="submit">Update status</button></form>
-			<p>{data.regions.filter((region) => region.seasonId === season.id).length} regions · {data.contests.filter((contest) => contest.seasonId === season.id).length} contests</p>
+			<div class="readiness"><strong>{readinessFor(season.id)?.regionsReady && readinessFor(season.id)?.stateContestReady ? 'Setup ready' : 'Setup incomplete'}</strong><span>{readinessFor(season.id)?.contestCount ?? 0} contests · {readinessFor(season.id)?.outstandingInvitationCount ?? 0} outstanding invitations</span>{#if readinessFor(season.id)?.missingRegionalContestRegions.length}<span>Missing contests: {readinessFor(season.id)?.missingRegionalContestRegions.join(', ')}</span>{/if}</div>
 		</section>
 	{/each}
 
@@ -55,7 +58,6 @@
 	button { border: 0; border-radius: 4px; padding: 0.5rem 0.75rem; background: #1a1a2e; color: white; cursor: pointer; }
 	.card { margin: 0.75rem 0; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 	.card h3 { margin: 0 0 0.3rem; }
-	.card p { color: #666; margin: 0; }
 	.status { background: #eee; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.8rem; }
 	.contests { list-style: none; padding: 0; }
 	.contests li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid #eee; padding: 0.8rem 0; }

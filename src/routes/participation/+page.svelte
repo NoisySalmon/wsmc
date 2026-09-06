@@ -13,7 +13,10 @@
 		<label>Contest <select name="contestId" required>{#each data.contests as contest}<option value={contest.id}>{contest.name}</option>{/each}</select></label>
 		<label>School <select name="schoolId" required>{#each data.schools as school}<option value={school.id}>{school.name}</option>{/each}</select></label>
 		<label>Division <select name="division"><option value="1">Division 1</option><option value="2">Division 2</option></select></label><button type="submit">Send invitation</button>
-	</form></div><div><h2>Assign a coach</h2><form method="POST" action="?/assignCoach">
+	</form></div><div><h2>Invite a coach</h2><form method="POST" action="?/inviteCoach">
+		<label>Email <input type="email" name="email" required /></label><label>Name <input name="displayName" required /></label>
+		<label>Season <select name="seasonId" required>{#each data.seasons as season}<option value={season.id}>{season.year} — {season.name}</option>{/each}</select></label><label>School <select name="schoolId" required>{#each data.schools as school}<option value={school.id}>{school.name}</option>{/each}</select></label><button type="submit">Send coach invitation</button>
+	</form></div><div><h2>Assign an active coach</h2><form method="POST" action="?/assignCoach">
 		<label>User <select name="userId" required>{#each data.users as user}<option value={user.id}>{user.displayName || user.email}</option>{/each}</select></label>
 		<label>Season <select name="seasonId" required>{#each data.seasons as season}<option value={season.id}>{season.year} — {season.name}</option>{/each}</select></label><label>School <select name="schoolId" required>{#each data.schools as school}<option value={school.id}>{school.name}</option>{/each}</select></label><button type="submit">Assign coach</button>
 	</form></div></section>

@@ -6,14 +6,14 @@ and is not used as the v2 status source.
 
 ## Current checkpoint
 
-- **Active phase:** Phase 3 — Season, directory, contests, and user administration
+- **Active phase:** Phase 4 — Mobile regional roster and entries
 - **Completed:** Initial execution-plan commit; baseline verification; v2
   architecture decisions; prototype D1 confirmed disposable; pure-domain
   Team Contest terminology and qualification rules/tests; v2 schema reset,
   representative seed, local integration checks, and repository scope/rule
   coverage
-- **Next:** Add coordinator setup-completeness views and then begin the mobile
-  regional roster/entry workflow.
+- **Next:** Build annual-student management, contest roster selection, and
+  explicit category entry workflows for coaches and regional coordinators.
 
 ## Phase 2 checkpoint
 
@@ -25,7 +25,7 @@ and is not used as the v2 status source.
   statewide-coordinator-only `/admin/users` invitation and access page with
   assignment selection, link/session revocation, disable/enable controls, and
   self-disable protection
-- **Verified:** 66 unit tests, 0 type-check errors, the existing build gate,
+- **Verified:** 70 unit tests, 0 type-check errors, the existing build gate,
   and D1-backed auth schema checks for replay, expiry, disabled users,
   overlapping assignments, and multi-school coaches
 - **Status:** Phase 2 acceptance is met by the passwordless routes, persisted
@@ -44,14 +44,20 @@ and is not used as the v2 status source.
 - **Implemented:** `/participation` contest invitation and response flow with
   division validation, lifecycle locking, and contest-scoped authorization;
   system-coordinator coach assignment/removal for active users and schools.
-- **Remaining:** Setup-completeness dashboards.
+- **Implemented:** Setup-readiness summaries with missing regional-contest and
+  outstanding-invitation counts; explicit state contest policy configuration;
+  complete assignment removal across statewide, regional, coach, and
+  scorekeeper assignments.
+- **Status:** Phase 3 acceptance is met for coordinator-created season
+  structure, regional school/coach invitations, existing-email assignment
+  reuse, uncoached-school administration, and setup completeness.
 
 ## Phase checklist
 
 - [x] Phase 0 — Baseline and v2 contract
 - [x] Phase 1 — V2 schema and persistence foundation
 - [x] Phase 2 — Passwordless authentication and authorization
-- [ ] Phase 3 — Season, directory, contests, and user administration
+- [x] Phase 3 — Season, directory, contests, and user administration
 - [ ] Phase 4 — Mobile regional roster and entries
 - [ ] Phase 5 — CSV roster and entry round trip
 - [ ] Phase 6 — Scoring, score CSV, and regional results

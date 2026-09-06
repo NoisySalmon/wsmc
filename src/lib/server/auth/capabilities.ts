@@ -4,7 +4,7 @@ export type Principal = {
 	displayName: string;
 	statewideSeasonIds: (string | null)[];
 	regionalContestIds: string[];
-	coachedSchoolIds: string[];
+	coachAssignments: { seasonId: string; schoolId: string }[];
 	scorekeeperContestIds: string[];
 };
 
@@ -21,8 +21,8 @@ export function canCoordinateRegion(principal: Principal, contestId: string, sea
 	return (seasonId !== undefined && canCoordinateState(principal, seasonId)) || principal.regionalContestIds.includes(contestId);
 }
 
-export function canCoachSchool(principal: Principal, schoolId: string): boolean {
-	return principal.coachedSchoolIds.includes(schoolId);
+export function canCoachSchool(principal: Principal, schoolId: string, seasonId?: string): boolean {
+	return principal.coachAssignments.some((assignment) => assignment.schoolId === schoolId && (seasonId === undefined || assignment.seasonId === seasonId));
 }
 
 export function canScoreContest(principal: Principal, contestId: string, seasonId?: string): boolean {
@@ -32,7 +32,7 @@ export function canScoreContest(principal: Principal, contestId: string, seasonI
 }
 
 export function canAdministerSchool(principal: Principal, contestId: string, schoolId: string, seasonId?: string): boolean {
-	return (seasonId !== undefined && canCoordinateRegion(principal, contestId, seasonId)) || canCoachSchool(principal, schoolId);
+	return (seasonId !== undefined && canCoordinateRegion(principal, contestId, seasonId)) || canCoachSchool(principal, schoolId, seasonId);
 }
 
 export function canEditRoster(principal: Principal, contestId: string, schoolId: string, seasonId?: string): boolean {

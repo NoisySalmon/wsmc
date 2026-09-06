@@ -10,10 +10,10 @@ INSERT INTO regions (id, season_id, number, name) VALUES
   ('region-1-2026', 'season-2026', 1, 'Northwest'),
   ('region-2-2026', 'season-2026', 2, 'Southwest');
 
-INSERT INTO contests (id, season_id, region_id, kind, name, starts_at, lifecycle) VALUES
-  ('contest-region-1', 'season-2026', 'region-1-2026', 'regional', 'Region 1 Regional Contest', 1760000000000, 'finalized'),
-  ('contest-region-2', 'season-2026', 'region-2-2026', 'regional', 'Region 2 Regional Contest', 1760086400000, 'registration_open'),
-  ('contest-state-2026', 'season-2026', NULL, 'state', '2026 State Contest', 1765000000000, 'registration_open');
+INSERT INTO contests (id, season_id, region_id, kind, name, starts_at, lifecycle, settings_json) VALUES
+  ('contest-region-1', 'season-2026', 'region-1-2026', 'regional', 'Region 1 Regional Contest', 1760000000000, 'finalized', '{}'),
+  ('contest-region-2', 'season-2026', 'region-2-2026', 'regional', 'Region 2 Regional Contest', 1760086400000, 'registration_open', '{}'),
+  ('contest-state-2026', 'season-2026', NULL, 'state', '2026 State Contest', 1765000000000, 'registration_open', '{"topicalIndividualAllowed":true,"crossSchoolTopicalTeamsAllowed":false}');
 
 INSERT INTO schools (id, name, short_name, address, city, state, postal_code, contact_email) VALUES
   ('school-alpha', 'Alpha High School', 'Alpha', '100 Main St', 'Seattle', 'WA', '98101', 'office@alpha.example'),

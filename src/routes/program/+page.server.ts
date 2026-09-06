@@ -2,6 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { error, fail } from '@sveltejs/kit';
 import { canAdministerUsers, canCoordinateState } from '$lib/server/auth/capabilities';
 import { createContest, createRegion, createSeason, ProgramError, setContestLifecycle, setSeasonStatus, type ContestLifecycle } from '$lib/server/program/service';
+import { computeSeasonReadiness } from '$lib/server/program/readiness';
 import { getDb, schema } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -34,7 +35,15 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 		db.select().from(schema.regions).where(inArray(schema.regions.seasonId, seasonIds)),
 		db.select().from(schema.contests).where(inArray(schema.contests.seasonId, seasonIds)),
 	]);
-	return { seasons, regions, contests };
+	const contestIds = contests.map((contest) => contest.id);
+	const participations = contestIds.length ? await db.select({ contestId: schema.schoolParticipations.contestId, invitationStatus: schema.schoolParticipations.invitationStatus }).from(schema.schoolParticipations).where(inArray(schema.schoolParticipations.contestId, contestIds)) : [];
+	const readiness = seasons.map((season) => computeSeasonReadiness({
+		seasonId: season.id,
+		regions: regions.filter((region) => region.seasonId === season.id),
+		contests: contests.filter((contest) => contest.seasonId === season.id),
+		participations: participations.filter((participation) => contests.some((contest) => contest.id === participation.contestId && contest.seasonId === season.id)),
+	}));
+	return { seasons, regions, contests, readiness };
 };
 
 export const actions: Actions = {
@@ -72,7 +81,7 @@ export const actions: Actions = {
 		const kind = textValue(data, 'kind');
 		if (kind !== 'regional' && kind !== 'state') return fail(400, { error: 'Choose a valid contest type.' });
 		try {
-			await createContest(getDb(platform.env.DB), { seasonId, kind, regionId: textValue(data, 'regionId') || undefined, name: textValue(data, 'name'), startsAt: textValue(data, 'startsAt') ? Date.parse(textValue(data, 'startsAt')) : null });
+			await createContest(getDb(platform.env.DB), { seasonId, kind, regionId: textValue(data, 'regionId') || undefined, name: textValue(data, 'name'), startsAt: textValue(data, 'startsAt') ? Date.parse(textValue(data, 'startsAt')) : null, stateSettings: kind === 'state' ? { topicalIndividualAllowed: textValue(data, 'topicalIndividualAllowed') === 'yes', crossSchoolTopicalTeamsAllowed: textValue(data, 'crossSchoolTopicalTeamsAllowed') === 'yes' } : undefined });
 			return { success: 'Contest created.' };
 		} catch (cause) {
 			return fail(400, { error: cause instanceof ProgramError ? cause.message : 'Contest could not be created.' });

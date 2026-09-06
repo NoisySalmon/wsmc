@@ -5,6 +5,7 @@ import { createEmailProvider } from '$lib/server/auth/email';
 import {
 	AuthError,
 	inviteUser,
+	removeAssignment,
 	revokeUserSessions,
 	revokeUserTokens,
 	setUserStatus,
@@ -22,17 +23,25 @@ function requiredText(value: FormDataEntryValue | null, label: string): string {
 	return result;
 }
 
+function textValue(value: FormDataEntryValue | null): string {
+	return typeof value === 'string' ? value.trim() : '';
+}
+
 export const load: PageServerLoad = async ({ locals, platform }) => {
 	requireUserAdmin(locals);
 	if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 	const db = getDb(platform.env.DB);
-	const [users, seasons, contests, schools] = await Promise.all([
+	const [users, seasons, contests, schools, statewideAssignments, regionalAssignments, coachAssignments, scorekeeperAssignments] = await Promise.all([
 		db.select({ id: schema.users.id, email: schema.users.email, displayName: schema.users.displayName, status: schema.users.status, createdAt: schema.users.createdAt }).from(schema.users),
 		db.select({ id: schema.seasons.id, name: schema.seasons.name, year: schema.seasons.year }).from(schema.seasons),
 		db.select({ id: schema.contests.id, name: schema.contests.name, kind: schema.contests.kind }).from(schema.contests),
 		db.select({ id: schema.schools.id, name: schema.schools.name }).from(schema.schools).where(eq(schema.schools.active, true)),
+		db.select().from(schema.statewideAssignments),
+		db.select().from(schema.regionalCoordinatorAssignments),
+		db.select().from(schema.coachAssignments),
+		db.select().from(schema.scorekeeperAssignments),
 	]);
-	return { users, seasons, contests, schools };
+	return { users, seasons, contests, schools, assignments: { statewide: statewideAssignments, regional: regionalAssignments, coach: coachAssignments, scorekeeper: scorekeeperAssignments } };
 };
 
 export const actions: Actions = {
@@ -101,5 +110,25 @@ export const actions: Actions = {
 		if (!userId) return fail(400, { error: 'User is required.' });
 		await setUserStatus(getDb(platform.env.DB), userId, 'active');
 		return { success: 'User enabled.' };
+	},
+	removeAssignment: async ({ locals, platform, request }) => {
+		requireUserAdmin(locals);
+		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+		const data = await request.formData();
+		const userId = requiredText(data.get('userId'), 'User');
+		const kind = requiredText(data.get('assignmentKind'), 'Assignment');
+		if (userId === locals.principal?.id && kind === 'statewide' && !textValue(data.get('seasonId'))) return fail(400, { error: 'You cannot remove your own system coordinator access.' });
+		try {
+			switch (kind) {
+				case 'statewide': await removeAssignment(getDb(platform.env.DB), { kind, userId, seasonId: textValue(data.get('seasonId')) || null }); break;
+				case 'regional': await removeAssignment(getDb(platform.env.DB), { kind, userId, contestId: requiredText(data.get('contestId'), 'Contest') }); break;
+				case 'coach': await removeAssignment(getDb(platform.env.DB), { kind, userId, seasonId: requiredText(data.get('seasonId'), 'Season'), schoolId: requiredText(data.get('schoolId'), 'School') }); break;
+				case 'scorekeeper': await removeAssignment(getDb(platform.env.DB), { kind, userId, contestId: requiredText(data.get('contestId'), 'Contest') }); break;
+				default: throw new AuthError('invalid_request', 'Choose a valid assignment.');
+			}
+			return { success: 'Assignment removed.' };
+		} catch (cause) {
+			return fail(400, { error: cause instanceof AuthError ? cause.message : 'Assignment could not be removed.' });
+		}
 	},
 };

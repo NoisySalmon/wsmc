@@ -14,6 +14,11 @@ describe('program setup rules', () => {
 		await expect(createContest(db as never, { seasonId: 'season-1', kind: 'regional', name: 'Regional' })).rejects.toMatchObject({ code: 'invalid_region' });
 	});
 
+	it('requires explicit state contest policies', async () => {
+		const db = { select: () => ({ from: () => ({ where: async () => [{ id: 'season-1', status: 'setup' }] }) }) };
+		await expect(createContest(db as never, { seasonId: 'season-1', kind: 'state', name: 'State' })).rejects.toMatchObject({ code: 'invalid_settings' });
+	});
+
 	it('does not allow lifecycle rollback', async () => {
 		const db = { select: () => ({ from: () => ({ where: async () => [{ lifecycle: 'scoring' }] }) }) };
 		await expect(setContestLifecycle(db as never, 'contest-1', 'roster_locked')).rejects.toBeInstanceOf(ProgramError);

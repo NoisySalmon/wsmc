@@ -3,6 +3,7 @@ import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
 
 export type ContestLifecycle = 'setup' | 'registration_open' | 'roster_locked' | 'scoring' | 'finalized';
+export type StateContestSettings = { topicalIndividualAllowed: boolean; crossSchoolTopicalTeamsAllowed: boolean };
 const lifecycleOrder: ContestLifecycle[] = ['setup', 'registration_open', 'roster_locked', 'scoring', 'finalized'];
 
 export class ProgramError extends Error {
@@ -46,13 +47,14 @@ export async function createRegion(db: Database, input: { seasonId: string; numb
 	return region;
 }
 
-export async function createContest(db: Database, input: { seasonId: string; kind: 'regional' | 'state'; regionId?: string; name: string; startsAt?: number | null; now?: number }) {
+export async function createContest(db: Database, input: { seasonId: string; kind: 'regional' | 'state'; regionId?: string; name: string; startsAt?: number | null; stateSettings?: StateContestSettings; now?: number }) {
 	const name = requiredName(input.name, 'Contest name');
 	const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, input.seasonId));
 	if (!season) throw new ProgramError('not_found', 'Season not found.');
 	if (season.status === 'archived') throw new ProgramError('archived', 'Archived seasons are read-only.');
 	if (input.kind === 'state' && input.regionId) throw new ProgramError('invalid_region', 'State contests cannot belong to a region.');
 	if (input.kind === 'regional' && !input.regionId) throw new ProgramError('invalid_region', 'Regional contests require a region.');
+	if (input.kind === 'state' && !input.stateSettings) throw new ProgramError('invalid_settings', 'State contest policies must be chosen explicitly.');
 	if (input.regionId) {
 		const [region] = await db.select().from(schema.regions).where(and(eq(schema.regions.id, input.regionId), eq(schema.regions.seasonId, input.seasonId)));
 		if (!region) throw new ProgramError('invalid_region', 'Region does not belong to this season.');
@@ -60,7 +62,7 @@ export async function createContest(db: Database, input: { seasonId: string; kin
 	const now = input.now ?? Date.now();
 	const [contest] = await db.insert(schema.contests).values({
 		id: crypto.randomUUID(), seasonId: input.seasonId, regionId: input.regionId ?? null, kind: input.kind,
-		name, startsAt: input.startsAt ?? null, lifecycle: 'setup', createdAt: now, updatedAt: now,
+		name, startsAt: input.startsAt ?? null, settingsJson: JSON.stringify(input.stateSettings ?? {}), lifecycle: 'setup', createdAt: now, updatedAt: now,
 	}).returning();
 	return contest;
 }

@@ -3,7 +3,7 @@ import { canAdministerSchool, canAdministerUsers, canCoachSchool, canCoordinateR
 
 const principal: Principal = {
 	id: 'user-1', email: 'user@example.com', displayName: 'User',
-	statewideSeasonIds: ['season-1'], regionalContestIds: ['contest-2'], coachedSchoolIds: ['school-1'], scorekeeperContestIds: ['contest-3'],
+	statewideSeasonIds: ['season-1'], regionalContestIds: ['contest-2'], coachAssignments: [{ seasonId: 'season-1', schoolId: 'school-1' }], scorekeeperContestIds: ['contest-3'],
 };
 
 describe('assignment capabilities', () => {
@@ -25,9 +25,11 @@ describe('assignment capabilities', () => {
 
 	it('supports a coach assigned to a school', () => {
 		expect(canCoachSchool(principal, 'school-1')).toBe(true);
-		expect(canCoachSchool({ ...principal, coachedSchoolIds: ['school-1', 'school-2'] }, 'school-2')).toBe(true);
-		expect(canAdministerSchool(principal, 'contest-4', 'school-1', 'season-2')).toBe(true);
-		expect(canEditRoster(principal, 'contest-4', 'school-1', 'season-2')).toBe(true);
+		expect(canCoachSchool(principal, 'school-1', 'season-1')).toBe(true);
+		expect(canCoachSchool(principal, 'school-1', 'season-2')).toBe(false);
+		expect(canCoachSchool({ ...principal, coachAssignments: [{ seasonId: 'season-1', schoolId: 'school-1' }, { seasonId: 'season-1', schoolId: 'school-2' }] }, 'school-2', 'season-1')).toBe(true);
+		expect(canAdministerSchool(principal, 'contest-4', 'school-1', 'season-2')).toBe(false);
+		expect(canEditRoster(principal, 'contest-4', 'school-1', 'season-2')).toBe(false);
 		expect(canAdministerSchool(principal, 'contest-4', 'school-2', 'season-2')).toBe(false);
 	});
 });

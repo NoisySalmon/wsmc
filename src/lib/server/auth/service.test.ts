@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sha256 } from './crypto';
-import { AuthError, consumeSignInToken, inviteUser, isSignInTokenUsable, issueSignInToken, loadPrincipal, setUserStatus } from './service';
+import { AuthError, consumeSignInToken, inviteUser, isSignInTokenUsable, issueSignInToken, loadPrincipal, removeAssignment, setUserStatus } from './service';
 
 const base = { revokedAt: null, usedAt: null, expiresAt: 2000 };
 
@@ -114,7 +114,7 @@ describe('sign-in token policy', () => {
 			[{ session: { id: 'session-1' }, user: { id: 'user-1', email: 'coach@example.com', displayName: 'Coach' } }],
 			[{ seasonId: null }, { seasonId: 'season-2026' }],
 			[{ contestId: 'contest-region-1' }],
-			[{ schoolId: 'school-alpha' }, { schoolId: 'school-beta' }],
+			[{ seasonId: 'season-2026', schoolId: 'school-alpha' }, { seasonId: 'season-2026', schoolId: 'school-beta' }],
 			[{ contestId: 'contest-region-1' }],
 		];
 		const db = {
@@ -129,7 +129,14 @@ describe('sign-in token policy', () => {
 		const principal = await loadPrincipal(db as never, 'session-1', 1000);
 		expect(principal?.statewideSeasonIds).toEqual([null, 'season-2026']);
 		expect(principal?.regionalContestIds).toEqual(['contest-region-1']);
-		expect(principal?.coachedSchoolIds).toEqual(['school-alpha', 'school-beta']);
+		expect(principal?.coachAssignments).toEqual([{ seasonId: 'season-2026', schoolId: 'school-alpha' }, { seasonId: 'season-2026', schoolId: 'school-beta' }]);
 		expect(principal?.scorekeeperContestIds).toEqual(['contest-region-1']);
+	});
+
+	it('removes a scoped assignment without affecting another assignment type', async () => {
+		const deleted: unknown[] = [];
+		const db = { delete: (table: unknown) => ({ where: async (condition: unknown) => { deleted.push({ table, condition }); } }) };
+		await removeAssignment(db as never, { kind: 'regional', userId: 'user-1', contestId: 'contest-1' });
+		expect(deleted).toHaveLength(1);
 	});
 });

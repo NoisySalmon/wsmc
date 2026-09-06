@@ -1,6 +1,8 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { error, fail } from '@sveltejs/kit';
 import { canAdministerUsers, canCoachSchool, canCoordinateRegion, canCoordinateState } from '$lib/server/auth/capabilities';
+import { createEmailProvider } from '$lib/server/auth/email';
+import { AuthError, inviteUser } from '$lib/server/auth/service';
 import { assignCoach, inviteSchool, ParticipationError, removeCoach, setParticipationStatus, type InvitationStatus } from '$lib/server/program/participation';
 import { getDb, schema } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
@@ -16,6 +18,13 @@ function text(data: FormData, name: string): string {
 
 function canManageContest(locals: App.Locals, contest: { id: string; seasonId: string }): boolean {
 	return Boolean(locals.principal && (canAdministerUsers(locals.principal) || canCoordinateState(locals.principal, contest.seasonId) || canCoordinateRegion(locals.principal, contest.id)));
+}
+
+async function canManageSeasonAssignments(db: ReturnType<typeof getDb>, locals: App.Locals, seasonId: string): Promise<boolean> {
+	if (!locals.principal) return false;
+	if (canAdministerUsers(locals.principal) || canCoordinateState(locals.principal, seasonId)) return true;
+	const contests = await db.select({ id: schema.contests.id }).from(schema.contests).where(eq(schema.contests.seasonId, seasonId));
+	return contests.some((contest) => canCoordinateRegion(locals.principal!, contest.id));
 }
 
 export const load: PageServerLoad = async ({ locals, platform }) => {
@@ -61,7 +70,7 @@ export const actions: Actions = {
 		const contestId = text(data, 'contestId');
 		const participationId = text(data, 'participationId');
 		const [row] = await db.select({ schoolId: schema.schoolParticipations.schoolId, seasonId: schema.contests.seasonId }).from(schema.schoolParticipations).innerJoin(schema.contests, eq(schema.contests.id, schema.schoolParticipations.contestId)).where(and(eq(schema.schoolParticipations.id, participationId), eq(schema.schoolParticipations.contestId, contestId)));
-		if (!row || !canCoordinateState(locals.principal, row.seasonId) && !canCoachSchool(locals.principal, row.schoolId)) throw error(403, 'You cannot respond for this school.');
+		if (!row || !canCoordinateState(locals.principal, row.seasonId) && !canCoachSchool(locals.principal, row.schoolId, row.seasonId)) throw error(403, 'You cannot respond for this school.');
 		const status = text(data, 'status') as InvitationStatus;
 		if (!['accepted', 'declined'].includes(status)) return fail(400, { error: 'Choose accept or decline.' });
 		try {
@@ -72,21 +81,42 @@ export const actions: Actions = {
 		}
 	},
 	assignCoach: async ({ locals, platform, request }) => {
-		if (!locals.principal || !canAdministerUsers(locals.principal)) throw error(403, 'System coordinator access required.');
+		if (!locals.principal) throw error(403, 'Coordinator access required.');
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const data = await request.formData();
+		const db = getDb(platform.env.DB);
+		if (!await canManageSeasonAssignments(db, locals, text(data, 'seasonId'))) throw error(403, 'You cannot manage coach assignments for this season.');
 		try {
-			await assignCoach(getDb(platform.env.DB), { userId: text(data, 'userId'), seasonId: text(data, 'seasonId'), schoolId: text(data, 'schoolId') });
+			await assignCoach(db, { userId: text(data, 'userId'), seasonId: text(data, 'seasonId'), schoolId: text(data, 'schoolId') });
 			return { success: 'Coach assignment saved.' };
 		} catch (cause) {
 			return fail(400, { error: cause instanceof ParticipationError ? cause.message : 'Coach assignment could not be saved.' });
 		}
 	},
-	removeCoach: async ({ locals, platform, request }) => {
-		if (!locals.principal || !canAdministerUsers(locals.principal)) throw error(403, 'System coordinator access required.');
+	inviteCoach: async ({ locals, platform, request, url }) => {
+		if (!locals.principal) throw error(403, 'Coordinator access required.');
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const data = await request.formData();
-		await removeCoach(getDb(platform.env.DB), { userId: text(data, 'userId'), seasonId: text(data, 'seasonId'), schoolId: text(data, 'schoolId') });
+		const db = getDb(platform.env.DB);
+		const seasonId = text(data, 'seasonId');
+		if (!await canManageSeasonAssignments(db, locals, seasonId)) throw error(403, 'You cannot manage coach assignments for this season.');
+		const email = text(data, 'email');
+		const displayName = text(data, 'displayName');
+		if (!email || !displayName || !text(data, 'schoolId')) return fail(400, { error: 'Coach name, email, school, and season are required.' });
+		try {
+			const result = await inviteUser(db, createEmailProvider(platform.env), { email, displayName, origin: platform.env.APP_ORIGIN ?? url.origin, assignments: [{ kind: 'coach', seasonId, schoolId: text(data, 'schoolId') }] });
+			return { success: `Coach invitation sent to ${result.user.email}.` };
+		} catch (cause) {
+			return fail(400, { error: cause instanceof AuthError ? cause.message : 'Coach invitation could not be sent.' });
+		}
+	},
+	removeCoach: async ({ locals, platform, request }) => {
+		if (!locals.principal) throw error(403, 'Coordinator access required.');
+		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+		const data = await request.formData();
+		const db = getDb(platform.env.DB);
+		if (!await canManageSeasonAssignments(db, locals, text(data, 'seasonId'))) throw error(403, 'You cannot manage coach assignments for this season.');
+		await removeCoach(db, { userId: text(data, 'userId'), seasonId: text(data, 'seasonId'), schoolId: text(data, 'schoolId') });
 		return { success: 'Coach assignment removed.' };
 	},
 };

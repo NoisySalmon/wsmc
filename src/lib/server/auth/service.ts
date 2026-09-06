@@ -133,6 +133,29 @@ export async function setUserStatus(db: Database, userId: string, status: 'pendi
 	}
 }
 
+export type AssignmentKey =
+	| { kind: 'statewide'; userId: string; seasonId: string | null }
+	| { kind: 'regional'; userId: string; contestId: string }
+	| { kind: 'coach'; userId: string; seasonId: string; schoolId: string }
+	| { kind: 'scorekeeper'; userId: string; contestId: string };
+
+export async function removeAssignment(db: Database, assignment: AssignmentKey): Promise<void> {
+	switch (assignment.kind) {
+		case 'statewide':
+			await db.delete(schema.statewideAssignments).where(and(eq(schema.statewideAssignments.userId, assignment.userId), assignment.seasonId === null ? isNull(schema.statewideAssignments.seasonId) : eq(schema.statewideAssignments.seasonId, assignment.seasonId)));
+			break;
+		case 'regional':
+			await db.delete(schema.regionalCoordinatorAssignments).where(and(eq(schema.regionalCoordinatorAssignments.userId, assignment.userId), eq(schema.regionalCoordinatorAssignments.contestId, assignment.contestId)));
+			break;
+		case 'coach':
+			await db.delete(schema.coachAssignments).where(and(eq(schema.coachAssignments.userId, assignment.userId), eq(schema.coachAssignments.seasonId, assignment.seasonId), eq(schema.coachAssignments.schoolId, assignment.schoolId)));
+			break;
+		case 'scorekeeper':
+			await db.delete(schema.scorekeeperAssignments).where(and(eq(schema.scorekeeperAssignments.userId, assignment.userId), eq(schema.scorekeeperAssignments.contestId, assignment.contestId)));
+			break;
+	}
+}
+
 export async function loadPrincipal(db: Database, sessionId: string | undefined, now = Date.now()): Promise<Principal | null> {
 	if (!sessionId) return null;
 	const [session] = await db.select({ session: schema.sessions, user: schema.users }).from(schema.sessions)
@@ -144,7 +167,7 @@ export async function loadPrincipal(db: Database, sessionId: string | undefined,
 	const [statewide, regional, coach, scorekeeper] = await Promise.all([
 		db.select({ seasonId: schema.statewideAssignments.seasonId }).from(schema.statewideAssignments).where(eq(schema.statewideAssignments.userId, session.user.id)),
 		db.select({ contestId: schema.regionalCoordinatorAssignments.contestId }).from(schema.regionalCoordinatorAssignments).where(eq(schema.regionalCoordinatorAssignments.userId, session.user.id)),
-		db.select({ schoolId: schema.coachAssignments.schoolId }).from(schema.coachAssignments).where(eq(schema.coachAssignments.userId, session.user.id)),
+		db.select({ seasonId: schema.coachAssignments.seasonId, schoolId: schema.coachAssignments.schoolId }).from(schema.coachAssignments).where(eq(schema.coachAssignments.userId, session.user.id)),
 		db.select({ contestId: schema.scorekeeperAssignments.contestId }).from(schema.scorekeeperAssignments).where(eq(schema.scorekeeperAssignments.userId, session.user.id)),
 	]);
 	return {
@@ -153,7 +176,7 @@ export async function loadPrincipal(db: Database, sessionId: string | undefined,
 		displayName: session.user.displayName,
 		statewideSeasonIds: statewide.map((assignment) => assignment.seasonId),
 		regionalContestIds: regional.map((assignment) => assignment.contestId),
-		coachedSchoolIds: coach.map((assignment) => assignment.schoolId),
+		coachAssignments: coach,
 		scorekeeperContestIds: scorekeeper.map((assignment) => assignment.contestId),
 	};
 }

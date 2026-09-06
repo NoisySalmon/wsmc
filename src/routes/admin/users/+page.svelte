@@ -63,6 +63,12 @@
 							<form method="POST" action="?/disable"><input type="hidden" name="userId" value={user.id} /><button type="submit">Disable</button></form>
 						{/if}
 					</div>
+					<div class="assignments">
+						{#each data.assignments.statewide.filter((assignment) => assignment.userId === user.id) as assignment}<form method="POST" action="?/removeAssignment"><input type="hidden" name="userId" value={user.id} /><input type="hidden" name="assignmentKind" value="statewide" /><input type="hidden" name="seasonId" value={assignment.seasonId ?? ''} /><span>Statewide {assignment.seasonId ?? 'system'}</span><button type="submit">Remove</button></form>{/each}
+						{#each data.assignments.regional.filter((assignment) => assignment.userId === user.id) as assignment}<form method="POST" action="?/removeAssignment"><input type="hidden" name="userId" value={user.id} /><input type="hidden" name="assignmentKind" value="regional" /><input type="hidden" name="contestId" value={assignment.contestId} /><span>Regional {assignment.contestId}</span><button type="submit">Remove</button></form>{/each}
+						{#each data.assignments.coach.filter((assignment) => assignment.userId === user.id) as assignment}<form method="POST" action="?/removeAssignment"><input type="hidden" name="userId" value={user.id} /><input type="hidden" name="assignmentKind" value="coach" /><input type="hidden" name="seasonId" value={assignment.seasonId} /><input type="hidden" name="schoolId" value={assignment.schoolId} /><span>Coach {assignment.schoolId} ({assignment.seasonId})</span><button type="submit">Remove</button></form>{/each}
+						{#each data.assignments.scorekeeper.filter((assignment) => assignment.userId === user.id) as assignment}<form method="POST" action="?/removeAssignment"><input type="hidden" name="userId" value={user.id} /><input type="hidden" name="assignmentKind" value="scorekeeper" /><input type="hidden" name="contestId" value={assignment.contestId} /><span>Scorekeeper {assignment.contestId}</span><button type="submit">Remove</button></form>{/each}
+					</div>
 				</li>
 			{/each}
 		</ul>
@@ -86,6 +92,10 @@
 	.actions { display: flex; gap: 0.5rem; }
 	.actions form { display: block; }
 	.actions button { background: #555; font-size: 0.85rem; }
+	.assignments { display: flex; flex-direction: column; gap: 0.3rem; }
+	.assignments form { display: flex; flex-direction: row; align-items: center; gap: 0.4rem; }
+	.assignments span { font-size: 0.8rem; }
+	.assignments button { background: #777; font-size: 0.75rem; padding: 0.25rem 0.4rem; }
 	.error, .success { padding: 0.6rem; border-radius: 4px; }
 	.error { color: #9a2020; background: #fbe3e3; }
 	.success { color: #176b35; background: #e2f5e8; }
