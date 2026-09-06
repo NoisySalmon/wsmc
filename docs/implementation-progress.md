@@ -12,8 +12,8 @@ and is not used as the v2 status source.
   Team Contest terminology and qualification rules/tests; v2 schema reset,
   representative seed, local integration checks, and repository scope/rule
   coverage
-- **Next:** Add contest participation/invitation, coach assignment, and
-  coordinator setup-completeness views on top of the program setup surface.
+- **Next:** Add coordinator setup-completeness views and then begin the mobile
+  regional roster/entry workflow.
 
 ## Phase 2 checkpoint
 
@@ -25,7 +25,7 @@ and is not used as the v2 status source.
   statewide-coordinator-only `/admin/users` invitation and access page with
   assignment selection, link/session revocation, disable/enable controls, and
   self-disable protection
-- **Verified:** 64 unit tests, 0 type-check errors, the existing build gate,
+- **Verified:** 66 unit tests, 0 type-check errors, the existing build gate,
   and D1-backed auth schema checks for replay, expiry, disabled users,
   overlapping assignments, and multi-school coaches
 - **Status:** Phase 2 acceptance is met by the passwordless routes, persisted
@@ -41,8 +41,10 @@ and is not used as the v2 status source.
 - **Implemented:** `/schools` directory with normalized same-city duplicate
   suggestions, explicit duplicate confirmation, and reversible active/inactive
   status.
-- **Remaining:** Participation/invitation, coach assignment flows, and
-  setup-completeness dashboards.
+- **Implemented:** `/participation` contest invitation and response flow with
+  division validation, lifecycle locking, and contest-scoped authorization;
+  system-coordinator coach assignment/removal for active users and schools.
+- **Remaining:** Setup-completeness dashboards.
 
 ## Phase checklist
 
