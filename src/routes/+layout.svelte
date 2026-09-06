@@ -28,6 +28,7 @@
 		background: #1a1a2e;
 		padding: 0.75rem 2rem;
 		display: flex;
+		flex-wrap: wrap;
 		gap: 1.5rem;
 		align-items: center;
 	}
@@ -46,4 +47,8 @@
 	}
 	nav form { margin-left: auto; }
 	nav button { background: transparent; border: 1px solid #777; color: #e0e0e0; border-radius: 4px; padding: 0.35rem 0.6rem; cursor: pointer; }
+	@media (max-width: 620px) {
+		nav { padding: 0.75rem 1rem; gap: 0.75rem; }
+		nav form { margin-left: 0; }
+	}
 </style>

@@ -80,6 +80,24 @@
 		</article>{/each}</div>
 	</section>
 
+	<section class="csv">
+		<h2>CSV round trip</h2>
+		<p class="help">Download a versioned template, edit it in a spreadsheet, preview the complete file, then upload it to apply all changes atomically.</p>
+		<p><a href={`/registration/${data.contest.id}/${data.school.id}/csv`}>Download registration CSV</a></p>
+		<div class="csv-forms">
+			<form method="POST" action="?/previewCsv" enctype="multipart/form-data">
+				<label>CSV file to preview <input type="file" name="file" accept=".csv,text/csv" required /></label>
+				<button disabled={data.readOnly} type="submit">Preview CSV</button>
+			</form>
+			<form method="POST" action="?/importCsv" enctype="multipart/form-data">
+				<label>CSV file to import <input type="file" name="file" accept=".csv,text/csv" required /></label>
+				<button disabled={data.readOnly} type="submit">Import CSV</button>
+			</form>
+		</div>
+		{#if form?.csvSummary}<p class="success">{form.csvSummary.rows.length} rows · {form.csvSummary.newStudents} new students · {form.csvSummary.categorySelections} category selections.</p>{/if}
+		{#if form?.csvErrors?.length}<ul class="csv-errors">{#each form.csvErrors as csvError}<li>Row {csvError.rowNumber}, {csvError.field}: {csvError.message}</li>{/each}</ul>{/if}
+	</section>
+
 	{#if data.canReopen && data.contest.lifecycle === 'roster_locked'}<section class="reopen"><h2>Reopen roster</h2><p>Reopening returns this contest to Registration open and records a reason in the audit history.</p><form method="POST" action="?/reopen"><label>Reason <textarea name="reason" required></textarea></label><button type="submit">Reopen for correction</button></form></section>{/if}
 </main>
 
@@ -97,5 +115,6 @@
 	label { display: flex; flex-direction: column; gap: 0.2rem; font-weight: 600; font-size: 0.9rem; } input, select, textarea { box-sizing: border-box; width: 100%; min-height: 2.75rem; padding: 0.55rem; font: inherit; border: 1px solid #aaa; border-radius: 4px; } textarea { min-height: 5rem; }
 	button { min-height: 2.75rem; padding: 0.55rem 0.75rem; border: 0; border-radius: 4px; background: #1a1a2e; color: #fff; cursor: pointer; white-space: nowrap; } button:disabled { opacity: 0.5; cursor: not-allowed; } button.quiet { background: #555; } button.danger { background: #8d2d2d; } button.remove { min-height: 2rem; padding: 0.15rem 0.5rem; background: transparent; color: #8d2d2d; font-size: 1.2rem; }
 	.error, .success { padding: 0.7rem; border-radius: 5px; } .error { background: #fbe3e3; color: #9a2020; } .success { background: #e2f5e8; color: #176b35; }
-	@media (max-width: 620px) { .student-card > form:first-child, .add-student, .new-entry, .member-form { grid-template-columns: 1fr; align-items: stretch; } .roster-row, .entry-card header, .entry-card li { align-items: flex-start; flex-direction: column; } .entry-card li form { margin-left: 0; } }
+	.csv-forms { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; } .csv-forms form { display: grid; gap: 0.6rem; padding: 0.8rem; border: 1px solid #ddd; border-radius: 6px; } .csv-errors { padding-left: 1.2rem; color: #9a2020; }
+	@media (max-width: 620px) { .student-card > form:first-child, .add-student, .new-entry, .member-form, .csv-forms { grid-template-columns: 1fr; align-items: stretch; } .roster-row, .entry-card header, .entry-card li { align-items: flex-start; flex-direction: column; } .entry-card li form { margin-left: 0; } }
 </style>

@@ -6,14 +6,14 @@ and is not used as the v2 status source.
 
 ## Current checkpoint
 
-- **Active phase:** Phase 4 — Mobile regional roster and entries
+- **Active phase:** Phase 5 — CSV roster and entry round trip
 - **Completed:** Initial execution-plan commit; baseline verification; v2
   architecture decisions; prototype D1 confirmed disposable; pure-domain
   Team Contest terminology and qualification rules/tests; v2 schema reset,
   representative seed, local integration checks, and repository scope/rule
   coverage
-- **Next:** Build annual-student management, contest roster selection, and
-  explicit category entry workflows for coaches and regional coordinators.
+- **Next:** Finish fixture coverage for new-student import and locked-contest
+  rejection, then close the CSV round-trip acceptance gate.
 
 ## Phase 2 checkpoint
 
@@ -25,7 +25,7 @@ and is not used as the v2 status source.
   statewide-coordinator-only `/admin/users` invitation and access page with
   assignment selection, link/session revocation, disable/enable controls, and
   self-disable protection
-- **Verified:** 77 unit tests, 0 type-check errors, the existing build gate,
+- **Verified:** 81 unit tests, 0 type-check errors, the existing build gate,
   and D1-backed auth schema checks for replay, expiry, disabled users,
   overlapping assignments, and multi-school coaches
 - **Status:** Phase 2 acceptance is met by the passwordless routes, persisted
@@ -63,8 +63,29 @@ and is not used as the v2 status source.
   team size, playing-up, distinct grades, one-entry-per-category, Topical
   exclusivity, and Knowdown limits through the existing repository boundary;
   direct annual-student, roster, and entry POSTs all reject locked contests.
-- **Remaining:** CSV round-trip support, fuller phone-width/browser QA, and
-  end-to-end workflow coverage using seeded D1 runtime data.
+- **Verified:** 81 unit tests, 0 type-check errors, a clean production build,
+  seeded D1 runtime login and registration workflow, 390px phone-width layout
+  with no horizontal overflow, and accessible names for all visible form
+  controls. The local Pages preview must use the configured D1 database ID
+  when it is pointed at an explicitly migrated persistence directory.
+- **Status:** Phase 4 acceptance is met. Coaches and regional coordinators can
+  maintain annual students, explicitly select contest rosters, create and edit
+  category entries, and reopen locked rosters through the audited workflow.
+
+## Phase 5 checkpoint
+
+- **Implemented:** Versioned `wsmc.registration.v1` CSV export with stable
+  student and entry IDs, explicit roster/category/team-grade columns,
+  spreadsheet formula-injection protection, row-level normalization and
+  validation, preview-without-writes, D1 atomic batch import, idempotent
+  membership reconciliation, lifecycle and permission gates, and audited
+  imports. The registration page now exposes download, preview, and import
+  controls, and the format is documented in [registration-csv.md](registration-csv.md).
+- **Verified:** Fresh seeded D1 export, preview, successful import, repeated
+  import, and rejected stale-ID import all ran through the worker; rejected
+  input left counts unchanged.
+- **Remaining:** Add explicit fixture coverage for blank-ID new-student
+  import and locked-contest CSV rejection before marking Phase 5 complete.
 
 ## Phase checklist
 
@@ -72,7 +93,7 @@ and is not used as the v2 status source.
 - [x] Phase 1 — V2 schema and persistence foundation
 - [x] Phase 2 — Passwordless authentication and authorization
 - [x] Phase 3 — Season, directory, contests, and user administration
-- [ ] Phase 4 — Mobile regional roster and entries
+- [x] Phase 4 — Mobile regional roster and entries
 - [ ] Phase 5 — CSV roster and entry round trip
 - [ ] Phase 6 — Scoring, score CSV, and regional results
 - [ ] Phase 7 — Qualifications and statewide cutoff rounds

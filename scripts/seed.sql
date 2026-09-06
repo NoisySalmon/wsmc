@@ -51,6 +51,7 @@ INSERT INTO annual_students (id, season_id, school_id, name, actual_grade) VALUE
   ('student-beta-12', 'season-2026', 'school-beta', 'Blair Beta', 12),
   ('student-beta-11', 'season-2026', 'school-beta', 'Brook Beta', 11),
   ('student-gamma-12', 'season-2026', 'school-gamma', 'Gray Gamma', 12),
+  ('student-gamma-11', 'season-2026', 'school-gamma', 'Glen Gamma', 11),
   ('student-gamma-10', 'season-2026', 'school-gamma', 'Gale Gamma', 10);
 
 INSERT INTO contest_roster_members (contest_id, participation_id, annual_student_id) VALUES
@@ -60,6 +61,7 @@ INSERT INTO contest_roster_members (contest_id, participation_id, annual_student
   ('contest-region-1', 'participation-r1-beta', 'student-beta-12'),
   ('contest-region-1', 'participation-r1-beta', 'student-beta-11'),
   ('contest-region-2', 'participation-r2-gamma', 'student-gamma-12'),
+  ('contest-region-2', 'participation-r2-gamma', 'student-gamma-11'),
   ('contest-region-2', 'participation-r2-gamma', 'student-gamma-10'),
   ('contest-state-2026', 'participation-state-alpha', 'student-alpha-12'),
   ('contest-state-2026', 'participation-state-alpha', 'student-alpha-11'),
@@ -118,7 +120,7 @@ INSERT INTO entry_members (entry_id, annual_student_id, competing_grade) VALUES
   ('entry-r2-team-gamma', 'student-gamma-12', 12),
   ('entry-r2-team-gamma', 'student-gamma-10', 10),
   ('entry-r2-topical-team-gamma', 'student-gamma-12', 12),
-  ('entry-r2-topical-team-gamma', 'student-gamma-10', 10),
+  ('entry-r2-topical-team-gamma', 'student-gamma-11', 11),
   ('entry-r2-topical-ind-gamma', 'student-gamma-10', NULL),
   ('entry-r2-knowdown-gamma', 'student-gamma-12', NULL);
 
