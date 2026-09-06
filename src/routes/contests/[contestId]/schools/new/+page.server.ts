@@ -1,4 +1,4 @@
-import { getDb, schema } from '$lib/server/db';
+import { getDb, schema } from '$lib/server/db/legacy';
 import { eq } from 'drizzle-orm';
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';

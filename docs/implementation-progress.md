@@ -6,17 +6,18 @@ and is not used as the v2 status source.
 
 ## Current checkpoint
 
-- **Active phase:** Phase 0 — Baseline and v2 contract
+- **Active phase:** Phase 1 — V2 schema and persistence foundation
 - **Completed:** Initial execution-plan commit; baseline verification; v2
   architecture decisions; prototype D1 confirmed disposable; pure-domain
-  Team Contest terminology and qualification rules/tests
-- **Next:** Finish Phase 0 verification, then build the v2 schema and persistence
-  foundation in Phase 1
+  Team Contest terminology and qualification rules/tests; v2 schema reset,
+  representative seed, and local integration checks
+- **Next:** Complete repository integration coverage for cross-scope mutation
+  rejection and then begin Phase 2 authentication/authorization
 
 ## Phase checklist
 
-- [x] Phase 0 — Baseline and v2 contract (implementation in progress; final verification pending)
-- [ ] Phase 1 — V2 schema and persistence foundation
+- [x] Phase 0 — Baseline and v2 contract
+- [ ] Phase 1 — V2 schema and persistence foundation (implementation in progress; repository integration coverage pending)
 - [ ] Phase 2 — Passwordless authentication and authorization
 - [ ] Phase 3 — Season, directory, contests, and user administration
 - [ ] Phase 4 — Mobile regional roster and entries

@@ -8,6 +8,13 @@
       "when": 1773346803850,
       "tag": "0000_woozy_bruce_banner",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788730454397,
+      "tag": "0001_v2_baseline",
+      "breakpoints": true
     }
   ]
 }

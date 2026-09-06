@@ -1,4 +1,4 @@
-import { getDb, schema } from '$lib/server/db';
+import { getDb, schema } from '$lib/server/db/legacy';
 import { eq, inArray } from 'drizzle-orm';
 import { error } from '@sveltejs/kit';
 import {
