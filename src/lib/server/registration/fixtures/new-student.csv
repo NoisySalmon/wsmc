@@ -1,0 +1,2 @@
+format_version,student_id,student_name,actual_grade,rostered,project_entry_id,project_entry_number,project_competing_grade,team_contest_entry_id,team_contest_entry_number,team_contest_competing_grade,topical_team_entry_id,topical_team_entry_number,topical_team_competing_grade,topical_individual_entry_id,topical_individual_entry_number,knowdown_entry_id,knowdown_entry_number,knowdown_selected
+"wsmc.registration.v1","","New Student","10","yes","","2","10","","","","","","","","","","","no"

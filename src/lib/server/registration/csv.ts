@@ -180,6 +180,7 @@ export function parseRegistrationCsv(text: string): RegistrationCsvRow[] {
 	return records.slice(1).map((cells, index) => {
 		if (cells.length !== registrationCsvHeaders.length) throw new RegistrationCsvError('invalid_row', `Row ${index + 2} has ${cells.length} columns; expected ${registrationCsvHeaders.length}.`);
 		const record = Object.fromEntries(registrationCsvHeaders.map((field, fieldIndex) => [field, cells[fieldIndex]])) as Record<string, string>;
+		if (value(record, 'format_version') !== registrationCsvFormat) throw new RegistrationCsvError('invalid_version', `Row ${index + 2} is not a ${registrationCsvFormat} record.`);
 		const actualGrade = numberValue(record, 'actual_grade');
 		const rostered = yesNo(record, 'rostered', null);
 		return {

@@ -6,14 +6,13 @@ and is not used as the v2 status source.
 
 ## Current checkpoint
 
-- **Active phase:** Phase 5 — CSV roster and entry round trip
+- **Active phase:** Phase 6 — Scoring, score CSV, and regional results
 - **Completed:** Initial execution-plan commit; baseline verification; v2
   architecture decisions; prototype D1 confirmed disposable; pure-domain
   Team Contest terminology and qualification rules/tests; v2 schema reset,
   representative seed, local integration checks, and repository scope/rule
   coverage
-- **Next:** Finish fixture coverage for new-student import and locked-contest
-  rejection, then close the CSV round-trip acceptance gate.
+- **Next:** Build shared score-entry services and regional result workflows.
 
 ## Phase 2 checkpoint
 
@@ -25,7 +24,7 @@ and is not used as the v2 status source.
   statewide-coordinator-only `/admin/users` invitation and access page with
   assignment selection, link/session revocation, disable/enable controls, and
   self-disable protection
-- **Verified:** 81 unit tests, 0 type-check errors, the existing build gate,
+- **Verified:** 83 unit tests, 0 type-check errors, the existing build gate,
   and D1-backed auth schema checks for replay, expiry, disabled users,
   overlapping assignments, and multi-school coaches
 - **Status:** Phase 2 acceptance is met by the passwordless routes, persisted
@@ -63,7 +62,7 @@ and is not used as the v2 status source.
   team size, playing-up, distinct grades, one-entry-per-category, Topical
   exclusivity, and Knowdown limits through the existing repository boundary;
   direct annual-student, roster, and entry POSTs all reject locked contests.
-- **Verified:** 81 unit tests, 0 type-check errors, a clean production build,
+- **Verified:** 83 unit tests, 0 type-check errors, a clean production build,
   seeded D1 runtime login and registration workflow, 390px phone-width layout
   with no horizontal overflow, and accessible names for all visible form
   controls. The local Pages preview must use the configured D1 database ID
@@ -84,8 +83,13 @@ and is not used as the v2 status source.
 - **Verified:** Fresh seeded D1 export, preview, successful import, repeated
   import, and rejected stale-ID import all ran through the worker; rejected
   input left counts unchanged.
-- **Remaining:** Add explicit fixture coverage for blank-ID new-student
-  import and locked-contest CSV rejection before marking Phase 5 complete.
+- **Verified:** Fixture coverage includes blank-ID new students, duplicate
+  names, invalid teams, stale IDs, formula injection, and locked-contest
+  rejection; the seeded worker verified export, preview, import, repeated
+  import, audit creation, and atomic rejection.
+- **Status:** Phase 5 acceptance is met. A coach can download, edit, preview,
+  and re-import a complete school registration without legacy workbook
+  coupling.
 
 ## Phase checklist
 
@@ -94,7 +98,7 @@ and is not used as the v2 status source.
 - [x] Phase 2 — Passwordless authentication and authorization
 - [x] Phase 3 — Season, directory, contests, and user administration
 - [x] Phase 4 — Mobile regional roster and entries
-- [ ] Phase 5 — CSV roster and entry round trip
+- [x] Phase 5 — CSV roster and entry round trip
 - [ ] Phase 6 — Scoring, score CSV, and regional results
 - [ ] Phase 7 — Qualifications and statewide cutoff rounds
 - [ ] Phase 8 — State attendance, substitutions, and entries

@@ -9,7 +9,7 @@ sqlite3 "$database_path" < drizzle/0001_v2_baseline.sql
 sqlite3 "$database_path" < scripts/seed.sql
 
 counts="$(sqlite3 -noheader -separator '|' "$database_path" "SELECT (SELECT COUNT(*) FROM seasons), (SELECT COUNT(*) FROM regions), (SELECT COUNT(*) FROM contests), (SELECT COUNT(*) FROM schools), (SELECT COUNT(*) FROM annual_students), (SELECT COUNT(*) FROM entries), (SELECT COUNT(*) FROM entry_members);")"
-[[ "$counts" == "1|2|3|3|7|15|24" ]] || { echo "unexpected seed counts: $counts" >&2; exit 1; }
+[[ "$counts" == "1|2|3|3|8|15|24" ]] || { echo "unexpected seed counts: $counts" >&2; exit 1; }
 
 category_count="$(sqlite3 -noheader "$database_path" "SELECT COUNT(DISTINCT category) FROM entries;")"
 [[ "$category_count" == "5" ]] || { echo "seed does not cover all categories" >&2; exit 1; }

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import fixture from './fixtures/new-student.csv?raw';
 import {
 	exportRegistrationCsv, parseRegistrationCsv, registrationCsvHeaders, registrationCsvFormat, validateRegistrationCsv,
 } from './csv';
+import { loadRegistrationCsvScope } from './csv-service';
 
 const snapshot = {
 	students: [
@@ -70,5 +72,23 @@ describe('registration CSV format', () => {
 		const preview = validateRegistrationCsv(parseRegistrationCsv([registrationCsvHeaders.join(','), csvRow(row)].join('\n')), snapshot);
 		expect(preview.errors.some((error) => error.field === 'project_entry_id' && error.message.includes('stale'))).toBe(false);
 		expect(preview.errors.some((error) => error.field === 'project_competing_grade' && error.message.toLowerCase().includes('competing grade'))).toBe(true);
+	});
+
+	it('previews a new-student fixture without requiring a stable ID', () => {
+		const preview = validateRegistrationCsv(parseRegistrationCsv(fixture), snapshot);
+		expect(preview.errors).toEqual([]);
+		expect(preview.newStudents).toBe(1);
+		expect(preview.categorySelections).toBe(1);
+	});
+
+	it('rejects CSV scope access for a locked contest', async () => {
+		let selectCount = 0;
+		const db = { select: () => ({ from: () => ({ where: async () => {
+			selectCount += 1;
+			if (selectCount === 1) return [{ kind: 'regional', lifecycle: 'roster_locked', seasonId: 'season-1' }];
+			if (selectCount === 2) return [{ active: true }];
+			return [{ id: 'participation-1' }];
+		} }) }) };
+		await expect(loadRegistrationCsvScope(db as never, 'contest-1', 'school-1')).rejects.toMatchObject({ code: 'locked' });
 	});
 });
