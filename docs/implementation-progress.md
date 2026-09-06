@@ -12,8 +12,20 @@ and is not used as the v2 status source.
   Team Contest terminology and qualification rules/tests; v2 schema reset,
   representative seed, local integration checks, and repository scope/rule
   coverage
-- **Next:** Implement passwordless sign-in, sessions, principal loading, and
-  assignment-based capability checks
+- **Next:** Complete invitation/revocation administration and D1-backed auth
+  flow verification
+
+## Phase 2 checkpoint
+
+- **Implemented:** Web Crypto token hashing/randomness; single-use expiring
+  links; resend invalidation; long-lived sessions; session/user revocation;
+  development and Cloudflare-compatible email adapters; capability checks;
+  SvelteKit principal loading; login, callback, and sign-out routes; direct
+  unauthenticated POST rejection; legacy prototype route retirement
+- **Verified:** 47 unit tests, 0 type-check errors, and the existing build gate
+- **Remaining:** Admin invitation/revoke UI and D1-backed auth-flow tests for
+  replay, expiry, disabled users, overlapping assignments, and multi-school
+  coaches
 
 ## Phase checklist
 
