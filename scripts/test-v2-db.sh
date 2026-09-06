@@ -76,6 +76,6 @@ multi_school_coach="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM c
 [[ "$multi_school_coach" == "2" ]] || { echo "multi-school coach assignment was not preserved" >&2; exit 1; }
 
 overlapping_assignments="$(sqlite3 -noheader "$database_path" "SELECT (SELECT COUNT(*) FROM statewide_assignments WHERE user_id = 'user-coordinator') + (SELECT COUNT(*) FROM regional_coordinator_assignments WHERE user_id = 'user-coordinator');")"
-[[ "$overlapping_assignments" == "2" ]] || { echo "overlapping coordinator assignments were not preserved" >&2; exit 1; }
+[[ "$overlapping_assignments" == "3" ]] || { echo "overlapping coordinator assignments were not preserved" >&2; exit 1; }
 
 echo "v2 D1 integration checks passed"

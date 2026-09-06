@@ -36,6 +36,7 @@ INSERT INTO users (id, email, display_name, status) VALUES
   ('user-scorekeeper', 'scorekeeper@wsmc.example', 'Region 1 Scorekeeper', 'active');
 
 INSERT INTO statewide_assignments (id, user_id, season_id) VALUES ('assignment-state-2026', 'user-coordinator', 'season-2026');
+INSERT INTO statewide_assignments (id, user_id, season_id) VALUES ('assignment-system', 'user-coordinator', NULL);
 INSERT INTO regional_coordinator_assignments (user_id, contest_id) VALUES ('user-coordinator', 'contest-region-1');
 INSERT INTO coach_assignments (user_id, season_id, school_id) VALUES
   ('user-coach-alpha-1', 'season-2026', 'school-alpha'),
