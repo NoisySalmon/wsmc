@@ -12,8 +12,8 @@ and is not used as the v2 status source.
   Team Contest terminology and qualification rules/tests; v2 schema reset,
   representative seed, local integration checks, and repository scope/rule
   coverage
-- **Next:** Add D1-backed auth-flow verification for replay, expiry, disabled
-  users, overlapping assignments, and multi-school coaches
+- **Next:** Exercise the auth service through a D1-backed runtime fixture;
+  schema-level auth invariants are now covered.
 
 ## Phase 2 checkpoint
 
@@ -25,9 +25,12 @@ and is not used as the v2 status source.
   statewide-coordinator-only `/admin/users` invitation and access page with
   assignment selection, link/session revocation, disable/enable controls, and
   self-disable protection
-- **Verified:** 54 unit tests, 0 type-check errors, and the existing build gate
-- **Remaining:** D1-backed auth-flow tests for replay, expiry, disabled users,
+- **Verified:** 57 unit tests, 0 type-check errors, the existing build gate,
+  and D1-backed auth schema checks for replay, expiry, disabled users,
   overlapping assignments, and multi-school coaches
+- **Remaining:** Run the auth service itself against a D1-compatible runtime and
+  add endpoint tests for scorekeeper-vs-roster/finalization boundaries as those
+  v2 workflows are introduced
 
 ## Phase checklist
 

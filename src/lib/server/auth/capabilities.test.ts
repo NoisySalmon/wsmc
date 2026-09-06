@@ -22,6 +22,7 @@ describe('assignment capabilities', () => {
 
 	it('supports a coach assigned to a school', () => {
 		expect(canCoachSchool(principal, 'school-1')).toBe(true);
+		expect(canCoachSchool({ ...principal, coachedSchoolIds: ['school-1', 'school-2'] }, 'school-2')).toBe(true);
 		expect(canAdministerSchool(principal, 'contest-4', 'school-1', 'season-2')).toBe(true);
 		expect(canAdministerSchool(principal, 'contest-4', 'school-2', 'season-2')).toBe(false);
 	});

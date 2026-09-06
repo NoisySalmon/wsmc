@@ -45,6 +45,22 @@ describe('sign-in token policy', () => {
 		await expect(consumeSignInToken(replayDb as never, rawToken, 1600)).rejects.toBeInstanceOf(AuthError);
 	});
 
+	it('rejects expired and disabled-account tokens before creating sessions', async () => {
+		const expiredDb = {
+			select: () => ({ from: () => ({ where: async () => [{ id: 'token-1', userId: 'user-1', expiresAt: 1000, usedAt: null, revokedAt: null }] }) }),
+		};
+		await expect(consumeSignInToken(expiredDb as never, 'expired', 1000)).rejects.toMatchObject({ code: 'invalid_token' });
+
+		const disabledRows = [
+			[{ id: 'token-1', userId: 'user-1', expiresAt: 3000, usedAt: null, revokedAt: null }],
+			[{ id: 'user-1', status: 'disabled' }],
+		];
+		const disabledDb = {
+			select: () => ({ from: () => ({ where: async () => disabledRows.shift() ?? [] }) }),
+		};
+		await expect(consumeSignInToken(disabledDb as never, 'disabled', 1000)).rejects.toMatchObject({ code: 'user_disabled' });
+	});
+
 	it('disables a user and revokes outstanding access', async () => {
 		const calls: string[] = [];
 		const db = {
