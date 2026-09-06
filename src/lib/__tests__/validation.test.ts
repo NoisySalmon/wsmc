@@ -16,7 +16,6 @@ function makeStudent(overrides: Partial<StudentData> = {}): StudentData {
 		id: 'stu-1',
 		name: 'Test Student',
 		actualGrade: 10,
-		competingGrade: 10,
 		isKnowdown: false,
 		...overrides,
 	};
@@ -110,18 +109,18 @@ describe('validateTopicalExclusivity', () => {
 
 describe('validateTeamAssignment', () => {
 	it('allows valid assignment', () => {
-		const student = makeStudent({ competingGrade: 12 });
+		const student = makeStudent({ actualGrade: 10 });
 		const team = makeTeam({
 			members: [
 				{ studentId: 'other-1', competingGrade: 10 },
 				{ studentId: 'other-2', competingGrade: 11 },
 			],
 		});
-		expect(validateTeamAssignment(student, team, [team])).toEqual([]);
+		expect(validateTeamAssignment(student, team, [team], 12)).toEqual([]);
 	});
 
 	it('rejects 4th member', () => {
-		const student = makeStudent({ competingGrade: 9 });
+		const student = makeStudent({ actualGrade: 9 });
 		const team = makeTeam({
 			members: [
 				{ studentId: 'a', competingGrade: 10 },
@@ -135,7 +134,7 @@ describe('validateTeamAssignment', () => {
 	});
 
 	it('rejects duplicate competing grade', () => {
-		const student = makeStudent({ competingGrade: 10 });
+		const student = makeStudent({ actualGrade: 10 });
 		const team = makeTeam({
 			members: [{ studentId: 'other', competingGrade: 10 }],
 		});
@@ -144,7 +143,7 @@ describe('validateTeamAssignment', () => {
 	});
 
 	it('rejects student already on another team of same type', () => {
-		const student = makeStudent({ id: 'stu-1', competingGrade: 10 });
+		const student = makeStudent({ id: 'stu-1', actualGrade: 10 });
 		const existingTeam = makeTeam({
 			id: 'team-existing',
 			members: [{ studentId: 'stu-1', competingGrade: 10 }],
@@ -152,5 +151,30 @@ describe('validateTeamAssignment', () => {
 		const newTeam = makeTeam({ id: 'team-new', members: [] });
 		const errors = validateTeamAssignment(student, newTeam, [existingTeam, newTeam]);
 		expect(errors.some((e) => e.includes('already on a'))).toBe(true);
+	});
+
+	it('validates competing grade per entry, including playing up', () => {
+		const student = makeStudent({ actualGrade: 10 });
+		const team = makeTeam({ members: [{ studentId: 'other', competingGrade: 11 }] });
+		expect(validateTeamAssignment(student, team, [team], 12)).toEqual([]);
+		expect(validateTeamAssignment(student, team, [team], 9)).toContain(
+			'Competing grade (9) cannot be lower than actual grade (10).',
+		);
+	});
+
+	it('allows different competing grades for the same student in different entries', () => {
+		const student = makeStudent({ actualGrade: 9 });
+		const projectTeam = makeTeam({ id: 'project', members: [{ studentId: 'other', competingGrade: 11 }] });
+		const topicalTeam = makeTeam({ id: 'topical', contestType: 'topical', members: [{ studentId: 'other', competingGrade: 12 }] });
+		expect(validateTeamAssignment(student, projectTeam, [projectTeam], 10)).toEqual([]);
+		expect(validateTeamAssignment(student, topicalTeam, [topicalTeam], 11)).toEqual([]);
+	});
+});
+
+describe('formatContestType', () => {
+	it('uses Team Contest as the canonical name', async () => {
+		const { formatContestType } = await import('../validation');
+		expect(formatContestType('team_contest')).toBe('Team Contest');
+		expect(formatContestType('team_problem')).toBe('Team Contest');
 	});
 });

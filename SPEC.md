@@ -1,5 +1,7 @@
 # WSMC Regional Math Contest — Webapp Specification
 
+> **Historical prototype specification:** This document records the assumptions and build plan for the original single-regional-contest prototype. Some rules and architectural decisions here have been superseded. Use [Product Requirements](docs/product-requirements.md) as the current source of truth and [Execution Plan](docs/execution-plan.md) for implementation sequencing.
+
 ## Overview
 
 A web application to replace the Excel-based scoring system for WSMC (Washington State Mathematics Council) regional math contests. The app manages school registration, student/team entry, score recording, and automated leaderboard/award calculation.

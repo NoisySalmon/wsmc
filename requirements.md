@@ -1,3 +1,5 @@
+> **Historical prototype notes:** This document is the initial prompt used to create the single-regional-contest scoring prototype. It is retained for context and is not the current requirements document. See [Product Requirements](docs/product-requirements.md).
+
 Hi!  Here we have somewhat of a disaster of a spreadsheet.
 
 - `2026 Region 5 WSMC Regional Scoring.xlsx`

@@ -1,5 +1,7 @@
 # WSMC Regional Math Contest — Build Progress
 
+> **Historical prototype progress:** These milestones describe work completed on the original single-regional-contest prototype. They are not the implementation status of the planned statewide application. See [Product Requirements](docs/product-requirements.md) and the [Execution Plan](docs/execution-plan.md).
+
 ## Milestone 1 — Skeleton + Schema
 **Status:** ✅ Complete
 

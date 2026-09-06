@@ -5,6 +5,7 @@ import {
 	validatePlayUp,
 	validateGrade,
 	validateTeamAssignment,
+	type ContestType,
 	type TeamData,
 } from '$lib/validation';
 import type { Actions, PageServerLoad } from './$types';
@@ -67,7 +68,8 @@ async function loadTeamData(db: ReturnType<typeof getDb>, schoolId: string, cont
 
 	return teamsRaw.map((t) => ({
 		id: t.id,
-		contestType: t.contestType,
+		// The prototype DB still stores team_problem; the v2 pure domain uses team_contest.
+		contestType: (t.contestType === 'team_problem' ? 'team_contest' : t.contestType) as ContestType,
 		teamNumber: t.teamNumber,
 		members: membersRaw
 			.filter((m) => m.teamId === t.id)
@@ -226,9 +228,10 @@ export const actions: Actions = {
 		if (!teamData) return fail(400, { action: 'addToTeam', error: 'Team data not found.' });
 
 		const errors = validateTeamAssignment(
-			{ id: student.id, name: student.name, actualGrade: student.actualGrade, competingGrade: student.competingGrade, isKnowdown: student.isKnowdown },
+			{ id: student.id, name: student.name, actualGrade: student.actualGrade, isKnowdown: student.isKnowdown },
 			teamData,
-			allTeams
+			allTeams,
+			student.competingGrade,
 		);
 
 		if (errors.length > 0) {

@@ -7,13 +7,14 @@ export type StudentData = {
 	id: string;
 	name: string;
 	actualGrade: number;
-	competingGrade: number;
 	isKnowdown: boolean;
 };
 
+export type ContestType = 'project' | 'team_contest' | 'topical';
+
 export type TeamData = {
 	id: string;
-	contestType: 'project' | 'team_problem' | 'topical';
+	contestType: ContestType;
 	teamNumber: number;
 	members: { studentId: string; competingGrade: number }[];
 };
@@ -86,16 +87,20 @@ export function validateTopicalExclusivity(
 export function validateTeamAssignment(
 	student: StudentData,
 	team: TeamData,
-	allTeamsForType: TeamData[]
+	allTeamsForType: TeamData[],
+	entryCompetingGrade = student.actualGrade
 ): string[] {
 	const errors: string[] = [];
+
+	const playUpErr = validatePlayUp(student.actualGrade, entryCompetingGrade);
+	if (playUpErr) errors.push(playUpErr);
 
 	// Team size check (after adding)
 	const sizeErr = validateTeamSize(team.members.length + 1);
 	if (sizeErr) errors.push(sizeErr);
 
 	// Grade uniqueness check (after adding)
-	const grades = [...team.members.map((m) => m.competingGrade), student.competingGrade];
+	const grades = [...team.members.map((m) => m.competingGrade), entryCompetingGrade];
 	const gradeErr = validateTeamGrades(grades);
 	if (gradeErr) errors.push(gradeErr);
 
@@ -113,7 +118,8 @@ export function validateTeamAssignment(
 export function formatContestType(type: string): string {
 	switch (type) {
 		case 'project': return 'Project';
-		case 'team_problem': return 'Team Problem';
+		case 'team_contest':
+		case 'team_problem': return 'Team Contest';
 		case 'topical': return 'Topical';
 		default: return type;
 	}

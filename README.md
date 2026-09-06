@@ -1,5 +1,7 @@
 # Washington State Math Council (WSMC) Regional Scoring
 
+> **Historical prototype:** This README describes the original single-regional-contest scoring prototype. It is not the current product specification. See [Product Requirements](docs/product-requirements.md), the [Execution Plan](docs/execution-plan.md), the [v2 architecture decisions](docs/adr/0001-v2-foundation.md), and [implementation progress](docs/implementation-progress.md) for the statewide application.
+
 A modern, web-based scoring and leaderboard system for the WSMC Regional Math Contest. Built with SvelteKit, Drizzle ORM, and Cloudflare D1.
 
 ## Features
