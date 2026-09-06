@@ -3,6 +3,6 @@ import { canAdministerUsers } from '$lib/server/auth/capabilities';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
-	if (locals.principal && canAdministerUsers(locals.principal)) throw redirect(303, '/admin/users');
+	if (locals.principal && locals.principal.statewideSeasonIds.length > 0) throw redirect(303, '/program');
 	return { principal: locals.principal };
 };

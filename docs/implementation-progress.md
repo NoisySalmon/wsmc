@@ -6,14 +6,14 @@ and is not used as the v2 status source.
 
 ## Current checkpoint
 
-- **Active phase:** Phase 2 — Passwordless authentication and authorization
+- **Active phase:** Phase 3 — Season, directory, contests, and user administration
 - **Completed:** Initial execution-plan commit; baseline verification; v2
   architecture decisions; prototype D1 confirmed disposable; pure-domain
   Team Contest terminology and qualification rules/tests; v2 schema reset,
   representative seed, local integration checks, and repository scope/rule
   coverage
-- **Next:** Exercise the auth service through a D1-backed runtime fixture;
-  schema-level auth invariants are now covered.
+- **Next:** Add the school directory, contest participation/invitation, and
+  coordinator setup-completeness views on top of the program setup surface.
 
 ## Phase 2 checkpoint
 
@@ -25,18 +25,27 @@ and is not used as the v2 status source.
   statewide-coordinator-only `/admin/users` invitation and access page with
   assignment selection, link/session revocation, disable/enable controls, and
   self-disable protection
-- **Verified:** 58 unit tests, 0 type-check errors, the existing build gate,
+- **Verified:** 61 unit tests, 0 type-check errors, the existing build gate,
   and D1-backed auth schema checks for replay, expiry, disabled users,
   overlapping assignments, and multi-school coaches
-- **Remaining:** Run the auth service itself against a D1-compatible runtime and
-  add endpoint tests for scorekeeper-vs-roster/finalization boundaries as those
-  v2 workflows are introduced
+- **Status:** Phase 2 acceptance is met by the passwordless routes, persisted
+  principal/assignment loading, explicit score/roster/finalization capability
+  boundaries, and server endpoint authorization tests. Workflow-specific
+  scorekeeper tests will land with the scoring routes.
+
+## Phase 3 checkpoint
+
+- **Implemented:** v2 program setup service and `/program` coordinator surface
+  for season creation/status, numbered regions, contest creation, season-region
+  ownership validation, contest dates, and monotonic lifecycle transitions.
+- **Remaining:** School directory, participation/invitation, coach assignment
+  flows, and setup-completeness dashboards.
 
 ## Phase checklist
 
 - [x] Phase 0 — Baseline and v2 contract
 - [x] Phase 1 — V2 schema and persistence foundation
-- [ ] Phase 2 — Passwordless authentication and authorization
+- [x] Phase 2 — Passwordless authentication and authorization
 - [ ] Phase 3 — Season, directory, contests, and user administration
 - [ ] Phase 4 — Mobile regional roster and entries
 - [ ] Phase 5 — CSV roster and entry round trip

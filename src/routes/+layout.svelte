@@ -8,6 +8,7 @@
 
 <nav>
 	<a href="/">WSMC</a>
+	{#if data?.principal?.statewideSeasonIds.length}<a href="/program">Program</a>{/if}
 	{#if data?.principal?.statewideSeasonIds.includes(null)}<a href="/admin/users">Users</a>{/if}
 	{#if data?.principal}<form method="POST" action="/auth/sign-out"><button type="submit">Sign out</button></form>{/if}
 </nav>
