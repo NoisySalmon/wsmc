@@ -125,6 +125,14 @@ export async function revokeUserTokens(db: Database, userId: string, now = Date.
 	await db.update(schema.signInTokens).set({ revokedAt: now }).where(and(eq(schema.signInTokens.userId, userId), isNull(schema.signInTokens.usedAt), isNull(schema.signInTokens.revokedAt)));
 }
 
+export async function setUserStatus(db: Database, userId: string, status: 'pending' | 'active' | 'disabled', now = Date.now()): Promise<void> {
+	await db.update(schema.users).set({ status, updatedAt: now }).where(eq(schema.users.id, userId));
+	if (status === 'disabled') {
+		await revokeUserTokens(db, userId, now);
+		await revokeUserSessions(db, userId, now);
+	}
+}
+
 export async function loadPrincipal(db: Database, sessionId: string | undefined, now = Date.now()): Promise<Principal | null> {
 	if (!sessionId) return null;
 	const [session] = await db.select({ session: schema.sessions, user: schema.users }).from(schema.sessions)

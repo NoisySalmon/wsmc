@@ -12,6 +12,11 @@ export function canCoordinateState(principal: Principal, seasonId: string): bool
 	return principal.statewideSeasonIds.some((assignedSeasonId) => assignedSeasonId === null || assignedSeasonId === seasonId);
 }
 
+/** User administration is reserved for system-wide coordinators. */
+export function canAdministerUsers(principal: Principal): boolean {
+	return principal.statewideSeasonIds.includes(null);
+}
+
 export function canCoordinateRegion(principal: Principal, contestId: string, seasonId?: string): boolean {
 	return (seasonId !== undefined && canCoordinateState(principal, seasonId)) || principal.regionalContestIds.includes(contestId);
 }

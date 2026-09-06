@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sha256 } from './crypto';
-import { AuthError, consumeSignInToken, isSignInTokenUsable, issueSignInToken } from './service';
+import { AuthError, consumeSignInToken, inviteUser, isSignInTokenUsable, issueSignInToken, setUserStatus } from './service';
 
 const base = { revokedAt: null, usedAt: null, expiresAt: 2000 };
 
@@ -43,5 +43,53 @@ describe('sign-in token policy', () => {
 			select: () => ({ from: () => ({ where: async () => [{ id: 'token-1', userId: 'user-1', tokenHash: await sha256(rawToken), purpose: 'sign_in', expiresAt: 2000, usedAt: 1500, revokedAt: null, createdAt: 1000 }] }) }),
 		};
 		await expect(consumeSignInToken(replayDb as never, rawToken, 1600)).rejects.toBeInstanceOf(AuthError);
+	});
+
+	it('disables a user and revokes outstanding access', async () => {
+		const calls: string[] = [];
+		const db = {
+			update: () => ({
+				set: (values: Record<string, unknown>) => {
+					if (values.status === 'disabled') calls.push('disable');
+					return { where: async () => { calls.push('update'); } };
+				},
+			}),
+		};
+		await setUserStatus(db as never, 'user-1', 'disabled', 3000);
+		expect(calls).toEqual(['disable', 'update', 'update', 'update']);
+	});
+
+	it('invites once and preserves multiple assignments without exposing a token', async () => {
+		const inserted: Record<string, unknown>[] = [];
+		const sent: { to: string; url: string }[] = [];
+		const db = {
+			select: () => ({ from: () => ({ where: async () => [] }) }),
+			insert: () => ({
+				values: (values: Record<string, unknown>) => {
+					inserted.push(values);
+					return {
+						returning: async () => [{ ...values }],
+						onConflictDoNothing: async () => undefined,
+					};
+				},
+			}),
+			update: () => ({ set: () => ({ where: async () => undefined }) }),
+		};
+		const provider = { sendSignInLink: async (message: { to: string; url: string }) => { sent.push(message); } };
+		const result = await inviteUser(db as never, provider, {
+			email: ' COACH@Example.COM ',
+			displayName: 'Coach',
+			origin: 'https://wsmc.example',
+			now: 1000,
+			assignments: [
+				{ kind: 'coach', seasonId: 'season-2026', schoolId: 'school-alpha' },
+				{ kind: 'scorekeeper', contestId: 'contest-region-1' },
+			],
+		});
+		expect(result.user.email).toBe('coach@example.com');
+		expect(inserted.filter((row) => row.userId === result.user.id)).toHaveLength(3);
+		expect(sent[0]?.to).toBe('coach@example.com');
+		expect(sent[0]?.url).toBe(`https://wsmc.example/auth/callback/${result.token.rawToken}`);
+		expect(inserted.find((row) => row.purpose === 'invite')?.tokenHash).not.toBe(result.token.rawToken);
 	});
 });

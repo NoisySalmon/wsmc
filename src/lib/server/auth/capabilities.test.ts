@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canAdministerSchool, canCoachSchool, canCoordinateRegion, canCoordinateState, canScoreContest, type Principal } from './capabilities';
+import { canAdministerSchool, canAdministerUsers, canCoachSchool, canCoordinateRegion, canCoordinateState, canScoreContest, type Principal } from './capabilities';
 
 const principal: Principal = {
 	id: 'user-1', email: 'user@example.com', displayName: 'User',
@@ -10,6 +10,8 @@ describe('assignment capabilities', () => {
 	it('recognizes season-scoped statewide coordination', () => {
 		expect(canCoordinateState(principal, 'season-1')).toBe(true);
 		expect(canCoordinateState(principal, 'season-2')).toBe(false);
+		expect(canAdministerUsers(principal)).toBe(false);
+		expect(canAdministerUsers({ ...principal, statewideSeasonIds: [null] })).toBe(true);
 	});
 
 	it('allows scoped regional and scorekeeper access without granting statewide access', () => {

@@ -12,8 +12,8 @@ and is not used as the v2 status source.
   Team Contest terminology and qualification rules/tests; v2 schema reset,
   representative seed, local integration checks, and repository scope/rule
   coverage
-- **Next:** Complete invitation/revocation administration and D1-backed auth
-  flow verification
+- **Next:** Add D1-backed auth-flow verification for replay, expiry, disabled
+  users, overlapping assignments, and multi-school coaches
 
 ## Phase 2 checkpoint
 
@@ -21,11 +21,13 @@ and is not used as the v2 status source.
   links; resend invalidation; long-lived sessions; session/user revocation;
   development and Cloudflare-compatible email adapters; capability checks;
   SvelteKit principal loading; login, callback, and sign-out routes; direct
-  unauthenticated POST rejection; legacy prototype route retirement
-- **Verified:** 52 unit tests, 0 type-check errors, and the existing build gate
-- **Remaining:** Admin invitation/revoke UI and D1-backed auth-flow tests for
-  replay, expiry, disabled users, overlapping assignments, and multi-school
-  coaches
+  unauthenticated POST rejection; legacy prototype route retirement; and a
+  statewide-coordinator-only `/admin/users` invitation and access page with
+  assignment selection, link/session revocation, disable/enable controls, and
+  self-disable protection
+- **Verified:** 54 unit tests, 0 type-check errors, and the existing build gate
+- **Remaining:** D1-backed auth-flow tests for replay, expiry, disabled users,
+  overlapping assignments, and multi-school coaches
 
 ## Phase checklist
 

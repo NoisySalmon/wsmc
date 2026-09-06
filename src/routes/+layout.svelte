@@ -1,5 +1,5 @@
 <script lang="ts">
-	let { children } = $props();
+	let { children, data } = $props();
 </script>
 
 <svelte:head>
@@ -8,7 +8,8 @@
 
 <nav>
 	<a href="/">WSMC</a>
-	<a href="/contests">Contests</a>
+	{#if data?.principal?.statewideSeasonIds.includes(null)}<a href="/admin/users">Users</a>{/if}
+	{#if data?.principal}<form method="POST" action="/auth/sign-out"><button type="submit">Sign out</button></form>{/if}
 </nav>
 
 {@render children()}
@@ -40,4 +41,6 @@
 	nav a:hover {
 		color: #fff;
 	}
+	nav form { margin-left: auto; }
+	nav button { background: transparent; border: 1px solid #777; color: #e0e0e0; border-radius: 4px; padding: 0.35rem 0.6rem; cursor: pointer; }
 </style>
