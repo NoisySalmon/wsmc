@@ -25,7 +25,7 @@ and is not used as the v2 status source.
   statewide-coordinator-only `/admin/users` invitation and access page with
   assignment selection, link/session revocation, disable/enable controls, and
   self-disable protection
-- **Verified:** 70 unit tests, 0 type-check errors, the existing build gate,
+- **Verified:** 77 unit tests, 0 type-check errors, the existing build gate,
   and D1-backed auth schema checks for replay, expiry, disabled users,
   overlapping assignments, and multi-school coaches
 - **Status:** Phase 2 acceptance is met by the passwordless routes, persisted
@@ -51,6 +51,20 @@ and is not used as the v2 status source.
 - **Status:** Phase 3 acceptance is met for coordinator-created season
   structure, regional school/coach invitations, existing-email assignment
   reuse, uncoached-school administration, and setup completeness.
+
+## Phase 4 checkpoint
+
+- **Implemented:** v2 registration service and mobile-first
+  `/registration/[contestId]/[schoolId]` route for annual-student CRUD,
+  explicit contest-roster selection, category entry creation, per-entry team
+  competing grades, membership removal, readiness counts, and coordinator
+  roster reopening with an audited reason.
+- **Implemented:** Server-side lifecycle and contest/school scope checks for
+  team size, playing-up, distinct grades, one-entry-per-category, Topical
+  exclusivity, and Knowdown limits through the existing repository boundary;
+  direct annual-student, roster, and entry POSTs all reject locked contests.
+- **Remaining:** CSV round-trip support, fuller phone-width/browser QA, and
+  end-to-end workflow coverage using seeded D1 runtime data.
 
 ## Phase checklist
 
