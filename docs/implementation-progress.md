@@ -22,7 +22,7 @@ and is not used as the v2 status source.
   development and Cloudflare-compatible email adapters; capability checks;
   SvelteKit principal loading; login, callback, and sign-out routes; direct
   unauthenticated POST rejection; legacy prototype route retirement
-- **Verified:** 47 unit tests, 0 type-check errors, and the existing build gate
+- **Verified:** 52 unit tests, 0 type-check errors, and the existing build gate
 - **Remaining:** Admin invitation/revoke UI and D1-backed auth-flow tests for
   replay, expiry, disabled users, overlapping assignments, and multi-school
   coaches
