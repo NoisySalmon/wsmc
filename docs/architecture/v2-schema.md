@@ -15,7 +15,7 @@ The v2 baseline is implemented in
 | Organizations | `schools` → `school_participations` | Schools persist across seasons; participation carries contest invitation status and annual division. |
 | Authorization | `users` → assignment tables | Assignments are many-to-many and scoped by season, contest, or school; a user can hold overlapping capabilities. |
 | People | `seasons` + `schools` → `annual_students` | Students are fresh per season and belong to one school; actual grade is stored here. |
-| Registration | `school_participations` → `contest_roster_members` | A roster row belongs to one contest participation and one annual student; a student can be rostered once per contest. |
+| Registration | `school_participations` → `contest_roster_members` | A roster row belongs to one contest participation and one annual student; a student can be rostered once per contest. The participation/contest composite foreign key rejects mismatched IDs. |
 | Competition | `contests` → `entries` | Entries belong to one contest, category, kind, division, and optional owner school. A null owner permits state cross-school entries. |
 | Competition | `entries` → `entry_members` | An entry has one or many members; membership is unique per entry/student. Team competing grade is stored on this row. |
 | Competition | `entries` → `results` | Results are one-to-zero-or-one per entry, with one optimistic version and nullable score/parts/placement. Category-specific completeness is a domain rule. |

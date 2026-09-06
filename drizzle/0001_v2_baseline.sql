@@ -82,6 +82,7 @@ CREATE TABLE `contest_roster_members` (
 	PRIMARY KEY(`contest_id`, `annual_student_id`),
 	FOREIGN KEY (`contest_id`) REFERENCES `contests`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`participation_id`) REFERENCES `school_participations`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`participation_id`, `contest_id`) REFERENCES `school_participations`(`id`, `contest_id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`annual_student_id`) REFERENCES `annual_students`(`id`) ON UPDATE no action ON DELETE restrict
 );
 --> statement-breakpoint
@@ -254,6 +255,8 @@ CREATE TABLE `school_participations` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `school_participations_contest_school_uq` ON `school_participations` (`contest_id`,`school_id`);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `school_participations_id_contest_uq` ON `school_participations` (`id`,`contest_id`);
 --> statement-breakpoint
 CREATE INDEX `school_participations_contest_division_idx` ON `school_participations` (`contest_id`,`division`);
 --> statement-breakpoint

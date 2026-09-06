@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { sqliteTable, text, integer, real, index, uniqueIndex, primaryKey, check } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, index, uniqueIndex, primaryKey, check, foreignKey } from 'drizzle-orm/sqlite-core';
 
 const timestamp = () => sql`(unixepoch() * 1000)`;
 
@@ -123,7 +123,7 @@ export const schoolParticipations = sqliteTable('school_participations', {
 	invitationStatus: text('invitation_status', { enum: ['pending', 'invited', 'accepted', 'declined'] }).notNull().default('pending'),
 	createdAt: integer('created_at').notNull().default(timestamp()),
 	updatedAt: integer('updated_at').notNull().default(timestamp()),
-}, (table) => [uniqueIndex('school_participations_contest_school_uq').on(table.contestId, table.schoolId), index('school_participations_contest_division_idx').on(table.contestId, table.division), check('school_participations_division_check', sql`${table.division} IN (1, 2)`)]);
+}, (table) => [uniqueIndex('school_participations_contest_school_uq').on(table.contestId, table.schoolId), uniqueIndex('school_participations_id_contest_uq').on(table.id, table.contestId), index('school_participations_contest_division_idx').on(table.contestId, table.division), check('school_participations_division_check', sql`${table.division} IN (1, 2)`)]);
 
 // ── Annual people and contest roster ─────────────────────
 export const annualStudents = sqliteTable('annual_students', {
@@ -141,7 +141,11 @@ export const contestRosterMembers = sqliteTable('contest_roster_members', {
 	participationId: text('participation_id').notNull().references(() => schoolParticipations.id, { onDelete: 'cascade' }),
 	annualStudentId: text('annual_student_id').notNull().references(() => annualStudents.id, { onDelete: 'restrict' }),
 	createdAt: integer('created_at').notNull().default(timestamp()),
-}, (table) => [primaryKey({ columns: [table.contestId, table.annualStudentId] }), index('contest_roster_participation_idx').on(table.participationId)]);
+}, (table) => [
+	primaryKey({ columns: [table.contestId, table.annualStudentId] }),
+	index('contest_roster_participation_idx').on(table.participationId),
+	foreignKey({ columns: [table.participationId, table.contestId], foreignColumns: [schoolParticipations.id, schoolParticipations.contestId], name: 'contest_roster_participation_contest_fk' }),
+]);
 
 // ── Competition ──────────────────────────────────────────
 export const entries = sqliteTable('entries', {

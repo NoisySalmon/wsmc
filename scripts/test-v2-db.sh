@@ -27,6 +27,11 @@ if sqlite3 "$database_path" "INSERT INTO entry_members (entry_id, annual_student
 	 exit 1
 fi
 
+if sqlite3 "$database_path" "INSERT INTO contest_roster_members (contest_id, participation_id, annual_student_id) VALUES ('contest-region-2', 'participation-r1-alpha', 'student-gamma-12');" 2>/dev/null; then
+	 echo "cross-contest roster participation was accepted" >&2
+	 exit 1
+fi
+
 if sqlite3 "$database_path" "INSERT INTO contests (id, season_id, region_id, kind, name) VALUES ('second-state', 'season-2026', NULL, 'state', 'Second State Contest');" 2>/dev/null; then
 	 echo "second state contest was accepted for one season" >&2
 	 exit 1
