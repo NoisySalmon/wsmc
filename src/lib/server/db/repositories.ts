@@ -14,6 +14,60 @@ type EntryCategory = 'project' | 'team_contest' | 'topical_team' | 'topical_indi
 
 const teamCategories = new Set<EntryCategory>(['project', 'team_contest', 'topical_team']);
 
+export type EntryMembershipValidationInput = {
+	category: EntryCategory;
+	entryKind: 'team' | 'individual';
+	actualGrade: number;
+	competingGrade: number | null;
+	existingMemberGrades: (number | null)[];
+	existingEntryCategories: EntryCategory[];
+};
+
+/** Pure validation shared by the persistence boundary and its tests. */
+export function validateEntryMembership(input: EntryMembershipValidationInput): PersistenceRuleError[] {
+	const errors: PersistenceRuleError[] = [];
+	const expectedKind = teamCategories.has(input.category) ? 'team' : 'individual';
+	if (input.entryKind !== expectedKind) {
+		errors.push(new PersistenceRuleError('entry_kind_mismatch', `${input.category} entries must be ${expectedKind} entries.`));
+		return errors;
+	}
+
+	if (input.entryKind === 'team') {
+		if (input.competingGrade === null) {
+			errors.push(new PersistenceRuleError('competing_grade_required', 'Team members must declare a competing grade for this entry.'));
+		} else {
+			const playUpError = validatePlayUp(input.actualGrade, input.competingGrade);
+			if (playUpError) errors.push(new PersistenceRuleError('playing_down', playUpError));
+			if (input.existingMemberGrades.length >= 3) {
+				errors.push(new PersistenceRuleError('team_too_large', 'A team may have at most 3 members.'));
+			}
+			if (input.existingMemberGrades.some((grade) => grade === input.competingGrade)) {
+				errors.push(new PersistenceRuleError('duplicate_competing_grade', 'Team members must have distinct competing grades.'));
+			}
+		}
+	} else if (input.competingGrade !== null) {
+		errors.push(new PersistenceRuleError('individual_grade_forbidden', 'Individual entries do not store a competing grade.'));
+	}
+
+	if (input.existingEntryCategories.some((category) => category === input.category)) {
+		errors.push(new PersistenceRuleError('duplicate_category_entry', 'A student may be in at most one entry in a category.'));
+	}
+	if (input.category === 'topical_team' && input.existingEntryCategories.includes('topical_individual')) {
+		errors.push(new PersistenceRuleError('topical_exclusivity', 'A student cannot compete in both Topical Team and Topical Individual.'));
+	}
+	if (input.category === 'topical_individual' && input.existingEntryCategories.includes('topical_team')) {
+		errors.push(new PersistenceRuleError('topical_exclusivity', 'A student cannot compete in both Topical Team and Topical Individual.'));
+	}
+	return errors;
+}
+
+export function assertContestScope<T extends { contestId: string }>(row: T | undefined, contestId: string): T {
+	if (!row || row.contestId !== contestId) {
+		throw new PersistenceRuleError('entry_out_of_scope', 'Record does not belong to this contest.');
+	}
+	return row;
+}
+
 function newId(): string {
 	return crypto.randomUUID();
 }
@@ -25,11 +79,8 @@ async function requireContest(db: Database, contestId: string) {
 }
 
 async function requireEntryInContest(db: Database, contestId: string, entryId: string) {
-	const [entry] = await db.select().from(schema.entries).where(
-		and(eq(schema.entries.id, entryId), eq(schema.entries.contestId, contestId)),
-	);
-	if (!entry) throw new PersistenceRuleError('entry_out_of_scope', 'Entry does not belong to this contest.');
-	return entry;
+	const [entry] = await db.select().from(schema.entries).where(eq(schema.entries.id, entryId));
+	return assertContestScope(entry, contestId);
 }
 
 async function requireStudentForSeason(db: Database, seasonId: string, annualStudentId: string) {
@@ -97,31 +148,19 @@ export async function addEntryMember(
 	}
 
 	const competingGrade = input.competingGrade ?? null;
-	if (entry.entryKind === 'team') {
-		if (competingGrade === null) throw new PersistenceRuleError('competing_grade_required', 'Team members must declare a competing grade for this entry.');
-		const playUpError = validatePlayUp(student.actualGrade, competingGrade);
-		if (playUpError) throw new PersistenceRuleError('playing_down', playUpError);
-		const existingMembers = await db.select().from(schema.entryMembers).where(eq(schema.entryMembers.entryId, entry.id));
-		if (existingMembers.length >= 3) throw new PersistenceRuleError('team_too_large', 'A team may have at most 3 members.');
-		if (existingMembers.some((member) => member.competingGrade === competingGrade)) {
-			throw new PersistenceRuleError('duplicate_competing_grade', 'Team members must have distinct competing grades.');
-		}
-	} else if (competingGrade !== null) {
-		throw new PersistenceRuleError('individual_grade_forbidden', 'Individual entries do not store a competing grade.');
-	}
-
 	const existingEntries = await db.select({ entry: schema.entries, member: schema.entryMembers }).from(schema.entryMembers)
 		.innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId))
 		.where(and(eq(schema.entries.contestId, input.contestId), eq(schema.entryMembers.annualStudentId, input.annualStudentId)));
-	if (existingEntries.some(({ entry: existing }) => existing.category === entry.category)) {
-		throw new PersistenceRuleError('duplicate_category_entry', 'A student may be in at most one entry in a category.');
-	}
-	if (entry.category === 'topical_team' && existingEntries.some(({ entry: existing }) => existing.category === 'topical_individual')) {
-		throw new PersistenceRuleError('topical_exclusivity', 'A student cannot compete in both Topical Team and Topical Individual.');
-	}
-	if (entry.category === 'topical_individual' && existingEntries.some(({ entry: existing }) => existing.category === 'topical_team')) {
-		throw new PersistenceRuleError('topical_exclusivity', 'A student cannot compete in both Topical Team and Topical Individual.');
-	}
+	const existingMembers = await db.select().from(schema.entryMembers).where(eq(schema.entryMembers.entryId, entry.id));
+	const errors = validateEntryMembership({
+		category: entry.category,
+		entryKind: entry.entryKind,
+		actualGrade: student.actualGrade,
+		competingGrade,
+		existingMemberGrades: existingMembers.map((member) => member.competingGrade),
+		existingEntryCategories: existingEntries.map(({ entry: existing }) => existing.category),
+	});
+	if (errors.length > 0) throw errors[0];
 
 	return db.insert(schema.entryMembers).values({ entryId: entry.id, annualStudentId: student.id, competingGrade }).returning();
 }

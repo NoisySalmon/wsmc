@@ -102,6 +102,8 @@ CREATE TABLE `contests` (
 	`updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	FOREIGN KEY (`season_id`) REFERENCES `seasons`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`region_id`) REFERENCES `regions`(`id`) ON UPDATE no action ON DELETE cascade,
+	CONSTRAINT "contests_kind_check" CHECK("contests"."kind" IN ('regional', 'state')),
+	CONSTRAINT "contests_lifecycle_check" CHECK("contests"."lifecycle" IN ('setup', 'registration_open', 'roster_locked', 'scoring', 'finalized')),
 	CONSTRAINT "contests_state_region_check" CHECK(("contests"."kind" = 'state' AND "contests"."region_id" IS NULL) OR ("contests"."kind" = 'regional' AND "contests"."region_id" IS NOT NULL))
 );
 --> statement-breakpoint
@@ -123,7 +125,9 @@ CREATE TABLE `entries` (
 	`updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	FOREIGN KEY (`contest_id`) REFERENCES `contests`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`owner_school_id`) REFERENCES `schools`(`id`) ON UPDATE no action ON DELETE restrict,
-	CONSTRAINT "entries_division_check" CHECK("entries"."division" IN (1, 2))
+	CONSTRAINT "entries_division_check" CHECK("entries"."division" IN (1, 2)),
+	CONSTRAINT "entries_category_check" CHECK("entries"."category" IN ('project', 'team_contest', 'topical_team', 'topical_individual', 'knowdown')),
+	CONSTRAINT "entries_kind_check" CHECK("entries"."entry_kind" IN ('team', 'individual'))
 );
 --> statement-breakpoint
 CREATE INDEX `entries_contest_category_division_idx` ON `entries` (`contest_id`,`category`,`division`);
@@ -251,7 +255,8 @@ CREATE TABLE `school_participations` (
 	`updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	FOREIGN KEY (`contest_id`) REFERENCES `contests`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`school_id`) REFERENCES `schools`(`id`) ON UPDATE no action ON DELETE restrict,
-	CONSTRAINT "school_participations_division_check" CHECK("school_participations"."division" IN (1, 2))
+	CONSTRAINT "school_participations_division_check" CHECK("school_participations"."division" IN (1, 2)),
+	CONSTRAINT "school_participations_invitation_status_check" CHECK("school_participations"."invitation_status" IN ('pending', 'invited', 'accepted', 'declined'))
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `school_participations_contest_school_uq` ON `school_participations` (`contest_id`,`school_id`);

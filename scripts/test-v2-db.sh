@@ -37,6 +37,11 @@ if sqlite3 "$database_path" "INSERT INTO contests (id, season_id, region_id, kin
 	 exit 1
 fi
 
+if sqlite3 "$database_path" "INSERT INTO contests (id, season_id, region_id, kind, name, lifecycle) VALUES ('invalid-lifecycle', 'season-2026', NULL, 'state', 'Invalid Lifecycle', 'not-a-lifecycle');" 2>/dev/null; then
+	 echo "invalid contest lifecycle was accepted" >&2
+	 exit 1
+fi
+
 sqlite3 "$database_path" "UPDATE schools SET active = 0 WHERE id = 'school-beta';"
 archived="$(sqlite3 -noheader "$database_path" "SELECT active FROM schools WHERE id = 'school-beta';")"
 [[ "$archived" == "0" ]] || { echo "school archive state was not persisted" >&2; exit 1; }

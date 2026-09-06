@@ -66,6 +66,8 @@ export const contests = sqliteTable('contests', {
 	uniqueIndex('contests_season_region_kind_uq').on(table.seasonId, table.regionId, table.kind),
 	uniqueIndex('contests_season_state_uq').on(table.seasonId).where(sql`${table.kind} = 'state'`),
 	index('contests_season_lifecycle_idx').on(table.seasonId, table.lifecycle),
+	check('contests_kind_check', sql`${table.kind} IN ('regional', 'state')`),
+	check('contests_lifecycle_check', sql`${table.lifecycle} IN ('setup', 'registration_open', 'roster_locked', 'scoring', 'finalized')`),
 	check('contests_state_region_check', sql`(${table.kind} = 'state' AND ${table.regionId} IS NULL) OR (${table.kind} = 'regional' AND ${table.regionId} IS NOT NULL)`),
 ]);
 
@@ -123,7 +125,7 @@ export const schoolParticipations = sqliteTable('school_participations', {
 	invitationStatus: text('invitation_status', { enum: ['pending', 'invited', 'accepted', 'declined'] }).notNull().default('pending'),
 	createdAt: integer('created_at').notNull().default(timestamp()),
 	updatedAt: integer('updated_at').notNull().default(timestamp()),
-}, (table) => [uniqueIndex('school_participations_contest_school_uq').on(table.contestId, table.schoolId), uniqueIndex('school_participations_id_contest_uq').on(table.id, table.contestId), index('school_participations_contest_division_idx').on(table.contestId, table.division), check('school_participations_division_check', sql`${table.division} IN (1, 2)`)]);
+}, (table) => [uniqueIndex('school_participations_contest_school_uq').on(table.contestId, table.schoolId), uniqueIndex('school_participations_id_contest_uq').on(table.id, table.contestId), index('school_participations_contest_division_idx').on(table.contestId, table.division), check('school_participations_division_check', sql`${table.division} IN (1, 2)`), check('school_participations_invitation_status_check', sql`${table.invitationStatus} IN ('pending', 'invited', 'accepted', 'declined')`)]);
 
 // ── Annual people and contest roster ─────────────────────
 export const annualStudents = sqliteTable('annual_students', {
@@ -158,7 +160,7 @@ export const entries = sqliteTable('entries', {
 	division: integer('division').notNull(),
 	createdAt: integer('created_at').notNull().default(timestamp()),
 	updatedAt: integer('updated_at').notNull().default(timestamp()),
-}, (table) => [index('entries_contest_category_division_idx').on(table.contestId, table.category, table.division), uniqueIndex('entries_contest_category_owner_number_uq').on(table.contestId, table.category, table.ownerSchoolId, table.entryNumber), check('entries_division_check', sql`${table.division} IN (1, 2)`)]);
+}, (table) => [index('entries_contest_category_division_idx').on(table.contestId, table.category, table.division), uniqueIndex('entries_contest_category_owner_number_uq').on(table.contestId, table.category, table.ownerSchoolId, table.entryNumber), check('entries_division_check', sql`${table.division} IN (1, 2)`), check('entries_category_check', sql`${table.category} IN ('project', 'team_contest', 'topical_team', 'topical_individual', 'knowdown')`), check('entries_kind_check', sql`${table.entryKind} IN ('team', 'individual')`)]);
 
 export const entryMembers = sqliteTable('entry_members', {
 	entryId: text('entry_id').notNull().references(() => entries.id, { onDelete: 'cascade' }),
