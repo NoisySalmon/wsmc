@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canAdministerSchool, canAdministerUsers, canCoachSchool, canCoordinateRegion, canCoordinateState, canScoreContest, type Principal } from './capabilities';
+import { canAdministerSchool, canAdministerUsers, canCoachSchool, canCoordinateRegion, canCoordinateState, canEditRoster, canFinalizeContest, canScoreContest, type Principal } from './capabilities';
 
 const principal: Principal = {
 	id: 'user-1', email: 'user@example.com', displayName: 'User',
@@ -18,12 +18,16 @@ describe('assignment capabilities', () => {
 		expect(canCoordinateRegion(principal, 'contest-2', 'season-2')).toBe(true);
 		expect(canScoreContest(principal, 'contest-3', 'season-2')).toBe(true);
 		expect(canScoreContest(principal, 'contest-4', 'season-2')).toBe(false);
+		expect(canFinalizeContest(principal, 'contest-3', 'season-2')).toBe(false);
+		expect(canScoreContest({ ...principal, statewideSeasonIds: [], regionalContestIds: [], scorekeeperContestIds: ['contest-3'] }, 'contest-3', 'season-2')).toBe(true);
+		expect(canFinalizeContest({ ...principal, statewideSeasonIds: [], regionalContestIds: [], scorekeeperContestIds: ['contest-3'] }, 'contest-3', 'season-2')).toBe(false);
 	});
 
 	it('supports a coach assigned to a school', () => {
 		expect(canCoachSchool(principal, 'school-1')).toBe(true);
 		expect(canCoachSchool({ ...principal, coachedSchoolIds: ['school-1', 'school-2'] }, 'school-2')).toBe(true);
 		expect(canAdministerSchool(principal, 'contest-4', 'school-1', 'season-2')).toBe(true);
+		expect(canEditRoster(principal, 'contest-4', 'school-1', 'season-2')).toBe(true);
 		expect(canAdministerSchool(principal, 'contest-4', 'school-2', 'season-2')).toBe(false);
 	});
 });

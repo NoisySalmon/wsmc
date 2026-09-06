@@ -34,3 +34,11 @@ export function canScoreContest(principal: Principal, contestId: string, seasonI
 export function canAdministerSchool(principal: Principal, contestId: string, schoolId: string, seasonId?: string): boolean {
 	return (seasonId !== undefined && canCoordinateRegion(principal, contestId, seasonId)) || canCoachSchool(principal, schoolId);
 }
+
+export function canEditRoster(principal: Principal, contestId: string, schoolId: string, seasonId?: string): boolean {
+	return canAdministerSchool(principal, contestId, schoolId, seasonId);
+}
+
+export function canFinalizeContest(principal: Principal, contestId: string, seasonId?: string): boolean {
+	return seasonId !== undefined && canCoordinateRegion(principal, contestId, seasonId);
+}

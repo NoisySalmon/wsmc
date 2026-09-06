@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sha256 } from './crypto';
-import { AuthError, consumeSignInToken, inviteUser, isSignInTokenUsable, issueSignInToken, setUserStatus } from './service';
+import { AuthError, consumeSignInToken, inviteUser, isSignInTokenUsable, issueSignInToken, loadPrincipal, setUserStatus } from './service';
 
 const base = { revokedAt: null, usedAt: null, expiresAt: 2000 };
 
@@ -107,5 +107,29 @@ describe('sign-in token policy', () => {
 		expect(sent[0]?.to).toBe('coach@example.com');
 		expect(sent[0]?.url).toBe(`https://wsmc.example/auth/callback/${result.token.rawToken}`);
 		expect(inserted.find((row) => row.purpose === 'invite')?.tokenHash).not.toBe(result.token.rawToken);
+	});
+
+	it('loads overlapping and multi-school assignments into one principal', async () => {
+		const rows = [
+			[{ session: { id: 'session-1' }, user: { id: 'user-1', email: 'coach@example.com', displayName: 'Coach' } }],
+			[{ seasonId: null }, { seasonId: 'season-2026' }],
+			[{ contestId: 'contest-region-1' }],
+			[{ schoolId: 'school-alpha' }, { schoolId: 'school-beta' }],
+			[{ contestId: 'contest-region-1' }],
+		];
+		const db = {
+			select: () => ({
+				from: () => ({
+					innerJoin: () => ({ where: async () => rows.shift() ?? [] }),
+					where: async () => rows.shift() ?? [],
+				}),
+			}),
+			update: () => ({ set: () => ({ where: async () => undefined }) }),
+		};
+		const principal = await loadPrincipal(db as never, 'session-1', 1000);
+		expect(principal?.statewideSeasonIds).toEqual([null, 'season-2026']);
+		expect(principal?.regionalContestIds).toEqual(['contest-region-1']);
+		expect(principal?.coachedSchoolIds).toEqual(['school-alpha', 'school-beta']);
+		expect(principal?.scorekeeperContestIds).toEqual(['contest-region-1']);
 	});
 });
