@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { handle, handleError, isPublishedStateResultsPath } from './hooks.server';
+import { diagnosticPathname, handle, handleError, isPublishedStateResultsPath } from './hooks.server';
 
 function eventFor(path: string, method = 'GET') {
 	return {
@@ -42,8 +42,10 @@ describe('server authentication guard', () => {
 			const result = handleError({ event: eventFor('/state/state-1/results?token=do-not-log'), status: 500 } as never) as App.Error;
 			expect(result.message).toBe('Unexpected server error.');
 			expect(lines).toHaveLength(1);
-			expect(lines[0]).not.toContain('do-not-log');
+		expect(lines[0]).not.toContain('do-not-log');
 			expect(lines[0]).toContain('request_error');
+			expect(diagnosticPathname('/auth/callback/raw-token-must-not-appear')).toBe('/auth/callback/[redacted]');
+			expect(diagnosticPathname('/state/state-1/results')).toBe('/state/state-1/results');
 		} finally {
 			console.error = original;
 		}

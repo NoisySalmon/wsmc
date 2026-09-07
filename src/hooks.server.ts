@@ -6,6 +6,7 @@ import type { Handle, HandleServerError } from '@sveltejs/kit';
 const publicPaths = ['/login', '/auth/callback', '/robots.txt'];
 
 export const isPublishedStateResultsPath = (pathname: string) => /^\/state\/[^/]+\/results\/?$/.test(pathname);
+export const diagnosticPathname = (pathname: string) => /^\/auth\/callback\/[^/]+\/?$/.test(pathname) ? '/auth/callback/[redacted]' : pathname;
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const sessionId = event.cookies.get(SESSION_COOKIE) ?? null;
@@ -33,7 +34,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 export const handleError: HandleServerError = ({ event, status, message }) => {
 	const requestId = event.request.headers.get('cf-ray') || crypto.randomUUID();
 	if (status >= 500) {
-		console.error(JSON.stringify({ source: 'wsmc', event: 'request_error', requestId, status, method: event.request.method, path: event.url.pathname }));
+		console.error(JSON.stringify({ source: 'wsmc', event: 'request_error', requestId, status, method: event.request.method, path: diagnosticPathname(event.url.pathname) }));
 	}
 	return { message: status >= 500 ? 'Unexpected server error.' : message, requestId };
 };

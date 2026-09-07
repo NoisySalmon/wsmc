@@ -199,8 +199,8 @@ and is not used as the v2 status source.
   qualification sources, team-berth administration, and other schools’ roster
   data are excluded from coach payloads.
 - **Implemented:** Safe structured server-error diagnostics include a request
-  identifier, HTTP status, method, and pathname without query strings, token
-  values, roster contents, or raw exception messages.
+  identifier, HTTP status, and a redacted pathname without query strings,
+  callback token values, roster contents, or raw exception messages.
 - **Implemented:** A CI journey contract covers regional ranking and
   qualification handoff, cutoff eligibility, mixed state ranking, overlapping
   assignments, and scorekeeper/finalization boundaries.
