@@ -3,6 +3,8 @@
 	let categoryFilter = $state('all');
 	let divisionFilter = $state('all');
 	let missingOnly = $state(false);
+	type ScoreCsvForm = { scoreCsvSummary?: { rows: unknown[]; updatedRows: number; clearedRows: number }; scoreCsvErrors?: { rowNumber: number; field: string; message: string }[] };
+	let scoreCsvForm = $derived(form as ScoreCsvForm | null | undefined);
 
 	const labels: Record<string, string> = {
 		project: 'Project', team_contest: 'Team Contest', topical_team: 'Topical Team', topical_individual: 'Topical Individual', knowdown: 'Knowdown'
@@ -69,6 +71,11 @@
 			{#if data.contest.lifecycle === 'finalized'}<form method="POST" action="?/publish"><button type="submit">{data.contest.resultsPublishedAt ? 'Republish results' : 'Publish results'}</button></form><form method="POST" action="?/reopen"><label>Reason to reopen <textarea name="reason" required></textarea></label><button class="quiet" type="submit">Reopen for correction</button></form>{/if}
 		</section>
 	{/if}
+
+	<section class="csv"><h2>Score CSV round trip</h2><p>Download the prefilled contest template, edit numeric scores, preview the complete file, then import it atomically. The version column rejects stale spreadsheets.</p><p><a href="/scoring/{data.contest.id}/csv">Download score CSV</a></p><div class="csv-forms">
+		<form method="POST" action="?/previewCsv" enctype="multipart/form-data"><label>CSV file to preview <input type="file" name="file" accept=".csv,text/csv" required /></label><button type="submit">Preview CSV</button></form>
+		<form method="POST" action="?/importCsv" enctype="multipart/form-data"><label>CSV file to import <input type="file" name="file" accept=".csv,text/csv" required /></label><button type="submit" disabled={data.contest.lifecycle !== 'scoring'}>Import CSV</button></form>
+	</div>{#if scoreCsvForm?.scoreCsvSummary}<p class="success">{scoreCsvForm.scoreCsvSummary.rows.length} rows · {scoreCsvForm.scoreCsvSummary.updatedRows} changed · {scoreCsvForm.scoreCsvSummary.clearedRows} cleared.</p>{/if}{#if scoreCsvForm?.scoreCsvErrors?.length}<ul class="csv-errors">{#each scoreCsvForm.scoreCsvErrors as csvError}<li>Row {csvError.rowNumber}, {csvError.field}: {csvError.message}</li>{/each}</ul>{/if}</section>
 </main>
 
 <style>
@@ -83,5 +90,7 @@
 	.score-card form { display: flex; flex-wrap: wrap; align-items: end; gap: .7rem; margin-top: .7rem; } .score-card form label { min-width: 8rem; } output { padding-bottom: .7rem; } button { min-height: 2.75rem; padding: .55rem .8rem; border: 0; border-radius: 4px; background: #1a1a2e; color: white; cursor: pointer; } button:disabled { opacity: .5; cursor: not-allowed; } button.quiet { background: #555; }
 	.editor { display: block; margin-top: .6rem; } .error, .success { padding: .7rem; border-radius: 5px; } .error { background: #fbe3e3; color: #9a2020; } .success { background: #e2f5e8; color: #176b35; } .empty { color: #666; }
 	.controls form { margin: .8rem 0; } .controls textarea { display: block; width: min(100%, 30rem); margin: .3rem 0; }
+	.csv-forms { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; } .csv-forms form { display: grid; gap: .6rem; padding: .8rem; border: 1px solid #ddd; border-radius: 6px; } .csv-errors { padding-left: 1.2rem; color: #9a2020; }
 	@media (max-width: 620px) { .score-card header { align-items: flex-start; flex-direction: column; } .score-card form { align-items: stretch; flex-direction: column; } .score-card form label { min-width: 0; } .score-card button { width: 100%; } }
+	@media (max-width: 620px) { .csv-forms { grid-template-columns: 1fr; } }
 </style>

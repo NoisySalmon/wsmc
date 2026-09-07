@@ -14,7 +14,9 @@ and is not used as the v2 status source.
   coverage; shared v2 score validation and versioned result persistence; the
   first authorized scoring surface with filters, missing indicators,
   per-result editor/version metadata, finalization completeness reporting,
-  separate reopen/publish controls, and score-change/lifecycle audit events
+  separate reopen/publish controls, and score-change/lifecycle audit events;
+  versioned score CSV export, preview, stale-version validation, and atomic
+  import with operation/audit records
 - **Next:** Complete score CSV round trip and regional result workflows.
 
 ## Phase 2 checkpoint
@@ -106,12 +108,15 @@ and is not used as the v2 status source.
 - **Implemented:** Coordinator-only finalization requires a complete report;
   reopening requires a reason and clears publication; publication is a
   separate action. Score saves and lifecycle changes append audit events.
-- **Verified:** 86 unit tests, 0 type-check errors, a clean production build,
+- **Verified:** 89 unit tests, 0 type-check errors, a clean production build,
   and the seeded worker at 390px with no horizontal overflow and accessible
   names for all scoring controls. Existing prototype warnings remain
   isolated to retired score/leaderboard pages.
-- **Next:** Add versioned score CSV export/preview/import and server-tested
-  regional rankings with competition ties.
+- **Verified:** 89 unit tests, 0 type-check errors, a clean production build,
+  seeded-worker score CSV download, and preview of the exported file with no
+  writes. The browser path remains within 390px at phone width.
+- **Next:** Add server-tested regional rankings with competition ties and
+  connect published regional results to a dedicated results view.
 
 ## Phase checklist
 

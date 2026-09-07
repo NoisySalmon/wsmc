@@ -2,6 +2,7 @@ import { error, fail } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { canFinalizeContest, canScoreContest } from '$lib/server/auth/capabilities';
 import { getDb, schema } from '$lib/server/db';
+import { importScoreCsv, previewScoreCsv, ScoreCsvValidationError } from '$lib/server/scoring/csv-service';
 import { finalizeContest, getFinalizationReport, getScoringSnapshot, publishContestResults, reopenContest, saveContestResult, ScoringError } from '$lib/server/scoring/service';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -23,6 +24,19 @@ function expectedVersion(data: FormData): number | undefined {
 function scoringFailure(cause: unknown) {
 	if (cause instanceof ScoringError && cause.code === 'stale_result') return fail(409, { error: cause.message });
 	return fail(400, { error: cause instanceof ScoringError ? cause.message : 'Score change could not be saved.' });
+}
+
+async function csvText(request: Request): Promise<string> {
+	const data = await request.formData();
+	const file = data.get('file');
+	if (!(file instanceof File) || file.size === 0) throw error(400, 'Choose a score CSV file to upload.');
+	if (file.size > 1_000_000) throw error(400, 'CSV files must be smaller than 1 MB.');
+	return file.text();
+}
+
+function csvFailure(cause: unknown) {
+	if (cause instanceof ScoreCsvValidationError) return fail(400, { error: cause.message, scoreCsvErrors: cause.preview.errors.slice(0, 20), scoreCsvSummary: cause.preview });
+	return fail(400, { error: cause instanceof Error ? cause.message : 'Score CSV could not be processed.' });
 }
 
 export const load: PageServerLoad = async ({ locals, platform, params }) => {
@@ -55,6 +69,33 @@ export const actions: Actions = {
 		} catch (cause) {
 			if (cause instanceof Response) throw cause;
 			return scoringFailure(cause);
+		}
+	},
+	previewCsv: async ({ locals, platform, params, request }) => {
+		if (!locals.principal) throw error(401, 'Sign in required.');
+		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+		const db = getDb(platform.env.DB);
+		try {
+			const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, params.contestId));
+			if (!contest || !canScoreContest(locals.principal, params.contestId, contest.seasonId)) throw error(403, 'You cannot score this contest.');
+			return { scoreCsvSummary: await previewScoreCsv(db, params.contestId, await csvText(request)), success: 'Preview generated. No changes have been saved.' };
+		} catch (cause) {
+			if (cause instanceof Response) throw cause;
+			return csvFailure(cause);
+		}
+	},
+	importCsv: async ({ locals, platform, params, request }) => {
+		if (!locals.principal) throw error(401, 'Sign in required.');
+		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+		const db = getDb(platform.env.DB);
+		try {
+			const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, params.contestId));
+			if (!contest || !canScoreContest(locals.principal, params.contestId, contest.seasonId)) throw error(403, 'You cannot score this contest.');
+			const preview = await importScoreCsv(db, { contestId: params.contestId, actorUserId: locals.principal.id, text: await csvText(request) });
+			return { scoreCsvSummary: preview, success: `Imported ${preview.rows.length} score rows atomically.` };
+		} catch (cause) {
+			if (cause instanceof Response) throw cause;
+			return csvFailure(cause);
 		}
 	},
 	finalize: async ({ locals, platform, params, request }) => {
