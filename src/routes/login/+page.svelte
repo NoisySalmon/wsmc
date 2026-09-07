@@ -13,8 +13,8 @@
 		<input type="hidden" name="next" value={data.next} />
 		<button type="submit">Email me a sign-in link</button>
 	</form>
-	{#if form?.error}<p class="error">{form.error}</p>{/if}
-	{#if form?.success}<p class="success">{form.message}</p>{/if}
+	{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
+	{#if form?.success}<p class="success" role="status">{form.message}</p>{/if}
 </main>
 
 <style>

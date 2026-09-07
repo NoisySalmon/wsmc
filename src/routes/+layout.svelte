@@ -40,7 +40,7 @@
 	}
 	.skip-link:focus { top: 1rem; }
 	:global(a:focus-visible), :global(button:focus-visible), :global(input:focus-visible), :global(select:focus-visible), :global(textarea:focus-visible) {
-		outline: 3px solid #e0a400;
+		outline: 3px solid #e05a00;
 		outline-offset: 2px;
 	}
 	nav {

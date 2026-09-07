@@ -41,7 +41,7 @@
 	<section class="filters" aria-label="Score filters">
 		<label>Category <select bind:value={categoryFilter}><option value="all">All categories</option>{#each Object.entries(labels) as [value, name]}<option {value}>{name}</option>{/each}</select></label>
 		<label>Division <select bind:value={divisionFilter}><option value="all">All divisions</option><option value="1">Division 1</option><option value="2">Division 2</option></select></label>
-		<label class="checkbox"><input type="checkbox" bind:checked={missingOnly} /> Missing only</label>
+		<label class="checkbox"><input aria-label="Missing only" type="checkbox" bind:checked={missingOnly} /> Missing only</label>
 	</section>
 
 	<section class="score-list" aria-label="Score entry table">
@@ -90,7 +90,7 @@
 	.score-card form { display: flex; flex-wrap: wrap; align-items: end; gap: .7rem; margin-top: .7rem; } .score-card form label { min-width: 8rem; } output { padding-bottom: .7rem; } button { min-height: 2.75rem; padding: .55rem .8rem; border: 0; border-radius: 4px; background: #1a1a2e; color: white; cursor: pointer; } button:disabled { opacity: .5; cursor: not-allowed; } button.quiet { background: #555; }
 	.editor { display: block; margin-top: .6rem; } .error, .success { padding: .7rem; border-radius: 5px; } .error { background: #fbe3e3; color: #9a2020; } .success { background: #e2f5e8; color: #176b35; } .empty { color: #666; }
 	.controls form { margin: .8rem 0; } .controls textarea { display: block; width: min(100%, 30rem); margin: .3rem 0; }
-	.csv-forms { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; } .csv-forms form { display: grid; gap: .6rem; padding: .8rem; border: 1px solid #ddd; border-radius: 6px; } .csv-errors { padding-left: 1.2rem; color: #9a2020; }
+	.csv-forms { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; } .csv-forms form { display: grid; min-width: 0; gap: .6rem; padding: .8rem; border: 1px solid #ddd; border-radius: 6px; } input[type="file"] { max-width: 100%; } .csv-errors { padding-left: 1.2rem; color: #9a2020; }
 	@media (max-width: 620px) { .score-card header { align-items: flex-start; flex-direction: column; } .score-card form { align-items: stretch; flex-direction: column; } .score-card form label { min-width: 0; } .score-card button { width: 100%; } }
 	@media (max-width: 620px) { .csv-forms { grid-template-columns: 1fr; } }
 </style>

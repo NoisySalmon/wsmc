@@ -232,6 +232,14 @@ and is not used as the v2 status source.
 - **Implemented:** Contest lifecycle mutations now require the contest’s
   stored season scope, and regional coach-assignment mutations are limited to
   schools participating in contests that coordinator actually manages.
+- **Implemented:** The disposable `npm run rehearsal` command scales a local
+  fixture to 24 schools and 240 annual students, verifies the regional-to-state
+  handoff, provisions two scorekeepers, tests stale-version rejection, and
+  exercises coordinator recovery.
+- **Implemented:** The primary-flow accessibility review is recorded in
+  [accessibility-review.md](operations/accessibility-review.md), including
+  mobile overflow, accessible names, landmarks, feedback semantics, focus
+  contrast, empty states, and the published public leaderboard.
 - **Verified:** 116 unit tests now include access-scope, exact public-route,
   safe-diagnostic, and journey coverage. Full type-check, build, and D1
   integration gates remain
@@ -247,6 +255,14 @@ and is not used as the v2 status source.
 - **Verified:** The mobile review caught and fixed intrinsic-width overflow on
   the qualification form; the final six-page pass measured document widths of
   375–386px against a 390px viewport, with zero unlabeled visible controls.
+- **Verified:** The final eight-page mobile pass measured no horizontal
+  overflow and zero unnamed visible controls on authentication, program,
+  registration, scoring, qualifications, state administration, reports, and
+  published state results.
+- **Verified:** `npm run rehearsal` passed at the documented scale, and the
+  restored local Pages smoke suite passed login 200, private GET redirect 303,
+  private POST rejection 401, unpublished state results 404, and the exact
+  public-results route boundary.
 
 ## Phase checklist
 

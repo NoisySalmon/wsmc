@@ -10,7 +10,14 @@ controlled as student data.
 npx wrangler d1 migrations apply wsmc-db --local
 npm run seed
 npm run test:db
+npm run rehearsal
 ```
+
+The disposable rehearsal scales the local seed to 24 schools and 240 annual
+students, verifies the regional-to-state handoff, adds a second scorekeeper,
+replays a stale concurrent score edit, and exercises the system-coordinator
+recovery shape. It creates a temporary SQLite database and never changes a
+remote D1.
 
 For a clean Pages preview, build first and bind the configured D1 database:
 
