@@ -158,13 +158,27 @@ and is not used as the v2 status source.
   source, team-berth source, explicit mixed-entry division, state policy flags,
   state-roster membership, per-entry grade rules, and one-entry-per-category
   restrictions. Multi-record changes use D1 batches and append audit events.
-- **Verified:** 98 unit tests, 0 type-check errors, a clean production build,
+- **Verified:** 99 unit tests, 0 type-check errors, a clean production build,
   seeded-worker state administration at 390px with no horizontal overflow,
   successful attendance update, and rejected invalid roster admission without a
   write. Three pre-existing Svelte warnings remain in retired prototype pages.
-- **Next:** Add state roster/entry CSV and reports, explicit coordinator views
-  for all qualified team berths, state scoring reuse, and public result
-  publication in Phases 8–9.
+- **Next:** Complete state entry exports and reports, then finish the state
+  scoring and publication workflow in Phase 9.
+
+## Phase 9 checkpoint — initial state publication slice
+
+- **Implemented:** State contests reuse shared scoring, finalization, and
+  optimistic-concurrency behavior. State rankings use the same category-aware
+  competition ranking functions, including mixed-school display names.
+- **Implemented:** A public `/state/[contestId]/results` route is available only
+  after state results publication and returns result fields without internal
+  entry, roster, qualification, or user identifiers.
+- **Implemented:** Authenticated, permission-scoped state-roster CSV export with
+  stable IDs, explicit admission basis, source links, and formula-injection
+  protection.
+- **Verified:** State-roster CSV download from the seeded worker and all
+  existing test/check/build gates. The public success path remains pending a
+  finalized-and-published state fixture.
 
 ## Phase checklist
 

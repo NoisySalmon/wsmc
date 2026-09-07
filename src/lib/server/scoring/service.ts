@@ -85,14 +85,16 @@ export async function getScoringSnapshot(db: Database, contestId: string) {
 	const entryIds = rows.map((row) => row.entry.id);
 	const members = entryIds.length === 0
 		? []
-		: await db.select({ member: schema.entryMembers, studentName: schema.annualStudents.name, actualGrade: schema.annualStudents.actualGrade })
+		: await db.select({ member: schema.entryMembers, studentName: schema.annualStudents.name, actualGrade: schema.annualStudents.actualGrade, schoolName: schema.schools.shortName })
 			.from(schema.entryMembers)
 			.innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.entryMembers.annualStudentId))
+			.innerJoin(schema.schools, eq(schema.schools.id, schema.annualStudents.schoolId))
 			.where(eq(schema.entryMembers.entryId, entryIds[0]));
 	// D1/SQLite does not accept an empty IN list. Load the remaining members separately when needed.
-	const allMembers = entryIds.length <= 1 ? members : await db.select({ member: schema.entryMembers, studentName: schema.annualStudents.name, actualGrade: schema.annualStudents.actualGrade })
+	const allMembers = entryIds.length <= 1 ? members : await db.select({ member: schema.entryMembers, studentName: schema.annualStudents.name, actualGrade: schema.annualStudents.actualGrade, schoolName: schema.schools.shortName })
 		.from(schema.entryMembers)
 		.innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.entryMembers.annualStudentId))
+		.innerJoin(schema.schools, eq(schema.schools.id, schema.annualStudents.schoolId))
 		.where(inArray(schema.entryMembers.entryId, entryIds));
 
 	return {
@@ -106,8 +108,8 @@ export async function getScoringSnapshot(db: Database, contestId: string) {
 				entryKind: entry.entryKind,
 				entryNumber: entry.entryNumber,
 				division: entry.division,
-				schoolName: schoolName || schoolFullName || 'Statewide entry',
-			members: allMembers.filter(({ member }) => member.entryId === entry.id).map(({ member, studentName, actualGrade }) => ({ id: member.annualStudentId, name: studentName, actualGrade, competingGrade: member.competingGrade })),
+				members: allMembers.filter(({ member }) => member.entryId === entry.id).map(({ member, studentName, actualGrade, schoolName: memberSchoolName }) => ({ id: member.annualStudentId, name: studentName, actualGrade, competingGrade: member.competingGrade, schoolName: memberSchoolName })),
+				schoolName: schoolName || schoolFullName || [...new Set(allMembers.filter(({ member }) => member.entryId === entry.id).map(({ schoolName: memberSchoolName }) => memberSchoolName).filter(Boolean))].join(' / ') || 'Statewide entry',
 				score: result?.score ?? (part1 !== null && part2 !== null ? part1 + part2 : null),
 				part1,
 				part2,
@@ -137,7 +139,9 @@ export async function saveContestResult(db: Database, input: { contestId: string
 		id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: contest.id, entityType: 'result', entityId: entry.id,
 		action: 'score_saved', detailsJson: JSON.stringify({ category: entry.category, score: values.score, part1: values.part1, part2: values.part2, placement: values.placement, version: result?.version ?? null }), createdAt: input.now ?? Date.now(),
 	});
-	const [publishedQualificationRound] = await db.select({ id: schema.qualificationRounds.id }).from(schema.qualificationRounds).where(and(eq(schema.qualificationRounds.seasonId, contest.seasonId), eq(schema.qualificationRounds.status, 'published'))).limit(1);
+	const [publishedQualificationRound] = contest.kind === 'regional'
+		? await db.select({ id: schema.qualificationRounds.id }).from(schema.qualificationRounds).where(and(eq(schema.qualificationRounds.seasonId, contest.seasonId), eq(schema.qualificationRounds.status, 'published'))).limit(1)
+		: [];
 	if (publishedQualificationRound) await db.insert(schema.auditEvents).values({
 		id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: contest.id, entityType: 'qualification_round', entityId: publishedQualificationRound.id,
 		action: 'qualification_impact_review_required', detailsJson: JSON.stringify({ entryId: entry.id, category: entry.category, reason: 'score_changed_after_qualification_publication' }), createdAt: input.now ?? Date.now(),
@@ -189,6 +193,20 @@ export async function getRegionalRankings(db: Database, contestId: string): Prom
 	const snapshot = await getScoringSnapshot(db, contestId);
 	if (snapshot.contest.kind !== 'regional') throw new ScoringError('not_regional', 'Only regional contests have regional rankings.');
 	if (snapshot.contest.lifecycle !== 'finalized') throw new ScoringError('not_finalized', 'Regional rankings are available after finalization.');
+	const rows: RegionalResultRow[] = snapshot.entries.map((entry) => ({
+		entryId: entry.id, category: entry.category, division: entry.division, entryNumber: entry.entryNumber, schoolName: entry.schoolName,
+		score: entry.score, part1: entry.part1, part2: entry.part2, placement: entry.placement,
+		studentId: entry.category === 'topical_individual' || entry.category === 'knowdown' ? entry.members[0]?.id ?? null : null,
+		studentName: entry.category === 'topical_individual' || entry.category === 'knowdown' ? entry.members[0]?.name ?? null : null,
+		actualGrade: entry.category === 'topical_individual' ? entry.members[0]?.actualGrade ?? null : null,
+	}));
+	return { contest: snapshot.contest, rankings: rankRegionalResults(rows) };
+}
+
+export async function getStateRankings(db: Database, contestId: string): Promise<{ contest: Awaited<ReturnType<typeof getScoringSnapshot>>['contest']; rankings: RegionalRankings }> {
+	const snapshot = await getScoringSnapshot(db, contestId);
+	if (snapshot.contest.kind !== 'state') throw new ScoringError('not_state', 'Only state contests have state rankings.');
+	if (snapshot.contest.lifecycle !== 'finalized') throw new ScoringError('not_finalized', 'State rankings are available after finalization.');
 	const rows: RegionalResultRow[] = snapshot.entries.map((entry) => ({
 		entryId: entry.id, category: entry.category, division: entry.division, entryNumber: entry.entryNumber, schoolName: entry.schoolName,
 		score: entry.score, part1: entry.part1, part2: entry.part2, placement: entry.placement,
