@@ -4,6 +4,7 @@ import { canAdministerUsers, canCoachSchool, canCoordinateRegion, canCoordinateS
 import { createEmailProvider } from '$lib/server/auth/email';
 import { AuthError, inviteUser } from '$lib/server/auth/service';
 import { assignCoach, inviteSchool, ParticipationError, removeCoach, setParticipationStatus, type InvitationStatus } from '$lib/server/program/participation';
+import { canManageSeasonAssignments } from '$lib/server/program/access';
 import { getDb, schema } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -18,13 +19,6 @@ function text(data: FormData, name: string): string {
 
 function canManageContest(locals: App.Locals, contest: { id: string; seasonId: string }): boolean {
 	return Boolean(locals.principal && (canAdministerUsers(locals.principal) || canCoordinateState(locals.principal, contest.seasonId) || canCoordinateRegion(locals.principal, contest.id)));
-}
-
-async function canManageSeasonAssignments(db: ReturnType<typeof getDb>, locals: App.Locals, seasonId: string): Promise<boolean> {
-	if (!locals.principal) return false;
-	if (canAdministerUsers(locals.principal) || canCoordinateState(locals.principal, seasonId)) return true;
-	const contests = await db.select({ id: schema.contests.id }).from(schema.contests).where(eq(schema.contests.seasonId, seasonId));
-	return contests.some((contest) => canCoordinateRegion(locals.principal!, contest.id));
 }
 
 export const load: PageServerLoad = async ({ locals, platform }) => {
@@ -85,7 +79,7 @@ export const actions: Actions = {
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const data = await request.formData();
 		const db = getDb(platform.env.DB);
-		if (!await canManageSeasonAssignments(db, locals, text(data, 'seasonId'))) throw error(403, 'You cannot manage coach assignments for this season.');
+		if (!await canManageSeasonAssignments(db, locals.principal, text(data, 'seasonId'), text(data, 'schoolId'))) throw error(403, 'You cannot manage coach assignments for this school.');
 		try {
 			await assignCoach(db, { userId: text(data, 'userId'), seasonId: text(data, 'seasonId'), schoolId: text(data, 'schoolId') });
 			return { success: 'Coach assignment saved.' };
@@ -99,7 +93,7 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const db = getDb(platform.env.DB);
 		const seasonId = text(data, 'seasonId');
-		if (!await canManageSeasonAssignments(db, locals, seasonId)) throw error(403, 'You cannot manage coach assignments for this season.');
+		if (!await canManageSeasonAssignments(db, locals.principal, seasonId, text(data, 'schoolId'))) throw error(403, 'You cannot manage coach assignments for this school.');
 		const email = text(data, 'email');
 		const displayName = text(data, 'displayName');
 		if (!email || !displayName || !text(data, 'schoolId')) return fail(400, { error: 'Coach name, email, school, and season are required.' });
@@ -115,7 +109,7 @@ export const actions: Actions = {
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const data = await request.formData();
 		const db = getDb(platform.env.DB);
-		if (!await canManageSeasonAssignments(db, locals, text(data, 'seasonId'))) throw error(403, 'You cannot manage coach assignments for this season.');
+		if (!await canManageSeasonAssignments(db, locals.principal, text(data, 'seasonId'), text(data, 'schoolId'))) throw error(403, 'You cannot manage coach assignments for this school.');
 		await removeCoach(db, { userId: text(data, 'userId'), seasonId: text(data, 'seasonId'), schoolId: text(data, 'schoolId') });
 		return { success: 'Coach assignment removed.' };
 	},

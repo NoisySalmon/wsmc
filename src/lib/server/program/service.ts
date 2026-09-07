@@ -67,8 +67,8 @@ export async function createContest(db: Database, input: { seasonId: string; kin
 	return contest;
 }
 
-export async function setContestLifecycle(db: Database, contestId: string, lifecycle: ContestLifecycle, now = Date.now()): Promise<void> {
-	const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, contestId));
+export async function setContestLifecycle(db: Database, contestId: string, seasonId: string, lifecycle: ContestLifecycle, now = Date.now()): Promise<void> {
+	const [contest] = await db.select().from(schema.contests).where(and(eq(schema.contests.id, contestId), eq(schema.contests.seasonId, seasonId)));
 	if (!contest) throw new ProgramError('not_found', 'Contest not found.');
 	if (contest.lifecycle === 'finalized' && lifecycle !== 'finalized') throw new ProgramError('finalized', 'Finalized contests are read-only.');
 	if (lifecycleOrder.indexOf(lifecycle) < lifecycleOrder.indexOf(contest.lifecycle as ContestLifecycle)) {

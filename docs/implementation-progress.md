@@ -229,7 +229,10 @@ and is not used as the v2 status source.
   private-route protection, unauthenticated POST rejection, and the exact
   public-results boundary against a supplied local or deployed URL, with
   configurable state contest ID and publication status.
-- **Verified:** 113 unit tests now include access-scope, exact public-route,
+- **Implemented:** Contest lifecycle mutations now require the contest’s
+  stored season scope, and regional coach-assignment mutations are limited to
+  schools participating in contests that coordinator actually manages.
+- **Verified:** 116 unit tests now include access-scope, exact public-route,
   safe-diagnostic, and journey coverage. Full type-check, build, and D1
   integration gates remain
   required before Phase 10 is complete.

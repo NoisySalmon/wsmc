@@ -92,12 +92,12 @@ export const actions: Actions = {
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const data = await request.formData();
 		const contestId = textValue(data, 'contestId');
-		const seasonId = textValue(data, 'seasonId');
-		if (!canManageSeason(locals, seasonId)) throw error(403, 'You cannot manage this season.');
+		const [contest] = await getDb(platform.env.DB).select({ id: schema.contests.id, seasonId: schema.contests.seasonId }).from(schema.contests).where(eq(schema.contests.id, contestId));
+		if (!contest || !canManageSeason(locals, contest.seasonId)) throw error(403, 'You cannot manage this contest.');
 		const lifecycle = textValue(data, 'lifecycle') as ContestLifecycle;
 		if (!['setup', 'registration_open', 'roster_locked', 'scoring', 'finalized'].includes(lifecycle)) return fail(400, { error: 'Choose a valid lifecycle.' });
 		try {
-			await setContestLifecycle(getDb(platform.env.DB), contestId, lifecycle);
+			await setContestLifecycle(getDb(platform.env.DB), contest.id, contest.seasonId, lifecycle);
 			return { success: 'Contest lifecycle updated.' };
 		} catch (cause) {
 			return fail(400, { error: cause instanceof ProgramError ? cause.message : 'Contest lifecycle could not be updated.' });

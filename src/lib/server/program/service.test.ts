@@ -21,6 +21,11 @@ describe('program setup rules', () => {
 
 	it('does not allow lifecycle rollback', async () => {
 		const db = { select: () => ({ from: () => ({ where: async () => [{ lifecycle: 'scoring' }] }) }) };
-		await expect(setContestLifecycle(db as never, 'contest-1', 'roster_locked')).rejects.toBeInstanceOf(ProgramError);
+		await expect(setContestLifecycle(db as never, 'contest-1', 'season-1', 'roster_locked')).rejects.toBeInstanceOf(ProgramError);
+	});
+
+	it('requires the contest to belong to the supplied season scope', async () => {
+		const db = { select: () => ({ from: () => ({ where: async () => [] }) }) };
+		await expect(setContestLifecycle(db as never, 'contest-1', 'other-season', 'registration_open')).rejects.toMatchObject({ code: 'not_found' });
 	});
 });
