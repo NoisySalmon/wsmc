@@ -61,8 +61,9 @@ local D1 workflow do not use that dependency.
    ```
 
 For the Pages preview with D1 binding, backup/restore, and coordinator
-recovery, see the [D1 operations runbook](docs/operations/d1-runbook.md) and
-[authentication bootstrap guide](docs/operations/auth-bootstrap.md).
+recovery, see the [coordinator workflow](docs/operations/coordinator-workflow.md),
+[D1 operations runbook](docs/operations/d1-runbook.md), and [authentication
+bootstrap guide](docs/operations/auth-bootstrap.md).
 
 ## Verification
 

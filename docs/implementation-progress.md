@@ -240,6 +240,10 @@ and is not used as the v2 status source.
   [accessibility-review.md](operations/accessibility-review.md), including
   mobile overflow, accessible names, landmarks, feedback semantics, focus
   contrast, empty states, and the published public leaderboard.
+- **Implemented:** The non-developer coordinator workflow is documented in
+  [coordinator-workflow.md](operations/coordinator-workflow.md), covering
+  season setup, invitations, registration, scoring, qualification review,
+  state administration, reports, and recovery checks.
 - **Verified:** 116 unit tests now include access-scope, exact public-route,
   safe-diagnostic, and journey coverage. Full type-check, build, and D1
   integration gates remain
