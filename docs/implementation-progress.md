@@ -182,7 +182,9 @@ and is not used as the v2 status source.
 - **Verified:** All five report downloads from the seeded worker, including the
   finalized regional results report and the anonymous published-state-results
   path, plus the test/check/build gates. The public success path used a
-  temporary disposable finalized-state fixture.
+  temporary disposable finalized-state fixture. A temporary state scoring
+  fixture also completed scoring → finalized → published, with no
+  qualification-impact audit generated for state scoring.
 
 ## Phase checklist
 
