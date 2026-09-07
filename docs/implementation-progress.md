@@ -244,7 +244,10 @@ and is not used as the v2 status source.
   [coordinator-workflow.md](operations/coordinator-workflow.md), covering
   season setup, invitations, registration, scoring, qualification review,
   state administration, reports, and recovery checks.
-- **Verified:** 116 unit tests now include access-scope, exact public-route,
+- **Implemented:** Direct route authorization tests now cover unauthenticated
+  loads and every scoring, state-administration, qualification, and report
+  endpoint before database access.
+- **Verified:** 123 unit tests now include access-scope, exact public-route,
   safe-diagnostic, and journey coverage. Full type-check, build, and D1
   integration gates remain
   required before Phase 10 is complete.
