@@ -1,9 +1,11 @@
 import { error, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { SESSION_COOKIE, loadPrincipal } from '$lib/server/auth/service';
-import type { Handle } from '@sveltejs/kit';
+import type { Handle, HandleServerError } from '@sveltejs/kit';
 
 const publicPaths = ['/login', '/auth/callback', '/robots.txt'];
+
+export const isPublishedStateResultsPath = (pathname: string) => /^\/state\/[^/]+\/results\/?$/.test(pathname);
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const sessionId = event.cookies.get(SESSION_COOKIE) ?? null;
@@ -16,8 +18,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	const isPublic = publicPaths.some((path) => event.url.pathname === path || event.url.pathname.startsWith(`${path}/`));
-	const isPublishedStateResultsPath = /^\/state\/[^/]+\/results\/?$/.test(event.url.pathname);
-	if (!isPublic && !isPublishedStateResultsPath && !event.locals.principal) {
+	if (!isPublic && !isPublishedStateResultsPath(event.url.pathname) && !event.locals.principal) {
 		if (event.request.method !== 'GET' && event.request.method !== 'HEAD') throw error(401, 'Sign in required.');
 		const next = `${event.url.pathname}${event.url.search}`;
 		throw redirect(303, `/login?next=${encodeURIComponent(next)}`);
@@ -27,4 +28,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	return resolve(event);
+};
+
+export const handleError: HandleServerError = ({ event, status, message }) => {
+	const requestId = event.request.headers.get('cf-ray') || crypto.randomUUID();
+	if (status >= 500) {
+		console.error(JSON.stringify({ source: 'wsmc', event: 'request_error', requestId, status, method: event.request.method, path: event.url.pathname }));
+	}
+	return { message: status >= 500 ? 'Unexpected server error.' : message, requestId };
 };

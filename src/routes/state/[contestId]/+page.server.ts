@@ -2,6 +2,7 @@ import { error, fail } from '@sveltejs/kit';
 import { canCoordinateState, canCoachSchool } from '$lib/server/auth/capabilities';
 import { getDb } from '$lib/server/db';
 import { addStateEntryMember, addStateRosterMember, createStateEntry, createStateTeamForBerth, getStateDashboard, removeStateEntryMember, removeStateRosterMember, setStateAttendance, StateError } from '$lib/server/state/service';
+import { scopeStateDashboard } from '$lib/server/state/access';
 import type { Actions, PageServerLoad } from './$types';
 
 function text(data: FormData, name: string) { return String(data.get(name) ?? '').trim(); }
@@ -12,8 +13,10 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	if (!locals.principal) throw error(401, 'Sign in required.');
 	if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 	const dashboard = await getStateDashboard(getDb(platform.env.DB), params.contestId);
-	if (!canCoordinateState(locals.principal, dashboard.contest.seasonId) && !locals.principal.coachAssignments.some((assignment) => assignment.seasonId === dashboard.contest.seasonId && dashboard.qualifiedSchools.some((school) => school.schoolId === assignment.schoolId))) throw error(403, 'You cannot view this state contest.');
-	return dashboard;
+	if (canCoordinateState(locals.principal, dashboard.contest.seasonId)) return dashboard;
+	const schoolIds = new Set(locals.principal.coachAssignments.filter((assignment) => assignment.seasonId === dashboard.contest.seasonId).map((assignment) => assignment.schoolId));
+	if (!dashboard.qualifiedSchools.some((school) => schoolIds.has(school.schoolId))) throw error(403, 'You cannot view this state contest.');
+	return scopeStateDashboard(dashboard, schoolIds);
 };
 
 export const actions: Actions = {

@@ -1,17 +1,22 @@
-# Washington State Math Council (WSMC) Regional Scoring
+# Washington State Math Council (WSMC) Contest Administration
 
-> **Historical prototype:** This README describes the original single-regional-contest scoring prototype. It is not the current product specification. See [Product Requirements](docs/product-requirements.md), the [Execution Plan](docs/execution-plan.md), the [v2 architecture decisions](docs/adr/0001-v2-foundation.md), and [implementation progress](docs/implementation-progress.md) for the statewide application.
+WSMC is a passwordless, statewide contest administration application for
+season setup, school participation, mobile registration, CSV interoperability,
+regional and state scoring, qualification review, and publication. It is built
+with SvelteKit, Drizzle ORM, and Cloudflare D1.
 
-A modern, web-based scoring and leaderboard system for the WSMC Regional Math Contest. Built with SvelteKit, Drizzle ORM, and Cloudflare D1.
+The product requirements, architecture decisions, execution plan, and current
+implementation status are tracked in [Product Requirements](docs/product-requirements.md),
+[Execution Plan](docs/execution-plan.md), [v2 architecture decisions](docs/adr/0001-v2-foundation.md),
+and [implementation progress](docs/implementation-progress.md).
 
 ## Features
 
-- **Contest Management:** Create and manage regional math contests.
-- **School & Student Roster:** Track schools, divisions, and student competitors.
-- **Team Management:** Organically form teams for Project, Team Problem, and Topical contests.
-- **Real-time Scoring:** Efficient score entry with instant validation.
-- **Live Leaderboards:** Automated ranking based on WSMC scoring rules, including tie-breaking logic.
-- **Cloud Native:** Designed to run on Cloudflare Pages and D1 for high availability and low latency.
+- **Program administration:** Seasons, numbered regions, contests, school directory, participation, and assignments.
+- **Secure registration:** Passwordless sign-in, annual students, explicit contest rosters, category entries, and mobile workflows.
+- **CSV interoperability:** Versioned, formula-safe registration, score, state-roster, and administrative report exports/imports.
+- **Contest operations:** Category-aware scoring, optimistic concurrency, finalization, publication, qualification snapshots, state attendance, and substitutions.
+- **Scoped visibility:** Assignment-based authorization and a publication-gated public state results page.
 
 ## Tech Stack
 
@@ -54,6 +59,21 @@ local D1 workflow do not use that dependency.
    ```bash
    npm run dev
    ```
+
+For the Pages preview with D1 binding, backup/restore, and coordinator
+recovery, see the [D1 operations runbook](docs/operations/d1-runbook.md) and
+[authentication bootstrap guide](docs/operations/auth-bootstrap.md).
+
+## Verification
+
+Run the complete local gates before a checkpoint commit:
+
+```bash
+npm test -- --run
+npm run check
+npm run build
+npm run test:db
+```
 
 ## Deployment
 

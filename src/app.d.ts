@@ -4,7 +4,10 @@ import type { Principal } from '$lib/server/auth/capabilities';
 
 declare global {
 	namespace App {
-		// interface Error {}
+		interface Error {
+			message: string;
+			requestId?: string;
+		}
 		// interface Locals {}
 		// interface PageData {}
 		// interface PageState {}

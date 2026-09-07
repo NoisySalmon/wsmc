@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { handle } from './hooks.server';
+import { handle, handleError, isPublishedStateResultsPath } from './hooks.server';
 
 function eventFor(path: string, method = 'GET') {
 	return {
@@ -26,5 +26,26 @@ describe('server authentication guard', () => {
 
 	it('rejects unauthenticated POST requests without executing the action', async () => {
 		await expect(handle({ event: eventFor('/contests', 'POST'), resolve: async () => new Response('action ran') } as never)).rejects.toMatchObject({ status: 401 });
+	});
+
+	it('allows only the exact public state-results route', async () => {
+		await expect(handle({ event: eventFor('/state/state-1/results'), resolve: async () => new Response('ok') } as never)).resolves.toMatchObject({ status: 200 });
+		await expect(handle({ event: eventFor('/state/state-1/results/details'), resolve: async () => new Response('ok') } as never)).rejects.toMatchObject({ status: 303 });
+		expect(isPublishedStateResultsPath('/state/state-1/results/')).toBe(true);
+	});
+
+	it('logs only safe request diagnostics for server errors', () => {
+		const original = console.error;
+		const lines: string[] = [];
+		console.error = (line: string) => lines.push(line);
+		try {
+			const result = handleError({ event: eventFor('/state/state-1/results?token=do-not-log'), status: 500 } as never) as App.Error;
+			expect(result.message).toBe('Unexpected server error.');
+			expect(lines).toHaveLength(1);
+			expect(lines[0]).not.toContain('do-not-log');
+			expect(lines[0]).toContain('request_error');
+		} finally {
+			console.error = original;
+		}
 	});
 });

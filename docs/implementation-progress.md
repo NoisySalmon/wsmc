@@ -6,7 +6,7 @@ and is not used as the v2 status source.
 
 ## Current checkpoint
 
-- **Active phase:** Phase 7 — Qualifications and statewide cutoff rounds
+- **Active phase:** Phase 10 — Hardening and production rollout
 - **Completed:** Initial execution-plan commit; baseline verification; v2
   architecture decisions; prototype D1 confirmed disposable; pure-domain
   Team Contest terminology and qualification rules/tests; v2 schema reset,
@@ -21,9 +21,11 @@ and is not used as the v2 status source.
   actual-grade ranks, and ordered Knowdown results; explainable regional
   placement qualification decisions with frozen draft/
   published rounds; division-specific state score-cutoff preview/draft
-  services and audited manual include/exclude decisions
-- **Next:** Finish cutoff/manual review UI behavior and verify frozen-round
-  publication and score-correction impact handling.
+  services and audited manual include/exclude decisions; state attendance,
+  roster, entry, publication, and report workflows; coach-scoped state
+  dashboard data; and safe structured request diagnostics
+- **Next:** Add and verify the remaining end-to-end, accessibility, backup/
+  restore, concurrency, and deployment smoke coverage required for production.
 
 ## Phase 2 checkpoint
 
@@ -162,8 +164,8 @@ and is not used as the v2 status source.
   seeded-worker state administration at 390px with no horizontal overflow,
   successful attendance update, and rejected invalid roster admission without a
   write. The full check/build gate now reports zero warnings.
-- **Next:** Complete state entry exports and reports, then finish the state
-  scoring and publication workflow in Phase 9.
+- **Status:** Phase 8 acceptance is met for attendance, explicit admission
+  sources, substitutions, mixed-entry policy enforcement, and state locking.
 
 ## Phase 9 checkpoint — initial state publication slice
 
@@ -190,6 +192,21 @@ and is not used as the v2 status source.
   qualification-impact audit generated for state scoring.
   The season reporting hub was verified at 390px with no horizontal overflow.
 
+## Phase 10 checkpoint — hardening slice
+
+- **Implemented:** Coach state-dashboard responses are scoped to assigned
+  school-owned records; coordinator-owned mixed-school entries, unassigned
+  qualification sources, team-berth administration, and other schools’ roster
+  data are excluded from coach payloads.
+- **Implemented:** Safe structured server-error diagnostics include a request
+  identifier, HTTP status, method, and pathname without query strings, token
+  values, roster contents, or raw exception messages.
+- **Implemented:** README and D1 operations documentation now describe the v2
+  statewide application and local/remote recovery workflow.
+- **Verified:** Access-scope, exact public-route, and safe-diagnostic tests are
+  included. Full test, type-check, build, and D1 integration gates remain
+  required before Phase 10 is complete.
+
 ## Phase checklist
 
 - [x] Phase 0 — Baseline and v2 contract
@@ -200,8 +217,8 @@ and is not used as the v2 status source.
 - [x] Phase 5 — CSV roster and entry round trip
 - [x] Phase 6 — Scoring, score CSV, and regional results
 - [x] Phase 7 — Qualifications and statewide cutoff rounds
-- [ ] Phase 8 — State attendance, substitutions, and entries
-- [ ] Phase 9 — State scoring, visibility, and exports
+- [x] Phase 8 — State attendance, substitutions, and entries
+- [x] Phase 9 — State scoring, visibility, and exports
 - [ ] Phase 10 — Hardening and production rollout
 
 ## Verification gates
