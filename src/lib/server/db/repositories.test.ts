@@ -59,4 +59,25 @@ describe('saveResult concurrency boundary', () => {
 		const db = { select: () => ({ from: () => ({ where: async () => rows.shift() ?? [] }) }) };
 		await expect(saveResult(db as never, { contestId: 'contest-1', entryId: 'entry-1', score: 99 })).rejects.toMatchObject({ code: 'version_required' });
 	});
+
+	it('rejects a stale editor before writing', async () => {
+		const rows = [
+			[{ id: 'entry-1', contestId: 'contest-1' }],
+			[{ id: 'result-1', entryId: 'entry-1', version: 4 }],
+		];
+		const db = { select: () => ({ from: () => ({ where: async () => rows.shift() ?? [] }) }) };
+		await expect(saveResult(db as never, { contestId: 'contest-1', entryId: 'entry-1', expectedVersion: 3, score: 99 })).rejects.toMatchObject({ code: 'stale_result' });
+	});
+
+	it('rejects when a concurrent write wins between read and conditional update', async () => {
+		const rows = [
+			[{ id: 'entry-1', contestId: 'contest-1' }],
+			[{ id: 'result-1', entryId: 'entry-1', version: 4 }],
+		];
+		const db = {
+			select: () => ({ from: () => ({ where: async () => rows.shift() ?? [] }) }),
+			update: () => ({ set: () => ({ where: () => ({ returning: async () => [] }) }) }),
+		};
+		await expect(saveResult(db as never, { contestId: 'contest-1', entryId: 'entry-1', expectedVersion: 4, score: 99 })).rejects.toMatchObject({ code: 'stale_result' });
+	});
 });
