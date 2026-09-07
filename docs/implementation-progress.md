@@ -140,8 +140,31 @@ and is not used as the v2 status source.
 - **Verified:** 95 unit tests, 0 type-check errors, a clean production build,
   and the seeded worker review page showing the published round and its
   explainable reasons plus a no-write cutoff preview.
-- **Next:** Finish cutoff/manual review UI behavior and verify frozen-round
-  publication and score-correction impact handling.
+- **Verified:** Cutoff drafts, manual include/exclude decisions, frozen-round
+  publication guards, and post-publication score-correction impact audits are
+  covered by the qualification and scoring services and exposed on the review
+  page.
+- **Status:** Phase 7 acceptance is met. The next dependent package is Phase 8
+  state attendance and entry administration.
+
+## Phase 8 checkpoint — initial state workflow
+
+- **Implemented:** State-contest dashboard and mobile-first
+  `/state/[contestId]` administration for qualified-school attendance, explicit
+  state roster admission basis, qualified team-berth entry creation, state
+  category entry creation, substitutions, and entry membership management.
+- **Implemented:** State mutations independently enforce the state contest,
+  registration-open lifecycle, season and school scope, published qualification
+  source, team-berth source, explicit mixed-entry division, state policy flags,
+  state-roster membership, per-entry grade rules, and one-entry-per-category
+  restrictions. Multi-record changes use D1 batches and append audit events.
+- **Verified:** 98 unit tests, 0 type-check errors, a clean production build,
+  seeded-worker state administration at 390px with no horizontal overflow,
+  successful attendance update, and rejected invalid roster admission without a
+  write. Three pre-existing Svelte warnings remain in retired prototype pages.
+- **Next:** Add state roster/entry CSV and reports, explicit coordinator views
+  for all qualified team berths, state scoring reuse, and public result
+  publication in Phases 8–9.
 
 ## Phase checklist
 
@@ -151,8 +174,8 @@ and is not used as the v2 status source.
 - [x] Phase 3 — Season, directory, contests, and user administration
 - [x] Phase 4 — Mobile regional roster and entries
 - [x] Phase 5 — CSV roster and entry round trip
-- [ ] Phase 6 — Scoring, score CSV, and regional results
-- [ ] Phase 7 — Qualifications and statewide cutoff rounds
+- [x] Phase 6 — Scoring, score CSV, and regional results
+- [x] Phase 7 — Qualifications and statewide cutoff rounds
 - [ ] Phase 8 — State attendance, substitutions, and entries
 - [ ] Phase 9 — State scoring, visibility, and exports
 - [ ] Phase 10 — Hardening and production rollout

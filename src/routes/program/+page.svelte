@@ -45,7 +45,7 @@
 	{/each}
 
 	<h2>Contests</h2>
-	<ul class="contests">{#each data.contests as contest}<li><div><strong>{contest.name}</strong><span>{contest.kind} · {contest.lifecycle}</span><a href="/scoring/{contest.id}">Open scoring</a>{#if contest.kind === 'regional' && contest.lifecycle === 'finalized'}<a href="/results/{contest.id}">View results</a>{/if}</div><form method="POST" action="?/setLifecycle"><input type="hidden" name="contestId" value={contest.id} /><input type="hidden" name="seasonId" value={contest.seasonId} /><select name="lifecycle">{#each lifecycleOptions as lifecycle}<option value={lifecycle} selected={lifecycle === contest.lifecycle}>{lifecycle}</option>{/each}</select><button type="submit">Update</button></form></li>{/each}</ul>
+	<ul class="contests">{#each data.contests as contest}<li><div><strong>{contest.name}</strong><span>{contest.kind} · {contest.lifecycle}</span>{#if contest.kind === 'state'}<a href="/state/{contest.id}">Open state administration</a>{:else}<a href="/scoring/{contest.id}">Open scoring</a>{/if}{#if contest.kind === 'regional' && contest.lifecycle === 'finalized'}<a href="/results/{contest.id}">View results</a>{/if}</div><form method="POST" action="?/setLifecycle"><input type="hidden" name="contestId" value={contest.id} /><input type="hidden" name="seasonId" value={contest.seasonId} /><select name="lifecycle">{#each lifecycleOptions as lifecycle}<option value={lifecycle} selected={lifecycle === contest.lifecycle}>{lifecycle}</option>{/each}</select><button type="submit">Update</button></form></li>{/each}</ul>
 </main>
 
 <style>
