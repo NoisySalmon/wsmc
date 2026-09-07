@@ -10,7 +10,7 @@ export class ScoreCsvValidationError extends ScoreCsvError {
 
 async function scope(db: Database, contestId: string) {
 	const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, contestId));
-	if (!contest || contest.kind !== 'regional') throw new ScoreCsvError('not_found', 'Regional contest not found.');
+	if (!contest || !['regional', 'state'].includes(contest.kind)) throw new ScoreCsvError('not_found', 'Scoring contest not found.');
 	if (!['roster_locked', 'scoring', 'finalized'].includes(contest.lifecycle)) throw new ScoreCsvError('locked', 'Scores are not available until the roster is locked.');
 	return contest;
 }
