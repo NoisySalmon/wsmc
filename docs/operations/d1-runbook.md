@@ -19,6 +19,20 @@ npm run build
 npx wrangler pages dev .svelte-kit/cloudflare --d1 DB=5c5a8cb8-f2b9-489a-8a2d-b32a87c70cce --local --persist-to /tmp/wsmc-pages-state --port 8790
 ```
 
+## Configure production email
+
+Set these Pages environment values for the production deployment:
+
+- `ENVIRONMENT=production`
+- `APP_ORIGIN=https://<the-public-wsmc-host>`
+- `EMAIL_FROM=WSMC <noreply@<verified-domain>>`
+- `EMAIL_API_KEY` as an encrypted secret for the Resend API
+
+The local environment intentionally omits `ENVIRONMENT` and uses the
+development adapter, which logs disposable links for testing. A production
+environment without both email credentials fails closed instead of logging a
+sign-in link.
+
 ## Backup and restore
 
 Run a remote export from a trusted operator machine before migrations or a live

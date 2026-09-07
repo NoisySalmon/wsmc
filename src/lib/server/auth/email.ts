@@ -36,7 +36,8 @@ export class ResendEmailProvider implements EmailProvider {
 	}
 }
 
-export function createEmailProvider(env: { EMAIL_API_KEY?: string; EMAIL_FROM?: string }, logger?: (message: string) => void): EmailProvider {
+export function createEmailProvider(env: { ENVIRONMENT?: 'development' | 'production'; EMAIL_API_KEY?: string; EMAIL_FROM?: string }, logger?: (message: string) => void): EmailProvider {
 	if (env.EMAIL_API_KEY && env.EMAIL_FROM) return new ResendEmailProvider(env.EMAIL_API_KEY, env.EMAIL_FROM);
+	if (env.ENVIRONMENT === 'production') throw new Error('Production email provider is not configured.');
 	return new DevelopmentEmailProvider(logger);
 }

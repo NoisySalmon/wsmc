@@ -18,3 +18,6 @@ Tokens are hashed in D1, expire after 20 minutes, and are single-use. The
 development email adapter logs a link only when no production email credentials
 are configured; production must set `EMAIL_API_KEY`, `EMAIL_FROM`, and the
 trusted public `APP_ORIGIN`.
+Set `ENVIRONMENT=production` in the deployed Pages environment. Production
+fails closed when the email provider is not configured, so raw sign-in links
+cannot be emitted by an accidental development fallback.

@@ -23,5 +23,6 @@ describe('email providers', () => {
 	it('defaults to development and selects production credentials when available', () => {
 		expect(createEmailProvider({})).toBeInstanceOf(DevelopmentEmailProvider);
 		expect(createEmailProvider({ EMAIL_API_KEY: 'key', EMAIL_FROM: 'from@example.com' })).toBeInstanceOf(ResendEmailProvider);
+		expect(() => createEmailProvider({ ENVIRONMENT: 'production' })).toThrow(/not configured/);
 	});
 });

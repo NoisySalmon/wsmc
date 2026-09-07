@@ -13,6 +13,7 @@ declare global {
 		// interface PageState {}
 		interface Platform {
 			env: {
+				ENVIRONMENT?: 'development' | 'production';
 				DB: D1Database;
 				EMAIL_API_KEY?: string;
 				EMAIL_FROM?: string;

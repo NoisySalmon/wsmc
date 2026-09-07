@@ -217,6 +217,9 @@ and is not used as the v2 status source.
 - **Implemented:** Global keyboard accessibility includes a skip link, an
   explicitly labeled primary navigation landmark, and visible focus indicators
   for interactive controls.
+- **Implemented:** Production email configuration now fails closed unless the
+  Resend credentials are present, preventing accidental raw sign-in-link logs;
+  the operations runbook documents the required environment values.
 - **Verified:** 109 unit tests now include access-scope, exact public-route,
   safe-diagnostic, and journey coverage. Full type-check, build, and D1
   integration gates remain
