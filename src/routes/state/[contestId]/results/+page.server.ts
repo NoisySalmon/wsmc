@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { getDb, schema } from '$lib/server/db';
 import { getStateRankings, ScoringError } from '$lib/server/scoring/service';
+import { toPublicStateResult } from '$lib/server/scoring/public';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ platform, params }) => {
@@ -13,7 +14,7 @@ export const load: PageServerLoad = async ({ platform, params }) => {
 		const result = await getStateRankings(db, contest.id);
 		return {
 			contest: result.contest,
-			rankings: Object.fromEntries(Object.entries(result.rankings).map(([category, rows]) => [category, rows.map((row) => ({ category, division: row.division, rank: row.rank, actualGrade: row.actualGrade, actualGradeRank: row.actualGradeRank ?? null, entryNumber: row.entryNumber, schoolName: row.schoolName, studentName: row.studentName, score: row.score, part1: row.part1, part2: row.part2, placement: row.placement }))])),
+			rankings: Object.fromEntries(Object.entries(result.rankings).map(([category, rows]) => [category, rows.map((row) => toPublicStateResult(category, row))])),
 		};
 	} catch (cause) {
 		if (cause instanceof ScoringError) throw error(404, cause.message);

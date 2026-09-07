@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	assertContestScope,
+	saveResult,
 	validateEntryMembership,
 	type EntryMembershipValidationInput,
 } from './repositories';
@@ -46,5 +47,16 @@ describe('assertContestScope', () => {
 	it('rejects a record from another contest', () => {
 		expect(() => assertContestScope({ contestId: 'contest-a' }, 'contest-b')).toThrowError(/does not belong/);
 		expect(assertContestScope({ contestId: 'contest-a', id: 'entry-1' }, 'contest-a').id).toBe('entry-1');
+	});
+});
+
+describe('saveResult concurrency boundary', () => {
+	it('rejects an existing-result update without an expected version', async () => {
+		const rows = [
+			[{ id: 'entry-1', contestId: 'contest-1' }],
+			[{ id: 'result-1', entryId: 'entry-1', version: 4 }],
+		];
+		const db = { select: () => ({ from: () => ({ where: async () => rows.shift() ?? [] }) }) };
+		await expect(saveResult(db as never, { contestId: 'contest-1', entryId: 'entry-1', score: 99 })).rejects.toMatchObject({ code: 'version_required' });
 	});
 });

@@ -172,6 +172,9 @@ export async function saveResult(
 ) {
 	await requireEntryInContest(db, input.contestId, input.entryId);
 	const [current] = await db.select().from(schema.results).where(eq(schema.results.entryId, input.entryId));
+	if (current && input.expectedVersion === undefined) {
+		throw new PersistenceRuleError('version_required', 'Refresh this result and include its version before saving.');
+	}
 	if (current && input.expectedVersion !== undefined && current.version !== input.expectedVersion) {
 		throw new PersistenceRuleError('stale_result', 'This result changed after it was loaded. Refresh before saving.');
 	}

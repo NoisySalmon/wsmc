@@ -201,11 +201,25 @@ and is not used as the v2 status source.
 - **Implemented:** Safe structured server-error diagnostics include a request
   identifier, HTTP status, method, and pathname without query strings, token
   values, roster contents, or raw exception messages.
+- **Implemented:** A CI journey contract covers regional ranking and
+  qualification handoff, cutoff eligibility, mixed state ranking, overlapping
+  assignments, and scorekeeper/finalization boundaries.
+- **Implemented:** Existing score records require an expected optimistic-
+  concurrency version at the persistence boundary, preventing unversioned
+  direct POST overwrites.
+- **Implemented:** Anonymous state results use a dedicated explicit-field
+  projection with regression coverage for internal entry and student IDs.
 - **Implemented:** README and D1 operations documentation now describe the v2
   statewide application and local/remote recovery workflow.
-- **Verified:** Access-scope, exact public-route, and safe-diagnostic tests are
-  included. Full test, type-check, build, and D1 integration gates remain
+- **Implemented:** The D1 integration check now restores a seeded database into
+  a fresh SQLite copy and verifies the core record counts before exercising the
+  mutation invariants.
+- **Verified:** 109 unit tests now include access-scope, exact public-route,
+  safe-diagnostic, and journey coverage. Full type-check, build, and D1
+  integration gates remain
   required before Phase 10 is complete.
+- **Verified:** Live preview smoke check at 390px found no horizontal overflow
+  and no unlabeled visible controls on the program setup page.
 
 ## Phase checklist
 

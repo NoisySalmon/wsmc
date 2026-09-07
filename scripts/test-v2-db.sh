@@ -2,7 +2,8 @@
 set -euo pipefail
 
 database_path="$(mktemp /tmp/wsmc-v2-db-XXXXXX.sqlite)"
-trap 'rm -f "$database_path" "$database_path-wal" "$database_path-shm"' EXIT
+restore_path="$(mktemp /tmp/wsmc-v2-restore-XXXXXX.sqlite)"
+trap 'rm -f "$database_path" "$database_path-wal" "$database_path-shm" "$restore_path" "$restore_path-wal" "$restore_path-shm"' EXIT
 
 sqlite3 "$database_path" < drizzle/0000_woozy_bruce_banner.sql
 sqlite3 "$database_path" < drizzle/0001_v2_baseline.sql
@@ -10,6 +11,11 @@ sqlite3 "$database_path" < scripts/seed.sql
 
 counts="$(sqlite3 -noheader -separator '|' "$database_path" "SELECT (SELECT COUNT(*) FROM seasons), (SELECT COUNT(*) FROM regions), (SELECT COUNT(*) FROM contests), (SELECT COUNT(*) FROM schools), (SELECT COUNT(*) FROM annual_students), (SELECT COUNT(*) FROM entries), (SELECT COUNT(*) FROM entry_members);")"
 [[ "$counts" == "1|2|3|3|8|15|24" ]] || { echo "unexpected seed counts: $counts" >&2; exit 1; }
+
+# Exercise the documented backup/restore path against a fresh SQLite copy.
+sqlite3 "$database_path" .dump | sqlite3 "$restore_path"
+restored_counts="$(sqlite3 -noheader -separator '|' "$restore_path" "SELECT (SELECT COUNT(*) FROM seasons), (SELECT COUNT(*) FROM regions), (SELECT COUNT(*) FROM contests), (SELECT COUNT(*) FROM schools), (SELECT COUNT(*) FROM annual_students), (SELECT COUNT(*) FROM entries), (SELECT COUNT(*) FROM entry_members);")"
+[[ "$restored_counts" == "$counts" ]] || { echo "backup/restore changed seed counts: $restored_counts" >&2; exit 1; }
 
 category_count="$(sqlite3 -noheader "$database_path" "SELECT COUNT(DISTINCT category) FROM entries;")"
 [[ "$category_count" == "5" ]] || { echo "seed does not cover all categories" >&2; exit 1; }
