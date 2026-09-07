@@ -51,6 +51,7 @@
 	<section>
 		<h2>State roster</h2>
 		<p class="help">Every student needs an explicit admission basis. Individual qualifications cannot be transferred; team-berth additions must identify the state team entry.</p>
+		<p><a href={`/state/${data.contest.id}/csv`}>Download state roster CSV</a></p>
 		<div class="roster-list">
 			{#each data.roster as row}
 				<div class="roster-row"><span><strong>{row.student.name}</strong> · {schoolName(row.member.schoolId)} · {row.member.admissionBasis === 'individual_qualification' ? 'individual qualification' : 'team berth'}</span><form method="POST" action="?/removeRoster"><input type="hidden" name="schoolId" value={row.member.schoolId} /><input type="hidden" name="annualStudentId" value={row.member.annualStudentId} /><button class="quiet" type="submit">Remove</button></form></div>

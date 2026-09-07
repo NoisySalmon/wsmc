@@ -59,6 +59,26 @@ export async function getStateDashboard(db: Database, contestId: string) {
 	return { contest, settings: stateSettings(contest.settingsJson), participations, qualifiedSchools, stateQualifications, teamBerths, attendance, roster, entries, members, students: students.map(({ student, schoolName }) => ({ ...student, schoolName: schoolName || student.schoolId })) };
 }
 
+export async function getStateRosterRows(db: Database, contestId: string, schoolId?: string) {
+	const contest = await requireStateContest(db, contestId);
+	const qualifiedRows = await db.select({ schoolId: schema.entries.ownerSchoolId }).from(schema.qualifications)
+		.innerJoin(schema.qualificationRounds, eq(schema.qualificationRounds.id, schema.qualifications.roundId))
+		.innerJoin(schema.entries, eq(schema.entries.id, schema.qualifications.entryId))
+		.where(and(eq(schema.qualificationRounds.seasonId, contest.seasonId), eq(schema.qualificationRounds.status, 'published'), eq(schema.qualifications.active, true)));
+	const qualifiedSchoolIds = [...new Set(qualifiedRows.map((row) => row.schoolId).filter((value): value is string => Boolean(value)))];
+	const rosterRows = await db.select({ member: schema.stateRosterMembers, studentName: schema.annualStudents.name, actualGrade: schema.annualStudents.actualGrade, schoolName: schema.schools.shortName })
+		.from(schema.stateRosterMembers)
+		.innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.stateRosterMembers.annualStudentId))
+		.innerJoin(schema.schools, eq(schema.schools.id, schema.stateRosterMembers.schoolId))
+		.where(schoolId ? and(eq(schema.stateRosterMembers.contestId, contestId), eq(schema.stateRosterMembers.schoolId, schoolId)) : eq(schema.stateRosterMembers.contestId, contestId));
+	return {
+		contestId,
+		seasonId: contest.seasonId,
+		qualifiedSchoolIds,
+		rows: rosterRows.map(({ member, studentName, actualGrade, schoolName }) => ({ contestId, schoolId: member.schoolId, schoolName: schoolName || member.schoolId, annualStudentId: member.annualStudentId, studentName, actualGrade, admissionBasis: member.admissionBasis, qualificationId: member.qualificationId, stateEntryId: member.stateEntryId })),
+	};
+}
+
 export async function setStateAttendance(db: Database, input: { contestId: string; schoolId: string; intent: 'undecided' | 'attending' | 'not_attending'; actorUserId: string; now?: number }) {
 	const contest = await requireStateContest(db, input.contestId, true);
 	await requireQualifiedSchool(db, contest.id, input.schoolId);
