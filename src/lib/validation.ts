@@ -118,8 +118,7 @@ export function validateTeamAssignment(
 export function formatContestType(type: string): string {
 	switch (type) {
 		case 'project': return 'Project';
-		case 'team_contest':
-		case 'team_problem': return 'Team Contest';
+		case 'team_contest': return 'Team Contest';
 		case 'topical': return 'Topical';
 		default: return type;
 	}

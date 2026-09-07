@@ -175,6 +175,5 @@ describe('formatContestType', () => {
 	it('uses Team Contest as the canonical name', async () => {
 		const { formatContestType } = await import('../validation');
 		expect(formatContestType('team_contest')).toBe('Team Contest');
-		expect(formatContestType('team_problem')).toBe('Team Contest');
 	});
 });

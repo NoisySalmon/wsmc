@@ -259,6 +259,9 @@ and is not used as the v2 status source.
 - **Implemented:** The repository CI workflow runs unit, type-check, build,
   D1 restore, dress-rehearsal, and authenticated Pages-preview gates on pushes
   and pull requests.
+- **Implemented:** The retired prototype `/contests` route tree and legacy
+  database adapter were removed from the compiled application; the v2 route
+  surface is now the only contest administration implementation.
 - **Verified:** Read-only Cloudflare inspection identified the configured
   `wsmc.pages.dev` project, confirmed the remote D1 is still the legacy
   prototype schema with the v2 baseline unapplied, and found no production
