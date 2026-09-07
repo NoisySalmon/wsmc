@@ -24,8 +24,9 @@ and is not used as the v2 status source.
   services and audited manual include/exclude decisions; state attendance,
   roster, entry, publication, and report workflows; coach-scoped state
   dashboard data; and safe structured request diagnostics
-- **Next:** Run the post-deploy smoke test after a live target and production
-  credentials are explicitly supplied; do not deploy to an unspecified target.
+- **Next:** Obtain explicit approval to reset the configured legacy remote D1,
+  configure the missing production email values, deploy the v2 worker, and
+  run the post-deploy smoke test. The remote target has not been modified.
 
 ## Phase 2 checkpoint
 
@@ -255,6 +256,14 @@ and is not used as the v2 status source.
   to-state workflow over HTTP, exercises a real attendance mutation, checks
   scorekeeper scope, and verifies stale score rejection. Cloudflare action
   errors preserve their intended HTTP status with SvelteKit `isHttpError`.
+- **Implemented:** The repository CI workflow runs unit, type-check, build,
+  D1 restore, dress-rehearsal, and authenticated Pages-preview gates on pushes
+  and pull requests.
+- **Verified:** Read-only Cloudflare inspection identified the configured
+  `wsmc.pages.dev` project, confirmed the remote D1 is still the legacy
+  prototype schema with the v2 baseline unapplied, and found no production
+  Pages secrets. Production deployment remains intentionally pending those
+  operator-controlled preconditions.
 - **Verified:** 124 unit tests now include access-scope, exact public-route,
   safe-diagnostic, and journey coverage. `npm test`, `npm run check`,
   `npm run build`, `npm run test:db`, `npm run rehearsal`, and

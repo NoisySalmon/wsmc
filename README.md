@@ -90,6 +90,13 @@ and pull requests.
 
 The project is configured for Cloudflare Pages.
 
+Before deploying the configured `wsmc` project, confirm that the target D1 is
+the disposable database intended for the v2 reset, apply and verify the v2
+migration, and configure the production Pages values documented in the
+[D1 runbook](docs/operations/d1-runbook.md). The current remote target still
+contains the legacy prototype schema and has no production email secrets, so
+it has intentionally not been changed.
+
 1. Build the project:
    ```bash
    npm run build
@@ -98,6 +105,12 @@ The project is configured for Cloudflare Pages.
 2. Deploy:
    ```bash
    npx wrangler pages deploy .svelte-kit/cloudflare
+   ```
+
+3. Run the post-deploy smoke test with the real state contest ID and expected
+   publication status:
+   ```bash
+   npm run smoke:preview -- https://wsmc.pages.dev
    ```
 
 ## License

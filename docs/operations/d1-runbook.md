@@ -49,6 +49,26 @@ development adapter, which logs disposable links for testing. A production
 environment without both email credentials fails closed instead of logging a
 sign-in link.
 
+## Production deployment preflight
+
+The configured Pages project is `wsmc` at `wsmc.pages.dev`. The remote D1
+currently contains the retired prototype tables and reports
+`0001_v2_baseline.sql` as unapplied. Do not deploy the v2 worker against that
+database until the operator confirms the existing data is disposable, exports
+the database for recovery, applies the v2 migration, and verifies the seeded
+or imported v2 counts. The production Pages environment must also have
+`ENVIRONMENT`, `APP_ORIGIN`, `EMAIL_FROM`, and the encrypted `EMAIL_API_KEY`
+configured before sign-in can support a live season.
+
+After those prerequisites are verified, deploy the built Pages output and run
+the post-deploy smoke command below. The current remote target has not been
+modified by local development or verification commands.
+
+```bash
+npx wrangler pages deploy .svelte-kit/cloudflare
+npm run smoke:preview -- https://wsmc.pages.dev
+```
+
 ## Backup and restore
 
 Run a remote export from a trusted operator machine before migrations or a live
