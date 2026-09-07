@@ -6,7 +6,7 @@ and is not used as the v2 status source.
 
 ## Current checkpoint
 
-- **Active phase:** Phase 6 — Scoring, score CSV, and regional results
+- **Active phase:** Phase 7 — Qualifications and statewide cutoff rounds
 - **Completed:** Initial execution-plan commit; baseline verification; v2
   architecture decisions; prototype D1 confirmed disposable; pure-domain
   Team Contest terminology and qualification rules/tests; v2 schema reset,
@@ -20,9 +20,10 @@ and is not used as the v2 status source.
   with division-separated competition ranking, Topical Individual overall and
   actual-grade ranks, and ordered Knowdown results; explainable regional
   placement qualification decisions with frozen draft/
-  published rounds
-- **Next:** Complete Phase 7 cutoff previews, manual decisions, and
-  qualification publication workflow.
+  published rounds; division-specific state score-cutoff preview/draft
+  services and audited manual include/exclude decisions
+- **Next:** Finish cutoff/manual review UI behavior and verify frozen-round
+  publication and score-correction impact handling.
 
 ## Phase 2 checkpoint
 
@@ -113,16 +114,10 @@ and is not used as the v2 status source.
 - **Implemented:** Coordinator-only finalization requires a complete report;
   reopening requires a reason and clears publication; publication is a
   separate action. Score saves and lifecycle changes append audit events.
-- **Verified:** 89 unit tests, 0 type-check errors, a clean production build,
-  and the seeded worker at 390px with no horizontal overflow and accessible
-  names for all scoring controls. Existing prototype warnings remain
-  isolated to retired score/leaderboard pages.
-- **Verified:** 89 unit tests, 0 type-check errors, a clean production build,
-  seeded-worker score CSV download, and preview of the exported file with no
-  writes. The browser path remains within 390px at phone width.
 - **Verified:** 91 unit tests, 0 type-check errors, a clean production build,
-  and the seeded worker rendering finalized regional results with no
-  horizontal overflow at 390px and no unlabeled controls.
+  seeded-worker score CSV download/preview, finalized regional results, no
+  horizontal overflow at 390px, and no unlabeled controls. Existing
+  prototype warnings remain isolated to retired score/leaderboard pages.
 - **Status:** Phase 6 acceptance is met for score validation, CSV round trip,
   stale-edit protection, completeness/finalization controls, and regional
   rankings. The next dependent package is Phase 7 qualification snapshots.
@@ -137,11 +132,16 @@ and is not used as the v2 status source.
   publication flow stores a season-scoped `regional_placements` draft,
   deduplicates repeated qualification/reason generation, and freezes a
   published round. Generation and publication are audited.
-- **Verified:** 93 unit tests, 0 type-check errors, a clean production build,
+- **Implemented:** Pure cutoff previews apply division-specific thresholds only
+  to Team Contest, Topical Team, and Topical Individual; placement-qualified
+  entries are reported as already qualified. Draft cutoff persistence and
+  reasoned manual include/exclude services use separate frozen round types and
+  preserve audit records.
+- **Verified:** 95 unit tests, 0 type-check errors, a clean production build,
   and the seeded worker review page showing the published round and its
-  explainable reasons.
-- **Next:** Add statewide division-specific score-cutoff previews and
-  reasoned manual include/exclude decisions without mutating frozen rounds.
+  explainable reasons plus a no-write cutoff preview.
+- **Next:** Finish cutoff/manual review UI behavior and verify frozen-round
+  publication and score-correction impact handling.
 
 ## Phase checklist
 

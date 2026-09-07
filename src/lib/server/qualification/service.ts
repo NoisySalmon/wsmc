@@ -57,14 +57,18 @@ export async function generateRegionalPlacementQualifications(db: Database, inpu
 	return getQualificationReview(db, contest.seasonId);
 }
 
-export async function getQualificationReview(db: Database, seasonId: string) {
-	const [round] = await db.select().from(schema.qualificationRounds).where(and(eq(schema.qualificationRounds.seasonId, seasonId), eq(schema.qualificationRounds.kind, 'regional_placements'))).orderBy(asc(schema.qualificationRounds.createdAt));
+export async function getQualificationRoundReview(db: Database, seasonId: string, kind: 'regional_placements' | 'state_cutoff' | 'manual_review') {
+	const [round] = await db.select().from(schema.qualificationRounds).where(and(eq(schema.qualificationRounds.seasonId, seasonId), eq(schema.qualificationRounds.kind, kind))).orderBy(asc(schema.qualificationRounds.createdAt));
 	if (!round) return { round: null, qualifications: [] };
 	const rows = await db.select({ qualification: schema.qualifications, entry: schema.entries, schoolName: schema.schools.shortName, studentName: schema.annualStudents.name })
 		.from(schema.qualifications).innerJoin(schema.entries, eq(schema.entries.id, schema.qualifications.entryId)).leftJoin(schema.schools, eq(schema.schools.id, schema.entries.ownerSchoolId)).leftJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.qualifications.studentId)).where(eq(schema.qualifications.roundId, round.id));
 	const qualificationIds = rows.map((row) => row.qualification.id);
 	const reasons = qualificationIds.length ? await db.select().from(schema.qualificationReasons).where(inArray(schema.qualificationReasons.qualificationId, qualificationIds)) : [];
 	return { round, qualifications: rows.map(({ qualification, entry, schoolName, studentName }) => ({ ...qualification, category: entry.category, entryNumber: entry.entryNumber, division: entry.division, schoolName: schoolName || 'Statewide entry', studentName: studentName || null, reasons: reasons.filter((reason) => reason.qualificationId === qualification.id) })) };
+}
+
+export async function getQualificationReview(db: Database, seasonId: string) {
+	return getQualificationRoundReview(db, seasonId, 'regional_placements');
 }
 
 export async function publishRegionalQualifications(db: Database, input: { seasonId: string; actorUserId: string; now?: number }) {
