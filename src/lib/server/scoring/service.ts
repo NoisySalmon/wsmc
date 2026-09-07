@@ -2,6 +2,7 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
 import { PersistenceRuleError, saveResult } from '$lib/server/db/repositories';
+import { rankRegionalResults, type RegionalRankings, type RegionalResultRow } from './rankings';
 
 export type ScoreCategory = 'project' | 'team_contest' | 'topical_team' | 'topical_individual' | 'knowdown';
 
@@ -84,12 +85,12 @@ export async function getScoringSnapshot(db: Database, contestId: string) {
 	const entryIds = rows.map((row) => row.entry.id);
 	const members = entryIds.length === 0
 		? []
-		: await db.select({ member: schema.entryMembers, studentName: schema.annualStudents.name })
+		: await db.select({ member: schema.entryMembers, studentName: schema.annualStudents.name, actualGrade: schema.annualStudents.actualGrade })
 			.from(schema.entryMembers)
 			.innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.entryMembers.annualStudentId))
 			.where(eq(schema.entryMembers.entryId, entryIds[0]));
 	// D1/SQLite does not accept an empty IN list. Load the remaining members separately when needed.
-	const allMembers = entryIds.length <= 1 ? members : await db.select({ member: schema.entryMembers, studentName: schema.annualStudents.name })
+	const allMembers = entryIds.length <= 1 ? members : await db.select({ member: schema.entryMembers, studentName: schema.annualStudents.name, actualGrade: schema.annualStudents.actualGrade })
 		.from(schema.entryMembers)
 		.innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.entryMembers.annualStudentId))
 		.where(inArray(schema.entryMembers.entryId, entryIds));
@@ -106,7 +107,7 @@ export async function getScoringSnapshot(db: Database, contestId: string) {
 				entryNumber: entry.entryNumber,
 				division: entry.division,
 				schoolName: schoolName || schoolFullName || 'Statewide entry',
-				members: allMembers.filter(({ member }) => member.entryId === entry.id).map(({ member, studentName }) => ({ name: studentName, competingGrade: member.competingGrade })),
+			members: allMembers.filter(({ member }) => member.entryId === entry.id).map(({ member, studentName, actualGrade }) => ({ name: studentName, actualGrade, competingGrade: member.competingGrade })),
 				score: result?.score ?? (part1 !== null && part2 !== null ? part1 + part2 : null),
 				part1,
 				part2,
@@ -177,4 +178,17 @@ export async function publishContestResults(db: Database, input: { contestId: st
 	const publishedAt = contest.resultsPublishedAt ?? input.now ?? Date.now();
 	await db.update(schema.contests).set({ resultsPublishedAt: publishedAt, updatedAt: input.now ?? Date.now() }).where(eq(schema.contests.id, input.contestId));
 	await db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: input.contestId, entityType: 'contest', entityId: input.contestId, action: 'results_published', detailsJson: JSON.stringify({ publishedAt }), createdAt: input.now ?? Date.now() });
+}
+
+export async function getRegionalRankings(db: Database, contestId: string): Promise<{ contest: Awaited<ReturnType<typeof getScoringSnapshot>>['contest']; rankings: RegionalRankings }> {
+	const snapshot = await getScoringSnapshot(db, contestId);
+	if (snapshot.contest.kind !== 'regional') throw new ScoringError('not_regional', 'Only regional contests have regional rankings.');
+	if (snapshot.contest.lifecycle !== 'finalized') throw new ScoringError('not_finalized', 'Regional rankings are available after finalization.');
+	const rows: RegionalResultRow[] = snapshot.entries.map((entry) => ({
+		entryId: entry.id, category: entry.category, division: entry.division, entryNumber: entry.entryNumber, schoolName: entry.schoolName,
+		score: entry.score, part1: entry.part1, part2: entry.part2, placement: entry.placement,
+		studentName: entry.category === 'topical_individual' || entry.category === 'knowdown' ? entry.members[0]?.name ?? null : null,
+		actualGrade: entry.category === 'topical_individual' ? entry.members[0]?.actualGrade ?? null : null,
+	}));
+	return { contest: snapshot.contest, rankings: rankRegionalResults(rows) };
 }

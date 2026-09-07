@@ -16,7 +16,9 @@ and is not used as the v2 status source.
   per-result editor/version metadata, finalization completeness reporting,
   separate reopen/publish controls, and score-change/lifecycle audit events;
   versioned score CSV export, preview, stale-version validation, and atomic
-  import with operation/audit records
+  import with operation/audit records; server-backed regional result boards
+  with division-separated competition ranking, Topical Individual overall and
+  actual-grade ranks, and ordered Knowdown results
 - **Next:** Complete score CSV round trip and regional result workflows.
 
 ## Phase 2 checkpoint
@@ -115,8 +117,12 @@ and is not used as the v2 status source.
 - **Verified:** 89 unit tests, 0 type-check errors, a clean production build,
   seeded-worker score CSV download, and preview of the exported file with no
   writes. The browser path remains within 390px at phone width.
-- **Next:** Add server-tested regional rankings with competition ties and
-  connect published regional results to a dedicated results view.
+- **Verified:** 91 unit tests, 0 type-check errors, a clean production build,
+  and the seeded worker rendering finalized regional results with no
+  horizontal overflow at 390px and no unlabeled controls.
+- **Status:** Phase 6 acceptance is met for score validation, CSV round trip,
+  stale-edit protection, completeness/finalization controls, and regional
+  rankings. The next dependent package is Phase 7 qualification snapshots.
 
 ## Phase checklist
 

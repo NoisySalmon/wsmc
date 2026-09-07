@@ -29,7 +29,7 @@
 <main>
 	<p><a href="/participation">← Program</a></p>
 	<h1>{data.contest.name}</h1>
-	<p class="subheading">{data.contest.kind} · {data.contest.lifecycle}{#if data.contest.resultsPublishedAt} · published{/if}</p>
+	<p class="subheading">{data.contest.kind} · {data.contest.lifecycle}{#if data.contest.resultsPublishedAt} · published{/if}{#if data.contest.lifecycle === 'finalized'} · <a href="/results/{data.contest.id}">View regional results</a>{/if}</p>
 	{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
 	{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
 
