@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { error, fail } from '@sveltejs/kit';
 import { canAdministerUsers, canCoachSchool, canCoordinateRegion, canCoordinateState } from '$lib/server/auth/capabilities';
-import { createEmailProvider } from '$lib/server/auth/email';
+import { createEmailProvider, resolveAppOrigin } from '$lib/server/auth/email';
 import { AuthError, inviteUser } from '$lib/server/auth/service';
 import { assignCoach, inviteSchool, ParticipationError, removeCoach, setParticipationStatus, type InvitationStatus } from '$lib/server/program/participation';
 import { canManageSeasonAssignments } from '$lib/server/program/access';
@@ -98,7 +98,7 @@ export const actions: Actions = {
 		const displayName = text(data, 'displayName');
 		if (!email || !displayName || !text(data, 'schoolId')) return fail(400, { error: 'Coach name, email, school, and season are required.' });
 		try {
-			const result = await inviteUser(db, createEmailProvider(platform.env), { email, displayName, origin: platform.env.APP_ORIGIN ?? url.origin, assignments: [{ kind: 'coach', seasonId, schoolId: text(data, 'schoolId') }] });
+			const result = await inviteUser(db, createEmailProvider(platform.env), { email, displayName, origin: resolveAppOrigin(platform.env, url.origin), assignments: [{ kind: 'coach', seasonId, schoolId: text(data, 'schoolId') }] });
 			return { success: `Coach invitation sent to ${result.user.email}.` };
 		} catch (cause) {
 			return fail(400, { error: cause instanceof AuthError ? cause.message : 'Coach invitation could not be sent.' });

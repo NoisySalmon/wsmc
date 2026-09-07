@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DevelopmentEmailProvider, ResendEmailProvider, createEmailProvider } from './email';
+import { DevelopmentEmailProvider, ResendEmailProvider, createEmailProvider, resolveAppOrigin } from './email';
 
 describe('email providers', () => {
 	it('logs development links without sending mail', async () => {
@@ -24,5 +24,12 @@ describe('email providers', () => {
 		expect(createEmailProvider({})).toBeInstanceOf(DevelopmentEmailProvider);
 		expect(createEmailProvider({ EMAIL_API_KEY: 'key', EMAIL_FROM: 'from@example.com' })).toBeInstanceOf(ResendEmailProvider);
 		expect(() => createEmailProvider({ ENVIRONMENT: 'production' })).toThrow(/not configured/);
+	});
+
+	it('requires a trusted HTTPS origin in production', () => {
+		expect(resolveAppOrigin({ ENVIRONMENT: 'production', APP_ORIGIN: 'https://wsmc.example/' }, 'http://request.example')).toBe('https://wsmc.example');
+		expect(() => resolveAppOrigin({ ENVIRONMENT: 'production' }, 'https://request.example')).toThrow(/not configured/);
+		expect(() => resolveAppOrigin({ ENVIRONMENT: 'production', APP_ORIGIN: 'http://wsmc.example' }, 'https://request.example')).toThrow(/valid HTTP/);
+		expect(resolveAppOrigin({}, 'https://localhost:8790/path')).toBe('https://localhost:8790');
 	});
 });

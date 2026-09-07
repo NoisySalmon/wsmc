@@ -36,6 +36,20 @@ export class ResendEmailProvider implements EmailProvider {
 	}
 }
 
+export function resolveAppOrigin(env: { ENVIRONMENT?: 'development' | 'production'; APP_ORIGIN?: string }, fallbackOrigin: string): string {
+	const configured = env.APP_ORIGIN?.trim();
+	if (!configured && env.ENVIRONMENT === 'production') throw new Error('Production app origin is not configured.');
+	const candidate = configured || fallbackOrigin;
+	try {
+		const origin = new URL(candidate);
+		if (!['http:', 'https:'].includes(origin.protocol)) throw new Error();
+		if (env.ENVIRONMENT === 'production' && origin.protocol !== 'https:') throw new Error();
+		return origin.origin;
+	} catch {
+		throw new Error('App origin must be a valid HTTP(S) URL.');
+	}
+}
+
 export function createEmailProvider(env: { ENVIRONMENT?: 'development' | 'production'; EMAIL_API_KEY?: string; EMAIL_FROM?: string }, logger?: (message: string) => void): EmailProvider {
 	if (env.EMAIL_API_KEY && env.EMAIL_FROM) return new ResendEmailProvider(env.EMAIL_API_KEY, env.EMAIL_FROM);
 	if (env.ENVIRONMENT === 'production') throw new Error('Production email provider is not configured.');

@@ -1,7 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { canAdministerUsers } from '$lib/server/auth/capabilities';
-import { createEmailProvider } from '$lib/server/auth/email';
+import { createEmailProvider, resolveAppOrigin } from '$lib/server/auth/email';
 import {
 	AuthError,
 	inviteUser,
@@ -75,7 +75,7 @@ export const actions: Actions = {
 				email: requiredText(data.get('email'), 'Email'),
 				displayName: requiredText(data.get('displayName'), 'Name'),
 				assignments: [assignment],
-				origin: platform.env.APP_ORIGIN ?? url.origin,
+				origin: resolveAppOrigin(platform.env, url.origin),
 			});
 			return { success: `Invitation sent to ${result.user.email}.` };
 		} catch (cause) {

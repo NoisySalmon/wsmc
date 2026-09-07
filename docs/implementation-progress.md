@@ -247,7 +247,10 @@ and is not used as the v2 status source.
 - **Implemented:** Direct route authorization tests now cover unauthenticated
   loads and every scoring, state-administration, qualification, and report
   endpoint before database access.
-- **Verified:** 123 unit tests now include access-scope, exact public-route,
+- **Implemented:** Production sign-in links now require a configured HTTPS
+  `APP_ORIGIN`; login, administrator invitations, and coach invitations no
+  longer fall back to an untrusted request host.
+- **Verified:** 124 unit tests now include access-scope, exact public-route,
   safe-diagnostic, and journey coverage. Full type-check, build, and D1
   integration gates remain
   required before Phase 10 is complete.
