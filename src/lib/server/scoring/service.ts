@@ -137,6 +137,11 @@ export async function saveContestResult(db: Database, input: { contestId: string
 		id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: contest.id, entityType: 'result', entityId: entry.id,
 		action: 'score_saved', detailsJson: JSON.stringify({ category: entry.category, score: values.score, part1: values.part1, part2: values.part2, placement: values.placement, version: result?.version ?? null }), createdAt: input.now ?? Date.now(),
 	});
+	const [publishedQualificationRound] = await db.select({ id: schema.qualificationRounds.id }).from(schema.qualificationRounds).where(and(eq(schema.qualificationRounds.seasonId, contest.seasonId), eq(schema.qualificationRounds.status, 'published'))).limit(1);
+	if (publishedQualificationRound) await db.insert(schema.auditEvents).values({
+		id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: contest.id, entityType: 'qualification_round', entityId: publishedQualificationRound.id,
+		action: 'qualification_impact_review_required', detailsJson: JSON.stringify({ entryId: entry.id, category: entry.category, reason: 'score_changed_after_qualification_publication' }), createdAt: input.now ?? Date.now(),
+	});
 	return result;
 }
 

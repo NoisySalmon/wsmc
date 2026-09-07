@@ -67,6 +67,15 @@ export async function publishStateCutoffRound(db: Database, input: { seasonId: s
 	await db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), entityType: 'qualification_round', entityId: round.id, action: 'state_cutoffs_published', detailsJson: JSON.stringify({ seasonId: input.seasonId }), createdAt: now, actorUserId: input.actorUserId });
 }
 
+export async function publishManualQualificationReview(db: Database, input: { seasonId: string; actorUserId: string; now?: number }) {
+	const [round] = await db.select().from(schema.qualificationRounds).where(and(eq(schema.qualificationRounds.seasonId, input.seasonId), eq(schema.qualificationRounds.kind, 'manual_review'))).orderBy(asc(schema.qualificationRounds.createdAt));
+	if (!round) throw new CutoffError('not_found', 'Record a manual decision before publishing this review.');
+	if (round.status !== 'draft') throw new CutoffError('published', 'Manual qualification decisions are already published.');
+	const now = input.now ?? Date.now();
+	await db.update(schema.qualificationRounds).set({ status: 'published', publishedAt: now }).where(and(eq(schema.qualificationRounds.id, round.id), eq(schema.qualificationRounds.status, 'draft')));
+	await db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.actorUserId, entityType: 'qualification_round', entityId: round.id, action: 'manual_qualifications_published', detailsJson: JSON.stringify({ seasonId: input.seasonId }), createdAt: now });
+}
+
 export async function recordManualQualificationDecision(db: Database, input: { seasonId: string; entryId: string; studentId?: string | null; include: boolean; reason: string; actorUserId: string; now?: number }) {
 	const reason = input.reason.trim();
 	if (!reason) throw new CutoffError('reason_required', 'A reason is required for a manual qualification decision.');

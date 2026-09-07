@@ -53,6 +53,8 @@ export async function importScoreCsv(db: Database, input: { contestId: string; a
 	}
 	operations.push(db.insert(schema.imports).values({ id: crypto.randomUUID(), contestId: input.contestId, schoolId: null, kind: 'score', filename: 'score-import.csv', status: 'committed', createdBy: input.actorUserId, createdAt: now }));
 	operations.push(db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: input.contestId, entityType: 'score_import', entityId: input.contestId, action: 'score_csv_imported', detailsJson: JSON.stringify({ format: scoreCsvFormat, rows: rows.length, updatedRows: preview.updatedRows, clearedRows: preview.clearedRows }), createdAt: now }));
+	const [publishedQualificationRound] = await db.select({ id: schema.qualificationRounds.id }).from(schema.qualificationRounds).where(and(eq(schema.qualificationRounds.seasonId, contest.seasonId), eq(schema.qualificationRounds.status, 'published'))).limit(1);
+	if (publishedQualificationRound) operations.push(db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: input.contestId, entityType: 'qualification_round', entityId: publishedQualificationRound.id, action: 'qualification_impact_review_required', detailsJson: JSON.stringify({ reason: 'score_csv_changed_after_qualification_publication', rows: rows.length }), createdAt: now }));
 	await db.batch(operations as [any, ...any[]]);
 	return preview;
 }

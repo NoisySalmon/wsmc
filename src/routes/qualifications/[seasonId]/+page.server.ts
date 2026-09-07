@@ -2,7 +2,7 @@ import { error, fail } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
 import { canCoordinateState } from '$lib/server/auth/capabilities';
 import { getDb, schema } from '$lib/server/db';
-import { createStateCutoffDraft, CutoffError, previewStateCutoffRound, publishStateCutoffRound, recordManualQualificationDecision } from '$lib/server/qualification/cutoff-service';
+import { createStateCutoffDraft, CutoffError, previewStateCutoffRound, publishManualQualificationReview, publishStateCutoffRound, recordManualQualificationDecision } from '$lib/server/qualification/cutoff-service';
 import { generateRegionalPlacementQualifications, getQualificationReview, getQualificationRoundReview, publishRegionalQualifications, QualificationError } from '$lib/server/qualification/service';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -24,12 +24,13 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	const db = getDb(platform.env.DB);
 	const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, params.seasonId));
 	if (!season) throw error(404, 'Season not found.');
-	const [contests, review, cutoffReview] = await Promise.all([
+	const [contests, review, cutoffReview, manualReview] = await Promise.all([
 		db.select().from(schema.contests).where(and(eq(schema.contests.seasonId, params.seasonId), eq(schema.contests.kind, 'regional'))),
 		getQualificationReview(db, params.seasonId),
 		getQualificationRoundReview(db, params.seasonId, 'state_cutoff'),
+		getQualificationRoundReview(db, params.seasonId, 'manual_review'),
 	]);
-	return { season, contests, review, cutoffReview };
+	return { season, contests, review, cutoffReview, manualReview };
 };
 
 export const actions: Actions = {
@@ -66,6 +67,11 @@ export const actions: Actions = {
 			await recordManualQualificationDecision(getDb(platform.env.DB), { seasonId: params.seasonId, entryId: String(data.get('entryId') ?? '').trim(), studentId: String(data.get('studentId') ?? '').trim() || null, include: String(data.get('decision') ?? '') === 'include', reason: String(data.get('reason') ?? ''), actorUserId: locals.principal!.id });
 			return { success: 'Manual qualification decision recorded.' };
 		} catch (cause) { return cutoffFailure(cause); }
+	},
+	publishManual: async ({ locals, platform, params }) => {
+		requireAccess(locals, params.seasonId);
+		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+		try { await publishManualQualificationReview(getDb(platform.env.DB), { seasonId: params.seasonId, actorUserId: locals.principal!.id }); return { success: 'Manual qualification review published and frozen.' }; } catch (cause) { return cutoffFailure(cause); }
 	},
 	publish: async ({ locals, platform, params }) => {
 		requireAccess(locals, params.seasonId);
