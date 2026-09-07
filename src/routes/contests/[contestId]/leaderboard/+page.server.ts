@@ -62,7 +62,7 @@ export const load: PageServerLoad = async ({ params, platform }) => {
 		return teamToEntry(team, ps.score);
 	});
 
-	// ── Team Problem rankings ──
+	// ── Team Contest rankings ──
 	const tpTeamIds = allTeams.filter((t) => t.contestType === 'team_problem').map((t) => t.id);
 	const tpScores = tpTeamIds.length > 0
 		? await db.select().from(schema.teamProblemScores).where(inArray(schema.teamProblemScores.teamId, tpTeamIds))

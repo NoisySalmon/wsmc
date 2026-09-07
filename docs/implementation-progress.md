@@ -24,8 +24,9 @@ and is not used as the v2 status source.
   services and audited manual include/exclude decisions; state attendance,
   roster, entry, publication, and report workflows; coach-scoped state
   dashboard data; and safe structured request diagnostics
-- **Next:** Add and verify the remaining end-to-end, accessibility, backup/
-  restore, concurrency, and deployment smoke coverage required for production.
+- **Next:** Close the remaining production-readiness evidence gap for a true
+  authenticated end-to-end journey, then deploy only after a live target and
+  credentials are explicitly supplied.
 
 ## Phase 2 checkpoint
 
@@ -251,9 +252,8 @@ and is not used as the v2 status source.
   `APP_ORIGIN`; login, administrator invitations, and coach invitations no
   longer fall back to an untrusted request host.
 - **Verified:** 124 unit tests now include access-scope, exact public-route,
-  safe-diagnostic, and journey coverage. Full type-check, build, and D1
-  integration gates remain
-  required before Phase 10 is complete.
+  safe-diagnostic, and journey coverage. `npm test`, `npm run check`,
+  `npm run build`, `npm run test:db`, and `npm run rehearsal` all pass.
 - **Verified:** Live preview smoke check at 390px found no horizontal overflow
   and no unlabeled visible controls on the program setup page.
 - **Verified:** Live preview review at 390px across program, registration,

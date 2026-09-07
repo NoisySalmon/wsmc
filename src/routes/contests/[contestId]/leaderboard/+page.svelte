@@ -5,7 +5,7 @@
 
 	const tabs = [
 		{ id: 'project', label: 'Project' },
-		{ id: 'team_problem', label: 'Team Problem' },
+		{ id: 'team_problem', label: 'Team Contest' },
 		{ id: 'topical_team', label: 'Topical Team' },
 		{ id: 'topical_individual', label: 'Topical Individual' },
 		{ id: 'knowdown', label: 'Knowdown' },
@@ -93,12 +93,12 @@
 				</table>
 			{/if}
 
-		<!-- ─── TEAM PROBLEM ─── -->
+		<!-- ─── TEAM CONTEST ─── -->
 		{:else if activeTab === 'team_problem'}
 			{@const ranked = filteredTeamRankings(data.teamProblemRankings)}
-			<h2>Team Problem Rankings</h2>
+			<h2>Team Contest Rankings</h2>
 			{#if ranked.length === 0}
-				<p class="empty">No team problem scores recorded yet.</p>
+				<p class="empty">No Team Contest scores recorded yet.</p>
 			{:else}
 				<table>
 					<thead>

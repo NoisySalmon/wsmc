@@ -6,7 +6,7 @@
 
 	const tabs = [
 		{ id: 'project', label: 'Project' },
-		{ id: 'team_problem', label: 'Team Problem' },
+		{ id: 'team_problem', label: 'Team Contest' },
 		{ id: 'topical_team', label: 'Topical Team' },
 		{ id: 'topical_individual', label: 'Topical Individual' },
 		{ id: 'knowdown', label: 'Knowdown' },
@@ -95,11 +95,11 @@
 				{/if}
 			</form>
 
-		<!-- ─── TEAM PROBLEM SCORES ─── -->
+		<!-- ─── TEAM CONTEST SCORES ─── -->
 		{:else if activeTab === 'team_problem'}
 			<form method="POST" action="?/saveTeamProblemScores" use:enhance>
 				{#if data.teamProblemTeams.length === 0}
-					<p class="empty">No team problem teams registered yet.</p>
+					<p class="empty">No Team Contest teams registered yet.</p>
 				{:else}
 					<table>
 						<thead>
@@ -133,7 +133,7 @@
 						</tbody>
 					</table>
 					<div class="form-actions">
-						<button type="submit">Save Team Problem Scores</button>
+						<button type="submit">Save Team Contest Scores</button>
 					</div>
 				{/if}
 			</form>
