@@ -177,7 +177,17 @@ export async function saveResult(
 	}
 	const version = current ? current.version + 1 : 1;
 	if (current) {
-		return db.update(schema.results).set({ score: input.score ?? null, part1: input.part1 ?? null, part2: input.part2 ?? null, placement: input.placement ?? null, version, lastEditedBy: input.lastEditedBy ?? null }).where(eq(schema.results.entryId, input.entryId)).returning();
+		const updateWhere = input.expectedVersion === undefined
+			? eq(schema.results.entryId, input.entryId)
+			: and(eq(schema.results.entryId, input.entryId), eq(schema.results.version, input.expectedVersion));
+		const updated = await db.update(schema.results).set({ score: input.score ?? null, part1: input.part1 ?? null, part2: input.part2 ?? null, placement: input.placement ?? null, version, lastEditedBy: input.lastEditedBy ?? null }).where(updateWhere).returning();
+		if (updated.length === 0 && input.expectedVersion !== undefined) {
+			throw new PersistenceRuleError('stale_result', 'This result changed after it was loaded. Refresh before saving.');
+		}
+		return updated;
+	}
+	if (input.expectedVersion !== undefined && input.expectedVersion !== 0) {
+		throw new PersistenceRuleError('stale_result', 'This result changed after it was loaded. Refresh before saving.');
 	}
 	return db.insert(schema.results).values({ entryId: input.entryId, score: input.score ?? null, part1: input.part1 ?? null, part2: input.part2 ?? null, placement: input.placement ?? null, version, lastEditedBy: input.lastEditedBy ?? null }).returning();
 }

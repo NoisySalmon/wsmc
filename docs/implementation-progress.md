@@ -11,8 +11,11 @@ and is not used as the v2 status source.
   architecture decisions; prototype D1 confirmed disposable; pure-domain
   Team Contest terminology and qualification rules/tests; v2 schema reset,
   representative seed, local integration checks, and repository scope/rule
-  coverage
-- **Next:** Build shared score-entry services and regional result workflows.
+  coverage; shared v2 score validation and versioned result persistence; the
+  first authorized scoring surface with filters, missing indicators,
+  per-result editor/version metadata, finalization completeness reporting,
+  separate reopen/publish controls, and score-change/lifecycle audit events
+- **Next:** Complete score CSV round trip and regional result workflows.
 
 ## Phase 2 checkpoint
 
@@ -90,6 +93,25 @@ and is not used as the v2 status source.
 - **Status:** Phase 5 acceptance is met. A coach can download, edit, preview,
   and re-import a complete school registration without legacy workbook
   coupling.
+
+## Phase 6 checkpoint
+
+- **Implemented:** Shared v2 score validation distinguishes blank from zero,
+  enforces category-specific score shapes and Topical part limits, derives
+  topical totals, and stores optimistic-concurrency versions with the last
+  editor. The new `/scoring/[contestId]` route is independently gated by
+  contest score capability, supports category/division/missing filters,
+  keyboard-friendly native inputs, and displays per-entry completeness and
+  editor metadata.
+- **Implemented:** Coordinator-only finalization requires a complete report;
+  reopening requires a reason and clears publication; publication is a
+  separate action. Score saves and lifecycle changes append audit events.
+- **Verified:** 86 unit tests, 0 type-check errors, a clean production build,
+  and the seeded worker at 390px with no horizontal overflow and accessible
+  names for all scoring controls. Existing prototype warnings remain
+  isolated to retired score/leaderboard pages.
+- **Next:** Add versioned score CSV export/preview/import and server-tested
+  regional rankings with competition ties.
 
 ## Phase checklist
 
