@@ -3,6 +3,8 @@ set -euo pipefail
 
 base_url="${1:-http://127.0.0.1:8790}"
 base_url="${base_url%/}"
+state_contest_id="${WSMC_SMOKE_STATE_CONTEST_ID:-contest-state-2026}"
+public_results_status="${WSMC_SMOKE_PUBLIC_RESULTS_STATUS:-404}"
 
 status_for() {
 	local method="$1"
@@ -26,7 +28,7 @@ assert_status() {
 assert_status GET /login 200
 assert_status GET /program 303
 assert_status POST /program 401
-assert_status GET /state/contest-state-2026/results 404
-assert_status GET /state/contest-state-2026/results/details 303
+assert_status GET "/state/${state_contest_id}/results" "$public_results_status"
+assert_status GET "/state/${state_contest_id}/results/details" 303
 
 echo "Pages smoke checks passed for ${base_url}"

@@ -222,8 +222,8 @@ and is not used as the v2 status source.
   the operations runbook documents the required environment values.
 - **Implemented:** A repeatable Pages HTTP smoke script checks login,
   private-route protection, unauthenticated POST rejection, and the exact
-  unpublished public-results boundary against a supplied local or deployed
-  URL.
+  public-results boundary against a supplied local or deployed URL, with
+  configurable state contest ID and publication status.
 - **Verified:** 111 unit tests now include access-scope, exact public-route,
   safe-diagnostic, and journey coverage. Full type-check, build, and D1
   integration gates remain

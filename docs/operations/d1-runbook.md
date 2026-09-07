@@ -78,8 +78,10 @@ account; do not reuse a sign-in token or copy one from logs.
 6. Switch the binding during a maintenance window and run the post-deploy
    smoke test. `npm run smoke:preview -- https://<deployed-host>` checks the
    login page, private-route protection, unauthenticated POST rejection, and
-   the unpublished public-results boundary without logging in or changing
-   contest data.
+   the public-results boundary without logging in or changing contest data.
+   Set `WSMC_SMOKE_STATE_CONTEST_ID` to a real state contest ID and
+   `WSMC_SMOKE_PUBLIC_RESULTS_STATUS=200` after that contest is published;
+   the defaults target the disposable seeded, unpublished state contest.
 
 Do not log sign-in tokens, full student rosters, or unnecessary contact data in
 incident tickets.
