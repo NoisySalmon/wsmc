@@ -25,7 +25,15 @@ For a clean Pages preview, build first and bind the configured D1 database:
 npm run build
 npx wrangler pages dev .svelte-kit/cloudflare --d1 DB=5c5a8cb8-f2b9-489a-8a2d-b32a87c70cce --local --persist-to /tmp/wsmc-pages-state --port 8790
 npm run smoke:preview -- http://127.0.0.1:8790
+npm run test:e2e:preview
 ```
+
+`test:e2e:preview` starts its own disposable Pages preview on port 8791,
+seeds an isolated D1, creates fixture sessions for a statewide coordinator
+and scorekeeper, and removes the temporary state afterward. It verifies
+authenticated route traversal, a state attendance mutation, scorekeeper
+scope, and stale score rejection. Run it after `npm run build`; it does not
+touch the persistent preview above or any remote database.
 
 ## Configure production email
 

@@ -74,7 +74,17 @@ npm test -- --run
 npm run check
 npm run build
 npm run test:db
+npm run test:e2e:preview
 ```
+
+The authenticated preview journey builds an isolated local D1, provisions
+disposable fixture sessions, exercises the regional-to-state route and action
+handoff, and removes the temporary database when it finishes. It requires the
+production build output and a local Wrangler listener; it never uses remote
+D1 or real email tokens.
+
+The same checks run in [GitHub Actions](.github/workflows/ci.yml) for pushes
+and pull requests.
 
 ## Deployment
 

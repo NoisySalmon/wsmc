@@ -1,4 +1,4 @@
-import { error, fail } from '@sveltejs/kit';
+import { error, fail, isHttpError } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { canFinalizeContest, canScoreContest } from '$lib/server/auth/capabilities';
 import { getDb, schema } from '$lib/server/db';
@@ -67,7 +67,7 @@ export const actions: Actions = {
 			await saveContestResult(db, { contestId, entryId: text(data, 'entryId'), actorUserId: locals.principal.id, expectedVersion: expectedVersion(data), score: numberOrNull(data, 'score'), part1: numberOrNull(data, 'part1'), part2: numberOrNull(data, 'part2'), placement: numberOrNull(data, 'placement') });
 			return { success: 'Score saved.' };
 		} catch (cause) {
-			if (cause instanceof Response) throw cause;
+			if (isHttpError(cause)) throw cause;
 			return scoringFailure(cause);
 		}
 	},
@@ -80,7 +80,7 @@ export const actions: Actions = {
 			if (!contest || !canScoreContest(locals.principal, params.contestId, contest.seasonId)) throw error(403, 'You cannot score this contest.');
 			return { scoreCsvSummary: await previewScoreCsv(db, params.contestId, await csvText(request)), success: 'Preview generated. No changes have been saved.' };
 		} catch (cause) {
-			if (cause instanceof Response) throw cause;
+			if (isHttpError(cause)) throw cause;
 			return csvFailure(cause);
 		}
 	},
@@ -94,7 +94,7 @@ export const actions: Actions = {
 			const preview = await importScoreCsv(db, { contestId: params.contestId, actorUserId: locals.principal.id, text: await csvText(request) });
 			return { scoreCsvSummary: preview, success: `Imported ${preview.rows.length} score rows atomically.` };
 		} catch (cause) {
-			if (cause instanceof Response) throw cause;
+			if (isHttpError(cause)) throw cause;
 			return csvFailure(cause);
 		}
 	},
@@ -108,7 +108,7 @@ export const actions: Actions = {
 			await finalizeContest(db, { contestId: params.contestId, actorUserId: locals.principal.id });
 			return { success: 'Contest finalized. Results remain unpublished until a coordinator publishes them.' };
 		} catch (cause) {
-			if (cause instanceof Response) throw cause;
+			if (isHttpError(cause)) throw cause;
 			return scoringFailure(cause);
 		}
 	},
@@ -123,7 +123,7 @@ export const actions: Actions = {
 			await reopenContest(db, { contestId: params.contestId, actorUserId: locals.principal.id, reason: text(data, 'reason') });
 			return { success: 'Contest reopened for scoring corrections.' };
 		} catch (cause) {
-			if (cause instanceof Response) throw cause;
+			if (isHttpError(cause)) throw cause;
 			return scoringFailure(cause);
 		}
 	},
@@ -137,7 +137,7 @@ export const actions: Actions = {
 			await publishContestResults(db, { contestId: params.contestId, actorUserId: locals.principal.id });
 			return { success: 'Results published.' };
 		} catch (cause) {
-			if (cause instanceof Response) throw cause;
+			if (isHttpError(cause)) throw cause;
 			return scoringFailure(cause);
 		}
 	},

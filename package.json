@@ -13,6 +13,7 @@
 		"test": "vitest run",
 		"test:db": "bash scripts/test-v2-db.sh",
 		"rehearsal": "bash scripts/dress-rehearsal.sh",
+		"test:e2e:preview": "bash scripts/e2e-preview.sh",
 		"smoke:preview": "bash scripts/smoke-preview.sh",
 		"seed": "wrangler d1 execute wsmc-db --local --file=scripts/seed.sql",
 		"seed:remote": "wrangler d1 execute wsmc-db --remote --file=scripts/seed.sql"
