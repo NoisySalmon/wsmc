@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { exportScoreCsvFromDb } from './csv-service';
+import { exportScoreCsvFromDb, shouldAuditQualificationImpact } from './csv-service';
 
 describe('score CSV contest scope', () => {
+	it('audits qualification impact only for regional contests', () => {
+		expect(shouldAuditQualificationImpact('regional')).toBe(true);
+		expect(shouldAuditQualificationImpact('state')).toBe(false);
+	});
+
 	it('exports state contest entries through the shared scoring workflow', async () => {
 		const contest = { id: 'state-1', kind: 'state', lifecycle: 'scoring' };
 		let selectCalls = 0;

@@ -211,6 +211,9 @@ and is not used as the v2 status source.
   projection with regression coverage for internal entry and student IDs.
 - **Implemented:** The versioned score-CSV export now supports both regional
   and state contests, with regression coverage for state scoring exports.
+- **Implemented:** State score-CSV imports no longer create regional
+  qualification-impact reviews; that audit remains limited to regional score
+  changes.
 - **Implemented:** README and D1 operations documentation now describe the v2
   statewide application and local/remote recovery workflow.
 - **Implemented:** The D1 integration check now restores a seeded database into
@@ -226,7 +229,7 @@ and is not used as the v2 status source.
   private-route protection, unauthenticated POST rejection, and the exact
   public-results boundary against a supplied local or deployed URL, with
   configurable state contest ID and publication status.
-- **Verified:** 112 unit tests now include access-scope, exact public-route,
+- **Verified:** 113 unit tests now include access-scope, exact public-route,
   safe-diagnostic, and journey coverage. Full type-check, build, and D1
   integration gates remain
   required before Phase 10 is complete.
