@@ -21,6 +21,11 @@ describe('state administration rules', () => {
 		await expect(createStateEntry(db, { contestId: 'state-1', category: 'topical_individual', division: 1, actorUserId: 'user-1' })).rejects.toMatchObject({ code: 'policy_blocked' });
 	});
 
+	it('rejects malformed category values at the service boundary', async () => {
+		const db = contestDb(JSON.stringify({ topicalIndividualAllowed: true, crossSchoolTopicalTeamsAllowed: false }));
+		await expect(createStateEntry(db, { contestId: 'state-1', category: 'not-a-category' as never, division: 1, actorUserId: 'user-1' })).rejects.toMatchObject({ code: 'invalid_category' });
+	});
+
 	it('exposes a stable state-domain error type', () => {
 		expect(new StateError('example', 'example')).toBeInstanceOf(Error);
 	});

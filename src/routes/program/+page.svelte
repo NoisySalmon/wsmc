@@ -44,7 +44,7 @@
 		</section>
 	{/each}
 
-	<h2>Contests</h2>
+	<h2>Contests</h2><p><a href="/reports/schools">Download school directory CSV</a></p>
 	<ul class="contests">{#each data.contests as contest}<li><div><strong>{contest.name}</strong><span>{contest.kind} · {contest.lifecycle}</span>{#if contest.kind === 'state'}<a href="/state/{contest.id}">Open state administration</a>{:else}<a href="/scoring/{contest.id}">Open scoring</a>{/if}{#if contest.kind === 'regional' && contest.lifecycle === 'finalized'}<a href="/results/{contest.id}">View results</a>{/if}</div><form method="POST" action="?/setLifecycle"><input type="hidden" name="contestId" value={contest.id} /><input type="hidden" name="seasonId" value={contest.seasonId} /><select name="lifecycle">{#each lifecycleOptions as lifecycle}<option value={lifecycle} selected={lifecycle === contest.lifecycle}>{lifecycle}</option>{/each}</select><button type="submit">Update</button></form></li>{/each}</ul>
 </main>
 

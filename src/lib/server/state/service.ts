@@ -81,6 +81,7 @@ export async function getStateRosterRows(db: Database, contestId: string, school
 
 export async function setStateAttendance(db: Database, input: { contestId: string; schoolId: string; intent: 'undecided' | 'attending' | 'not_attending'; actorUserId: string; now?: number }) {
 	const contest = await requireStateContest(db, input.contestId, true);
+	if (!['undecided', 'attending', 'not_attending'].includes(input.intent)) throw new StateError('invalid_intent', 'Choose a valid state attendance intent.');
 	await requireQualifiedSchool(db, contest.id, input.schoolId);
 	const [participation] = await db.select().from(schema.schoolParticipations).where(and(eq(schema.schoolParticipations.contestId, contest.id), eq(schema.schoolParticipations.schoolId, input.schoolId)));
 	if (!participation) throw new StateError('not_participating', 'School is not participating in this state contest.');
@@ -110,6 +111,7 @@ export async function createStateTeamForBerth(db: Database, input: { contestId: 
 
 export async function addStateRosterMember(db: Database, input: { contestId: string; schoolId: string; annualStudentId: string; admissionBasis: 'individual_qualification' | 'team_berth'; qualificationId?: string | null; stateEntryId?: string | null; actorUserId: string; now?: number }) {
 	const contest = await requireStateContest(db, input.contestId, true);
+	if (input.admissionBasis !== 'individual_qualification' && input.admissionBasis !== 'team_berth') throw new StateError('invalid_basis', 'Choose an individual qualification or team berth admission basis.');
 	await requireQualifiedSchool(db, contest.id, input.schoolId);
 	const [student] = await db.select().from(schema.annualStudents).where(and(eq(schema.annualStudents.id, input.annualStudentId), eq(schema.annualStudents.seasonId, contest.seasonId), eq(schema.annualStudents.schoolId, input.schoolId)));
 	if (!student) throw new StateError('student_out_of_scope', 'Student does not belong to this school and state season.');
@@ -153,6 +155,7 @@ export async function removeStateRosterMember(db: Database, input: { contestId: 
 export async function createStateEntry(db: Database, input: { contestId: string; ownerSchoolId?: string | null; category: StateCategory; entryNumber?: number | null; division: number; actorUserId: string; now?: number }) {
 	const contest = await requireStateContest(db, input.contestId, true);
 	const settings = stateSettings(contest.settingsJson);
+	if (!['project', 'team_contest', 'topical_team', 'topical_individual', 'knowdown'].includes(input.category)) throw new StateError('invalid_category', 'Choose a valid state category.');
 	if (input.category === 'topical_individual' && !settings.topicalIndividualAllowed) throw new StateError('policy_blocked', 'This state contest does not allow Topical Individual.');
 	if (!Number.isInteger(input.division) || (input.division !== 1 && input.division !== 2)) throw new StateError('invalid_division', 'Division must be 1 or 2.');
 	if (!input.ownerSchoolId && input.category !== 'team_contest') throw new StateError('school_required', 'Only cross-school Team Contest entries may omit an owner school.');

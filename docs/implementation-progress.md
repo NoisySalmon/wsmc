@@ -158,7 +158,7 @@ and is not used as the v2 status source.
   source, team-berth source, explicit mixed-entry division, state policy flags,
   state-roster membership, per-entry grade rules, and one-entry-per-category
   restrictions. Multi-record changes use D1 batches and append audit events.
-- **Verified:** 99 unit tests, 0 type-check errors, a clean production build,
+- **Verified:** 101 unit tests, 0 type-check errors, a clean production build,
   seeded-worker state administration at 390px with no horizontal overflow,
   successful attendance update, and rejected invalid roster admission without a
   write. Three pre-existing Svelte warnings remain in retired prototype pages.
@@ -176,9 +176,13 @@ and is not used as the v2 status source.
 - **Implemented:** Authenticated, permission-scoped state-roster CSV export with
   stable IDs, explicit admission basis, source links, and formula-injection
   protection.
-- **Verified:** State-roster CSV download from the seeded worker and all
-  existing test/check/build gates. The public success path remains pending a
-  finalized-and-published state fixture.
+- **Implemented:** Authenticated report exports for school directory,
+  contest participation, finalized results, and published qualification
+  reasons, all using formula-safe stable CSV serialization.
+- **Verified:** All five report downloads from the seeded worker, including the
+  finalized regional results report and the anonymous published-state-results
+  path, plus the test/check/build gates. The public success path used a
+  temporary disposable finalized-state fixture.
 
 ## Phase checklist
 
