@@ -16,7 +16,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	const isPublic = publicPaths.some((path) => event.url.pathname === path || event.url.pathname.startsWith(`${path}/`));
-	if (!isPublic && !event.locals.principal) {
+	const isPublishedStateResultsPath = /^\/state\/[^/]+\/results\/?$/.test(event.url.pathname);
+	if (!isPublic && !isPublishedStateResultsPath && !event.locals.principal) {
 		if (event.request.method !== 'GET' && event.request.method !== 'HEAD') throw error(401, 'Sign in required.');
 		const next = `${event.url.pathname}${event.url.search}`;
 		throw redirect(303, `/login?next=${encodeURIComponent(next)}`);
