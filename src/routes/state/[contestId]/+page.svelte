@@ -60,8 +60,8 @@
 			<label>School <select name="schoolId" required>{#each data.qualifiedSchools as school}<option value={school.schoolId}>{school.schoolName}</option>{/each}</select></label>
 			<label>Student <select name="annualStudentId" required>{#each data.students as student}<option value={student.id}>{student.name} · {schoolName(student.schoolId)} · grade {student.actualGrade}</option>{/each}</select></label>
 			<label>Admission basis <select name="admissionBasis"><option value="individual_qualification">Individual qualification</option><option value="team_berth">Team berth</option></select></label>
-			<label>Qualification ID <input name="qualificationId" placeholder="Required for individual basis" /></label>
-			<label>State entry ID <input name="stateEntryId" placeholder="Required for team berth" /></label>
+			<label>Individual qualification <select name="qualificationId"><option value="">Select a qualification</option>{#each data.stateQualifications.filter((qualification: { studentId: string | null }) => qualification.studentId) as qualification}<option value={qualification.id}>{studentName(qualification.studentId!)} · {categoryLabel(qualification.category)} · {qualification.id}</option>{/each}</select></label>
+			<label>Team-berth state entry <select name="stateEntryId"><option value="">Select an exercised team entry</option>{#each data.teamBerths.filter((item: { berth: { stateEntryId: string | null } }) => item.berth.stateEntryId) as item}<option value={item.berth.stateEntryId}>{item.berth.stateEntryId} · {categoryLabel(item.berth.category)} · {schoolName(item.berth.schoolId)}</option>{/each}</select></label>
 			<button type="submit">Add to state roster</button>
 		</form>
 	</section>
@@ -90,7 +90,7 @@
 	<section class="coordinator">
 		<h2>Exercise a qualified team berth</h2>
 		<p class="help">A coordinator can create the state team entry for a published team qualification. The berth ID is retained as the source record for later substitutions.</p>
-		<form class="inline-form" method="POST" action="?/createTeam"><label>Berth ID <input name="berthId" required placeholder="Qualified berth ID" /></label><button type="submit">Create team from berth</button></form>
+		<div class="berth-list">{#each data.teamBerths as item}<div class="berth-row"><span><strong>{item.berth.id}</strong> · {categoryLabel(item.berth.category)} · {schoolName(item.berth.schoolId)}</span>{#if item.berth.stateEntryId}<span>State entry {item.berth.stateEntryId}</span>{:else}<form method="POST" action="?/createTeam"><input type="hidden" name="berthId" value={item.berth.id} /><button type="submit">Create team from berth</button></form>{/if}</div>{/each}</div>
 	</section>
 </main>
 
@@ -100,9 +100,9 @@
 	section { margin-top: 1.5rem; border-top: 1px solid #ddd; padding-top: 1rem; }
 	.readiness { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 1rem; padding: 0.8rem; border-radius: 6px; background: #eef3ff; } .readiness span { color: #445; }
 	.school-list, .entry-list { display: grid; gap: 0.7rem; } .school-card, .entry-card { padding: 0.8rem; border: 1px solid #ddd; border-radius: 6px; } .school-card { display: flex; justify-content: space-between; align-items: center; gap: 1rem; } .school-card > div, .entry-card header div { display: flex; flex-direction: column; gap: 0.2rem; } .school-card span, .entry-card header span { color: #666; font-size: 0.85rem; }
-	.form-grid { display: grid; grid-template-columns: repeat(3, 1fr); align-items: end; gap: 0.65rem; margin-top: 0.8rem; } .roster-form { grid-template-columns: repeat(3, 1fr); } .inline-form { display: flex; align-items: end; gap: 0.65rem; } .inline-form label { min-width: 18rem; }
+	.form-grid { display: grid; grid-template-columns: repeat(3, 1fr); align-items: end; gap: 0.65rem; margin-top: 0.8rem; } .roster-form { grid-template-columns: repeat(3, 1fr); } .berth-list { display: grid; gap: 0.35rem; } .berth-row { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.55rem 0; border-bottom: 1px solid #eee; } .berth-row > span { color: #666; }
 	.roster-list { display: grid; gap: 0.35rem; } .roster-row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; padding: 0.55rem 0; border-bottom: 1px solid #eee; } .entry-card ul { list-style: none; padding: 0; margin: 0.7rem 0; } .entry-card li { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0; border-bottom: 1px solid #eee; } .entry-card li form { margin-left: auto; }
 	.member-form { display: grid; grid-template-columns: 1fr 9rem auto; align-items: end; gap: 0.65rem; } label { display: flex; flex-direction: column; gap: 0.2rem; font-weight: 600; font-size: 0.9rem; } input, select { box-sizing: border-box; width: 100%; min-height: 2.75rem; padding: 0.55rem; font: inherit; border: 1px solid #aaa; border-radius: 4px; } button { min-height: 2.75rem; padding: 0.55rem 0.75rem; border: 0; border-radius: 4px; background: #1a1a2e; color: #fff; cursor: pointer; white-space: nowrap; } button.quiet { background: #555; } button.remove { min-height: 2rem; padding: 0.3rem 0.5rem; background: #555; font-size: 0.8rem; }
 	.error, .success { padding: 0.7rem; border-radius: 5px; } .error { background: #fbe3e3; color: #9a2020; } .success { background: #e2f5e8; color: #176b35; }
-	@media (max-width: 700px) { .form-grid, .member-form { grid-template-columns: 1fr; align-items: stretch; } .school-card, .roster-row, .inline-form { align-items: flex-start; flex-direction: column; } .inline-form label { min-width: 0; width: 100%; } }
+	@media (max-width: 700px) { .form-grid, .member-form { grid-template-columns: 1fr; align-items: stretch; } .school-card, .roster-row, .berth-row { align-items: flex-start; flex-direction: column; } }
 </style>
