@@ -18,8 +18,11 @@ and is not used as the v2 status source.
   versioned score CSV export, preview, stale-version validation, and atomic
   import with operation/audit records; server-backed regional result boards
   with division-separated competition ranking, Topical Individual overall and
-  actual-grade ranks, and ordered Knowdown results
-- **Next:** Complete score CSV round trip and regional result workflows.
+  actual-grade ranks, and ordered Knowdown results; explainable regional
+  placement qualification decisions with frozen draft/
+  published rounds
+- **Next:** Complete Phase 7 cutoff previews, manual decisions, and
+  qualification publication workflow.
 
 ## Phase 2 checkpoint
 
@@ -123,6 +126,22 @@ and is not used as the v2 status source.
 - **Status:** Phase 6 acceptance is met for score validation, CSV round trip,
   stale-edit protection, completeness/finalization controls, and regional
   rankings. The next dependent package is Phase 7 qualification snapshots.
+
+## Phase 7 checkpoint
+
+- **Implemented:** Pure regional placement decisions consume finalized ranking
+  boards and preserve all ties through rank 3. Topical Individuals retain
+  separate overall and actual-grade reasons, while Knowdown records ranks 1–3
+  as active and rank 4 as an inactive alternate.
+- **Implemented:** Coordinator-only `/qualifications/[seasonId]` review and
+  publication flow stores a season-scoped `regional_placements` draft,
+  deduplicates repeated qualification/reason generation, and freezes a
+  published round. Generation and publication are audited.
+- **Verified:** 93 unit tests, 0 type-check errors, a clean production build,
+  and the seeded worker review page showing the published round and its
+  explainable reasons.
+- **Next:** Add statewide division-specific score-cutoff previews and
+  reasoned manual include/exclude decisions without mutating frozen rounds.
 
 ## Phase checklist
 

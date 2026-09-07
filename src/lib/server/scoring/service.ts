@@ -107,7 +107,7 @@ export async function getScoringSnapshot(db: Database, contestId: string) {
 				entryNumber: entry.entryNumber,
 				division: entry.division,
 				schoolName: schoolName || schoolFullName || 'Statewide entry',
-			members: allMembers.filter(({ member }) => member.entryId === entry.id).map(({ member, studentName, actualGrade }) => ({ name: studentName, actualGrade, competingGrade: member.competingGrade })),
+			members: allMembers.filter(({ member }) => member.entryId === entry.id).map(({ member, studentName, actualGrade }) => ({ id: member.annualStudentId, name: studentName, actualGrade, competingGrade: member.competingGrade })),
 				score: result?.score ?? (part1 !== null && part2 !== null ? part1 + part2 : null),
 				part1,
 				part2,
@@ -187,6 +187,7 @@ export async function getRegionalRankings(db: Database, contestId: string): Prom
 	const rows: RegionalResultRow[] = snapshot.entries.map((entry) => ({
 		entryId: entry.id, category: entry.category, division: entry.division, entryNumber: entry.entryNumber, schoolName: entry.schoolName,
 		score: entry.score, part1: entry.part1, part2: entry.part2, placement: entry.placement,
+		studentId: entry.category === 'topical_individual' || entry.category === 'knowdown' ? entry.members[0]?.id ?? null : null,
 		studentName: entry.category === 'topical_individual' || entry.category === 'knowdown' ? entry.members[0]?.name ?? null : null,
 		actualGrade: entry.category === 'topical_individual' ? entry.members[0]?.actualGrade ?? null : null,
 	}));

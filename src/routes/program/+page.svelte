@@ -38,7 +38,7 @@
 
 	<h2>Seasons</h2>
 	{#each data.seasons as season}
-		<section class="card"><div><h3>{season.year} — {season.name}</h3><span class="status">{season.status}</span></div>
+		<section class="card"><div><h3>{season.year} — {season.name}</h3><span class="status">{season.status}</span><a href="/qualifications/{season.id}">Open qualifications</a></div>
 			<form method="POST" action="?/setSeasonStatus"><input type="hidden" name="seasonId" value={season.id} /><select name="status"><option value="setup">setup</option><option value="active">active</option><option value="archived">archived</option></select><button type="submit">Update status</button></form>
 			<div class="readiness"><strong>{readinessFor(season.id)?.regionsReady && readinessFor(season.id)?.stateContestReady ? 'Setup ready' : 'Setup incomplete'}</strong><span>{readinessFor(season.id)?.contestCount ?? 0} contests · {readinessFor(season.id)?.outstandingInvitationCount ?? 0} outstanding invitations</span>{#if readinessFor(season.id)?.missingRegionalContestRegions.length}<span>Missing contests: {readinessFor(season.id)?.missingRegionalContestRegions.join(', ')}</span>{/if}</div>
 		</section>

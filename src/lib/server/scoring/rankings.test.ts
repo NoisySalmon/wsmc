@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { rankRegionalResults, type RegionalResultRow } from './rankings';
 
 function row(overrides: Partial<RegionalResultRow> = {}): RegionalResultRow {
-	return { entryId: crypto.randomUUID(), category: 'project', division: 1, entryNumber: null, schoolName: 'School', score: 0, part1: null, part2: null, placement: null, studentName: null, actualGrade: null, ...overrides };
+	return { entryId: crypto.randomUUID(), category: 'project', division: 1, entryNumber: null, schoolName: 'School', studentId: null, score: 0, part1: null, part2: null, placement: null, studentName: null, actualGrade: null, ...overrides };
 }
 
 describe('regional rankings', () => {
@@ -16,10 +16,10 @@ describe('regional rankings', () => {
 
 	it('provides overall and actual-grade Topical Individual placement', () => {
 		const result = rankRegionalResults([
-			row({ entryId: 'senior', category: 'topical_individual', score: 140, part1: 70, part2: 70, studentName: 'Senior', actualGrade: 12 }),
-			row({ entryId: 'junior', category: 'topical_individual', score: 130, part1: 65, part2: 65, studentName: 'Junior', actualGrade: 11 }),
-			row({ entryId: 'other-senior', category: 'topical_individual', score: 120, part1: 60, part2: 60, studentName: 'Other Senior', actualGrade: 12 }),
+			row({ entryId: 'entry-senior', studentId: 'senior', category: 'topical_individual', score: 140, part1: 70, part2: 70, studentName: 'Senior', actualGrade: 12 }),
+			row({ entryId: 'entry-junior', studentId: 'junior', category: 'topical_individual', score: 130, part1: 65, part2: 65, studentName: 'Junior', actualGrade: 11 }),
+			row({ entryId: 'entry-other-senior', studentId: 'other-senior', category: 'topical_individual', score: 120, part1: 60, part2: 60, studentName: 'Other Senior', actualGrade: 12 }),
 		]);
-		expect(result.topical_individual.map((entry) => [entry.entryId, entry.rank, entry.actualGradeRank])).toEqual([['senior', 1, 1], ['junior', 2, 1], ['other-senior', 3, 2]]);
+		expect(result.topical_individual.map((entry) => [entry.studentId, entry.rank, entry.actualGradeRank])).toEqual([['senior', 1, 1], ['junior', 2, 1], ['other-senior', 3, 2]]);
 	});
 });
