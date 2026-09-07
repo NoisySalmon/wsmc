@@ -12,7 +12,7 @@
 		{ id: 'knowdown', label: 'Knowdown' },
 	] as const;
 
-	let activeTab = $state(form?.tab ?? 'project');
+	let activeTab = $state('project');
 
 	function totalForParts(p1: number | null, p2: number | null): string {
 		if (p1 == null && p2 == null) return '—';

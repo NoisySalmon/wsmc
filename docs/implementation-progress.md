@@ -161,7 +161,7 @@ and is not used as the v2 status source.
 - **Verified:** 101 unit tests, 0 type-check errors, a clean production build,
   seeded-worker state administration at 390px with no horizontal overflow,
   successful attendance update, and rejected invalid roster admission without a
-  write. Three pre-existing Svelte warnings remain in retired prototype pages.
+  write. The full check/build gate now reports zero warnings.
 - **Next:** Complete state entry exports and reports, then finish the state
   scoring and publication workflow in Phase 9.
 

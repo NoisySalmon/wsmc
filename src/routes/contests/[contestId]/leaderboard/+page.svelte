@@ -313,10 +313,6 @@
 	h2 {
 		margin-top: 0;
 	}
-	h3 {
-		margin: 1.5rem 0 0.5rem;
-		color: #444;
-	}
 
 	/* Table */
 	table {
@@ -383,10 +379,5 @@
 	.empty {
 		color: #888;
 		font-style: italic;
-	}
-	.hint {
-		color: #666;
-		font-size: 0.85rem;
-		margin-top: -0.5rem;
 	}
 </style>
