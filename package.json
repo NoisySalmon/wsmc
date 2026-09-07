@@ -12,6 +12,7 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test": "vitest run",
 		"test:db": "bash scripts/test-v2-db.sh",
+		"smoke:preview": "bash scripts/smoke-preview.sh",
 		"seed": "wrangler d1 execute wsmc-db --local --file=scripts/seed.sql",
 		"seed:remote": "wrangler d1 execute wsmc-db --remote --file=scripts/seed.sql"
 	},

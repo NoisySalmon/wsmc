@@ -17,6 +17,7 @@ For a clean Pages preview, build first and bind the configured D1 database:
 ```bash
 npm run build
 npx wrangler pages dev .svelte-kit/cloudflare --d1 DB=5c5a8cb8-f2b9-489a-8a2d-b32a87c70cce --local --persist-to /tmp/wsmc-pages-state --port 8790
+npm run smoke:preview -- http://127.0.0.1:8790
 ```
 
 ## Configure production email
@@ -75,7 +76,10 @@ account; do not reuse a sign-in token or copy one from logs.
 5. Verify the coordinator can sign in, published qualification rounds remain
    frozen, and published state results contain no roster/contact fields.
 6. Switch the binding during a maintenance window and run the post-deploy
-   smoke test.
+   smoke test. `npm run smoke:preview -- https://<deployed-host>` checks the
+   login page, private-route protection, unauthenticated POST rejection, and
+   the unpublished public-results boundary without logging in or changing
+   contest data.
 
 Do not log sign-in tokens, full student rosters, or unnecessary contact data in
 incident tickets.

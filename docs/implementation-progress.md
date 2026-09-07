@@ -220,6 +220,10 @@ and is not used as the v2 status source.
 - **Implemented:** Production email configuration now fails closed unless the
   Resend credentials are present, preventing accidental raw sign-in-link logs;
   the operations runbook documents the required environment values.
+- **Implemented:** A repeatable Pages HTTP smoke script checks login,
+  private-route protection, unauthenticated POST rejection, and the exact
+  unpublished public-results boundary against a supplied local or deployed
+  URL.
 - **Verified:** 109 unit tests now include access-scope, exact public-route,
   safe-diagnostic, and journey coverage. Full type-check, build, and D1
   integration gates remain
@@ -229,6 +233,9 @@ and is not used as the v2 status source.
 - **Verified:** Live preview review at 390px across program, registration,
   scoring, qualifications, state administration, and statewide reports found
   no horizontal overflow and no unlabeled visible controls.
+- **Verified:** The HTTP smoke suite passed against the live local Pages
+  preview: login 200, private GET redirect 303, private POST rejection 401,
+  unpublished state results 404, and a non-results state path redirect 303.
 - **Verified:** The mobile review caught and fixed intrinsic-width overflow on
   the qualification form; the final six-page pass measured document widths of
   375–386px against a 390px viewport, with zero unlabeled visible controls.
