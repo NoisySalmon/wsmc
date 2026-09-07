@@ -179,12 +179,16 @@ and is not used as the v2 status source.
 - **Implemented:** Authenticated report exports for school directory,
   contest participation, finalized results, and published qualification
   reasons, all using formula-safe stable CSV serialization.
+- **Implemented:** Authenticated season reporting hub for assigned coaches and
+  coordinators, linking finalized regional boards, published state results,
+  and frozen qualification rounds.
 - **Verified:** All five report downloads from the seeded worker, including the
   finalized regional results report and the anonymous published-state-results
   path, plus the test/check/build gates. The public success path used a
   temporary disposable finalized-state fixture. A temporary state scoring
   fixture also completed scoring → finalized → published, with no
   qualification-impact audit generated for state scoring.
+  The season reporting hub was verified at 390px with no horizontal overflow.
 
 ## Phase checklist
 
