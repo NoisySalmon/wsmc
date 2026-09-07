@@ -6,7 +6,8 @@
 	<link rel="icon" href="data:image/svg+xml,🧮" />
 </svelte:head>
 
-<nav>
+<a class="skip-link" href="#main-content">Skip to main content</a>
+<nav aria-label="Primary navigation">
 	<a href="/">WSMC</a>
 	{#if data?.principal?.statewideSeasonIds.length}<a href="/program">Program</a>{/if}
 	{#if data?.principal?.statewideSeasonIds.length}<a href="/schools">Schools</a>{/if}
@@ -15,7 +16,9 @@
 	{#if data?.principal}<form method="POST" action="/auth/sign-out"><button type="submit">Sign out</button></form>{/if}
 </nav>
 
-{@render children()}
+<div id="main-content">
+	{@render children()}
+</div>
 
 <style>
 	:global(body) {
@@ -23,6 +26,22 @@
 		margin: 0;
 		padding: 0;
 		color: #1a1a1a;
+	}
+	.skip-link {
+		position: absolute;
+		left: 1rem;
+		top: -4rem;
+		z-index: 10;
+		padding: 0.6rem 0.8rem;
+		background: #fff;
+		color: #1a1a2e;
+		border: 2px solid #1a1a2e;
+		border-radius: 4px;
+	}
+	.skip-link:focus { top: 1rem; }
+	:global(a:focus-visible), :global(button:focus-visible), :global(input:focus-visible), :global(select:focus-visible), :global(textarea:focus-visible) {
+		outline: 3px solid #e0a400;
+		outline-offset: 2px;
 	}
 	nav {
 		background: #1a1a2e;

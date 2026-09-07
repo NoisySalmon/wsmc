@@ -214,12 +214,21 @@ and is not used as the v2 status source.
 - **Implemented:** The D1 integration check now restores a seeded database into
   a fresh SQLite copy and verifies the core record counts before exercising the
   mutation invariants.
+- **Implemented:** Global keyboard accessibility includes a skip link, an
+  explicitly labeled primary navigation landmark, and visible focus indicators
+  for interactive controls.
 - **Verified:** 109 unit tests now include access-scope, exact public-route,
   safe-diagnostic, and journey coverage. Full type-check, build, and D1
   integration gates remain
   required before Phase 10 is complete.
 - **Verified:** Live preview smoke check at 390px found no horizontal overflow
   and no unlabeled visible controls on the program setup page.
+- **Verified:** Live preview review at 390px across program, registration,
+  scoring, qualifications, state administration, and statewide reports found
+  no horizontal overflow and no unlabeled visible controls.
+- **Verified:** The mobile review caught and fixed intrinsic-width overflow on
+  the qualification form; the final six-page pass measured document widths of
+  375–386px against a 390px viewport, with zero unlabeled visible controls.
 
 ## Phase checklist
 
