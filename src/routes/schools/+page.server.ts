@@ -4,7 +4,7 @@ import { getDb, schema } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
 
 function requireCoordinator(locals: App.Locals): void {
-	if (!locals.principal || locals.principal.statewideSeasonIds.length === 0) throw error(403, 'Coordinator access required.');
+	if (!locals.principal || (locals.principal.statewideSeasonIds.length === 0 && locals.principal.regionalContestIds.length === 0)) throw error(403, 'Coordinator access required.');
 }
 
 function value(data: FormData, name: string): string {

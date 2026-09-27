@@ -92,9 +92,10 @@ Open **Users**. This page is available only to a system-wide coordinator.
    - **Scorekeeper** and a contest.
 3. Select **Send invitation**.
 
-Inviting an existing email adds the selected assignment rather than creating a
-duplicate user. Send the form again with another assignment when one person
-needs multiple scopes.
+Use **Add access to an existing user** to give an account another role or
+scope. This does not send an email or replace the person's sign-in link. The
+invitation form is for a new account; if its email already belongs to a user,
+the page directs you to add access instead.
 
 In the user list you can:
 
@@ -295,6 +296,6 @@ The representative seed includes:
   (`registration_open`);
 - state contest: `contest-state-2026` (`registration_open`).
 
-The seeded state coordinator is both system-wide and assigned to Region 1.
-Use `regional@wsmc.example` to verify regional-only access boundaries. The
-isolated demo command also assigns that user to Region 2.
+The seeded state coordinator is system-wide and has no regional or coach
+assignments. Use `regional@wsmc.example` and `regional2@wsmc.example` to
+verify distinct regional-only access boundaries.

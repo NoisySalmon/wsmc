@@ -2,11 +2,22 @@
 	let { data, form } = $props();
 </script>
 
-<svelte:head><title>{data.contest.name} scorekeepers — WSMC</title></svelte:head>
+<svelte:head><title>{data.contest.name} staff — WSMC</title></svelte:head>
 <main>
 	<p><a href="/contests/{data.contest.id}">← {data.contest.name}</a></p>
-	<h1>Contest scorekeepers</h1>
-	<p>Manage scorekeeper access for this regional contest only.</p>
+	<h1>Contest staff</h1>
+	<p>Regional coordinators manage schools and scores here. Scorekeepers help with score entry only.</p>
+	{#if data.canManageCoordinators}
+	<section><h2>Regional coordinators</h2>
+		{#if data.coordinators.length}
+			<ul>{#each data.coordinators as coordinator}<li><div><strong>{coordinator.displayName || coordinator.email}</strong><span>{coordinator.email} · {coordinator.status}</span></div><form method="POST" action="?/removeCoordinator"><input type="hidden" name="userId" value={coordinator.userId} /><button class="quiet" type="submit">Remove from this contest</button></form></li>{/each}</ul>
+		{:else}<p>No regional coordinators assigned yet.</p>{/if}
+		<h3>Invite or assign a regional coordinator</h3>
+		<form method="POST" action="?/inviteCoordinator"><label>Name <input name="displayName" required /></label><label>Email <input type="email" name="email" required /></label><button type="submit">Invite regional coordinator</button></form>
+	</section>
+	{:else if data.coordinators.length}
+	<section><h2>Regional coordinators</h2><ul>{#each data.coordinators as coordinator}<li>{coordinator.displayName || coordinator.email} · {coordinator.email}</li>{/each}</ul></section>
+	{/if}
 	{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
 
 	<section><h2>Current scorekeepers</h2>

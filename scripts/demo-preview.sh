@@ -32,14 +32,15 @@ npm run build
 CI=1 npx wrangler d1 migrations apply wsmc-db --local --persist-to "$state_dir"
 npx wrangler d1 execute wsmc-db --local --persist-to "$state_dir" --file=scripts/seed.sql
 npx wrangler d1 execute wsmc-db --local --persist-to "$state_dir" \
-	--command="INSERT INTO regional_coordinator_assignments (user_id, contest_id) VALUES ('user-regional-coordinator', 'contest-region-2'); INSERT INTO scorekeeper_assignments (user_id, contest_id) VALUES ('user-scorekeeper', 'contest-region-2');"
+	--command="INSERT INTO scorekeeper_assignments (user_id, contest_id) VALUES ('user-scorekeeper', 'contest-region-2');"
 
 cat <<MESSAGE
 
 Isolated demo database: $state_dir (removed when this server stops)
 Open http://127.0.0.1:$port/login and request a link for one of these fixture accounts:
   State coordinator:    coordinator@wsmc.example
-  Regional coordinator: regional@wsmc.example
+  Region 1 coordinator: regional@wsmc.example
+  Region 2 coordinator: regional2@wsmc.example
   Coach:                coach@gamma.example
   Scorekeeper:          scorekeeper@wsmc.example
 The one-time sign-in link appears in this terminal as a [development email] line.

@@ -33,7 +33,7 @@ d1 --file=scripts/seed.sql
 
 # Exercise scoring in the open state while retaining the seeded regional and
 # qualification records needed by the end-to-end handoff.
-d1 --command="UPDATE contests SET lifecycle = 'scoring' WHERE id = 'contest-region-1'; INSERT INTO regional_coordinator_assignments (user_id, contest_id) VALUES ('user-regional-coordinator', 'contest-region-2'); INSERT INTO sessions (id, user_id, expires_at, created_at, last_seen_at) VALUES ('e2e-coordinator-session', 'user-coordinator', 4102444800000, 1700000000000, 1700000000000), ('e2e-scorekeeper-session', 'user-scorekeeper', 4102444800000, 1700000000000, 1700000000000), ('e2e-coach-session', 'user-coach-alpha-1', 4102444800000, 1700000000000, 1700000000000), ('e2e-gamma-coach-session', 'user-coach-gamma', 4102444800000, 1700000000000, 1700000000000), ('e2e-regional-session', 'user-regional-coordinator', 4102444800000, 1700000000000, 1700000000000);"
+d1 --command="UPDATE contests SET lifecycle = 'scoring' WHERE id = 'contest-region-1'; INSERT INTO sessions (id, user_id, expires_at, created_at, last_seen_at) VALUES ('e2e-coordinator-session', 'user-coordinator', 4102444800000, 1700000000000, 1700000000000), ('e2e-scorekeeper-session', 'user-scorekeeper', 4102444800000, 1700000000000, 1700000000000), ('e2e-coach-session', 'user-coach-alpha-1', 4102444800000, 1700000000000, 1700000000000), ('e2e-gamma-coach-session', 'user-coach-gamma', 4102444800000, 1700000000000, 1700000000000), ('e2e-regional-session', 'user-regional-coordinator-2', 4102444800000, 1700000000000, 1700000000000);"
 
 npx wrangler pages dev .svelte-kit/cloudflare --d1 DB=5c5a8cb8-f2b9-489a-8a2d-b32a87c70cce --local --persist-to "$persist_dir" --port "$port" >"$persist_dir/server.log" 2>&1 &
 server_pid=$!

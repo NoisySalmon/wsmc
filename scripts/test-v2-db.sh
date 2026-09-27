@@ -100,7 +100,13 @@ disabled_access="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM user
 multi_school_coach="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM coach_assignments WHERE user_id = 'user-coach-alpha-1' AND season_id = 'season-2026';")"
 [[ "$multi_school_coach" == "2" ]] || { echo "multi-school coach assignment was not preserved" >&2; exit 1; }
 
-overlapping_assignments="$(sqlite3 -noheader "$database_path" "SELECT (SELECT COUNT(*) FROM statewide_assignments WHERE user_id = 'user-coordinator') + (SELECT COUNT(*) FROM regional_coordinator_assignments WHERE user_id = 'user-coordinator');")"
-[[ "$overlapping_assignments" == "3" ]] || { echo "overlapping coordinator assignments were not preserved" >&2; exit 1; }
+state_coordinator_regional_assignments="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM regional_coordinator_assignments WHERE user_id = 'user-coordinator';")"
+[[ "$state_coordinator_regional_assignments" == "0" ]] || { echo "state coordinator has regional assignments" >&2; exit 1; }
+
+distinct_regional_coordinators="$(sqlite3 -noheader "$database_path" "SELECT COUNT(DISTINCT user_id) FROM regional_coordinator_assignments WHERE contest_id IN ('contest-region-1', 'contest-region-2');")"
+[[ "$distinct_regional_coordinators" == "2" ]] || { echo "regional contests do not have distinct coordinators" >&2; exit 1; }
+
+regional_coach_assignment="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM coach_assignments WHERE user_id = 'user-regional-coordinator' AND season_id = 'season-2026' AND school_id = 'school-alpha';")"
+[[ "$regional_coach_assignment" == "1" ]] || { echo "Region 1 coordinator is not also assigned as a coach" >&2; exit 1; }
 
 echo "v2 D1 integration checks passed"

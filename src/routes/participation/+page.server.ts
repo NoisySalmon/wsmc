@@ -3,7 +3,7 @@ import { error, fail } from '@sveltejs/kit';
 import { canAdministerUsers, canCoordinateRegion, canCoordinateState } from '$lib/server/auth/capabilities';
 import { createEmailProvider, resolveAppOrigin } from '$lib/server/auth/email';
 import { AuthError, inviteUser } from '$lib/server/auth/service';
-import { assignCoach, inviteSchool, ParticipationError, removeCoach, setParticipationStatus, type InvitationStatus } from '$lib/server/program/participation';
+import { assignCoach, inviteSchool, ParticipationError, removeCoach, setParticipationStatus, withdrawSchool, type InvitationStatus } from '$lib/server/program/participation';
 import { canManageSeasonAssignments } from '$lib/server/program/access';
 import { canManageParticipationResponse } from '$lib/server/program/participation-access';
 import { getDb, schema } from '$lib/server/db';
@@ -55,6 +55,22 @@ export const actions: Actions = {
 			return { success: 'School invited.' };
 		} catch (cause) {
 			return fail(400, { error: cause instanceof ParticipationError ? cause.message : 'School could not be invited.' });
+		}
+	},
+	withdraw: async ({ locals, platform, request }) => {
+		requireCoordinator(locals);
+		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+		const data = await request.formData();
+		const db = getDb(platform.env.DB);
+		const contestId = text(data, 'contestId');
+		const participationId = text(data, 'participationId');
+		const [contest] = await db.select({ id: schema.contests.id, seasonId: schema.contests.seasonId }).from(schema.contests).where(eq(schema.contests.id, contestId));
+		if (!contest || !canManageContest(locals, contest)) throw error(403, 'You cannot manage this contest.');
+		try {
+			await withdrawSchool(db, { participationId, contestId });
+			return { success: 'School removed from this contest. Re-add it to the correct region to move it.' };
+		} catch (cause) {
+			return fail(400, { error: cause instanceof ParticipationError ? cause.message : 'School could not be removed.' });
 		}
 	},
 	respond: async ({ locals, platform, request }) => {

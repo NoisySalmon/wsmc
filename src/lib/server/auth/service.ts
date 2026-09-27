@@ -71,25 +71,41 @@ export async function inviteUser(
 		[user] = await db.update(schema.users).set({ displayName: input.displayName, updatedAt: now }).where(eq(schema.users.id, user.id)).returning();
 	}
 
-	for (const assignment of input.assignments) {
-		switch (assignment.kind) {
-			case 'statewide':
-				await db.insert(schema.statewideAssignments).values({ id: crypto.randomUUID(), userId: user.id, seasonId: assignment.seasonId, createdAt: now }).onConflictDoNothing();
-				break;
-			case 'regional':
-				await db.insert(schema.regionalCoordinatorAssignments).values({ userId: user.id, contestId: assignment.contestId, createdAt: now }).onConflictDoNothing();
-				break;
-			case 'coach':
-				await db.insert(schema.coachAssignments).values({ userId: user.id, seasonId: assignment.seasonId, schoolId: assignment.schoolId, createdAt: now }).onConflictDoNothing();
-				break;
-			case 'scorekeeper':
-				await db.insert(schema.scorekeeperAssignments).values({ userId: user.id, contestId: assignment.contestId, createdAt: now }).onConflictDoNothing();
-				break;
-		}
-	}
+	await attachAssignments(db, user.id, input.assignments, now);
 
 	const token = await sendSignInLink(db, provider, { userId: user.id, email: user.email, origin: input.origin, purpose: 'invite', now });
 	return { user, token };
+}
+
+/** Add permissions to an existing account without sending or invalidating a sign-in link. */
+export async function addUserAssignments(
+	db: Database,
+	input: { userId: string; assignments: InviteAssignment[]; now?: number },
+) {
+	const [user] = await db.select().from(schema.users).where(eq(schema.users.id, input.userId));
+	if (!user) throw new AuthError('user_not_found', 'User not found.');
+	if (user.status === 'disabled') throw new AuthError('user_disabled', 'Enable this user before adding access.');
+	await attachAssignments(db, user.id, input.assignments, input.now ?? Date.now());
+	return { user };
+}
+
+async function attachAssignments(db: Database, userId: string, assignments: InviteAssignment[], now: number): Promise<void> {
+	for (const assignment of assignments) {
+		switch (assignment.kind) {
+			case 'statewide':
+				await db.insert(schema.statewideAssignments).values({ id: crypto.randomUUID(), userId, seasonId: assignment.seasonId, createdAt: now }).onConflictDoNothing();
+				break;
+			case 'regional':
+				await db.insert(schema.regionalCoordinatorAssignments).values({ userId, contestId: assignment.contestId, createdAt: now }).onConflictDoNothing();
+				break;
+			case 'coach':
+				await db.insert(schema.coachAssignments).values({ userId, seasonId: assignment.seasonId, schoolId: assignment.schoolId, createdAt: now }).onConflictDoNothing();
+				break;
+			case 'scorekeeper':
+				await db.insert(schema.scorekeeperAssignments).values({ userId, contestId: assignment.contestId, createdAt: now }).onConflictDoNothing();
+				break;
+		}
+	}
 }
 
 export async function consumeSignInToken(db: Database, rawToken: string, now = Date.now()): Promise<{ sessionId: string; userId: string; expiresAt: number }> {

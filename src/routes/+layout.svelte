@@ -1,5 +1,12 @@
 <script lang="ts">
 	let { children, data } = $props();
+	const nav = $derived(data?.nav as { isSystem: boolean; isSeasonCoordinator: boolean; isRegional: boolean; isCoach: boolean; isScorekeeper: boolean } | null | undefined);
+	const principal = $derived(data?.principal);
+	const showProgram = $derived(Boolean(nav?.isSystem || nav?.isSeasonCoordinator));
+	// Schools/Participation are shown to system + season coordinators; regional coordinators
+	// manage schools through their contest Overview / Participation scope instead.
+	const showDirectory = $derived(Boolean(nav?.isSystem || nav?.isSeasonCoordinator));
+	const showUsers = $derived(Boolean(principal?.statewideSeasonIds.includes(null)));
 </script>
 
 <svelte:head>
@@ -9,13 +16,13 @@
 <a class="skip-link" href="#main-content">Skip to main content</a>
 <nav aria-label="Primary navigation">
 	<a href="/">WSMC</a>
-	{#if data?.principal?.statewideSeasonIds.length}<a href="/program">Program</a>{/if}
-	{#if data?.principal?.statewideSeasonIds.length}<a href="/schools">Schools</a>{/if}
-	{#if data?.principal?.statewideSeasonIds.length || data?.principal?.regionalContestIds.length}<a href="/participation">Participation</a>{/if}
-	{#if data?.principal?.coachAssignments.length}<a href="/my-schools">My schools</a>{/if}
-	{#if data?.principal?.statewideSeasonIds.includes(null)}<a href="/admin/users">Users</a>{/if}
+	{#if showProgram}<a href="/program">Program</a>{/if}
+	{#if showDirectory}<a href="/schools">Schools</a>{/if}
+	{#if showDirectory || nav?.isRegional}<a href="/participation">Participation</a>{/if}
+	{#if nav?.isCoach}<a href="/my-schools">My schools</a>{/if}
+	{#if showUsers}<a href="/admin/users">Users</a>{/if}
 	{#each data?.roleLinks ?? [] as link}<a href={link.href}>{link.label}</a>{/each}
-	{#if data?.principal}<form method="POST" action="/auth/sign-out"><button type="submit">Sign out</button></form>{/if}
+	{#if principal}<form method="POST" action="/auth/sign-out"><button type="submit">Sign out</button></form>{/if}
 </nav>
 
 <div id="main-content">

@@ -32,7 +32,8 @@ not copy the link into a report or commit it.
 | Role | Fixture email | Useful starting point |
 |---|---|---|
 | Statewide administrator | `coordinator@wsmc.example` | `/program` → Region 1 contest overview → Results |
-| Regional coordinator | `regional@wsmc.example` | `/contests/contest-region-2` → Lock rosters → Start scoring |
+| Region 1 coordinator | `regional@wsmc.example` | `/contests/contest-region-1` (also Alpha's coach) |
+| Region 2 coordinator | `regional2@wsmc.example` | `/contests/contest-region-2` → Lock rosters → Start scoring |
 | Coach | `coach@gamma.example` | `/my-schools` → Gamma registration for Region 2 |
 | Scorekeeper | `scorekeeper@wsmc.example` | `/scoring/contest-region-2` after the coordinator starts scoring |
 

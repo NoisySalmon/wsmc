@@ -4,6 +4,8 @@ import { canAdministerUsers } from '$lib/server/auth/capabilities';
 import { createEmailProvider, resolveAppOrigin } from '$lib/server/auth/email';
 import {
 	AuthError,
+	addUserAssignments,
+	findUserByEmail,
 	inviteUser,
 	removeAssignment,
 	revokeUserSessions,
@@ -25,6 +27,18 @@ function requiredText(value: FormDataEntryValue | null, label: string): string {
 
 function textValue(value: FormDataEntryValue | null): string {
 	return typeof value === 'string' ? value.trim() : '';
+}
+
+function readAssignment(data: FormData): Parameters<typeof inviteUser>[2]['assignments'][number] {
+	const role = requiredText(data.get('role'), 'Assignment');
+	switch (role) {
+		case 'statewide': return { kind: 'statewide', seasonId: null };
+		case 'season': return { kind: 'statewide', seasonId: requiredText(data.get('seasonId'), 'Season') };
+		case 'regional': return { kind: 'regional', contestId: requiredText(data.get('contestId'), 'Contest') };
+		case 'coach': return { kind: 'coach', seasonId: requiredText(data.get('seasonId'), 'Season'), schoolId: requiredText(data.get('schoolId'), 'School') };
+		case 'scorekeeper': return { kind: 'scorekeeper', contestId: requiredText(data.get('contestId'), 'Contest') };
+		default: throw new AuthError('invalid_request', 'Choose a valid assignment.');
+	}
 }
 
 export const load: PageServerLoad = async ({ locals, platform }) => {
@@ -50,37 +64,34 @@ export const actions: Actions = {
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const data = await request.formData();
 		try {
-			const role = requiredText(data.get('role'), 'Assignment');
-			let assignment;
-			switch (role) {
-				case 'statewide':
-					assignment = { kind: 'statewide' as const, seasonId: null };
-					break;
-				case 'season':
-					assignment = { kind: 'statewide' as const, seasonId: requiredText(data.get('seasonId'), 'Season') };
-					break;
-				case 'regional':
-					assignment = { kind: 'regional' as const, contestId: requiredText(data.get('contestId'), 'Contest') };
-					break;
-				case 'coach':
-					assignment = { kind: 'coach' as const, seasonId: requiredText(data.get('seasonId'), 'Season'), schoolId: requiredText(data.get('schoolId'), 'School') };
-					break;
-				case 'scorekeeper':
-					assignment = { kind: 'scorekeeper' as const, contestId: requiredText(data.get('contestId'), 'Contest') };
-					break;
-				default:
-					throw new AuthError('invalid_request', 'Choose a valid assignment.');
-			}
+			const email = requiredText(data.get('email'), 'Email');
+			const existingUser = await findUserByEmail(getDb(platform.env.DB), email);
+			if (existingUser) throw new AuthError('existing_user', 'This person already has an account. Use “Add access to an existing user” below.');
 			const result = await inviteUser(getDb(platform.env.DB), createEmailProvider(platform.env), {
-				email: requiredText(data.get('email'), 'Email'),
+				email,
 				displayName: requiredText(data.get('displayName'), 'Name'),
-				assignments: [assignment],
+				assignments: [readAssignment(data)],
 				origin: resolveAppOrigin(platform.env, url.origin),
 			});
 			return { success: `Invitation sent to ${result.user.email}.` };
 		} catch (cause) {
 			if (cause instanceof AuthError) return fail(400, { error: cause.message });
 			return fail(400, { error: 'Invitation could not be created. Check the assignment and try again.' });
+		}
+	},
+	addAccess: async ({ locals, platform, request }) => {
+		requireUserAdmin(locals);
+		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+		const data = await request.formData();
+		try {
+			const result = await addUserAssignments(getDb(platform.env.DB), {
+				userId: requiredText(data.get('userId'), 'User'),
+				assignments: [readAssignment(data)],
+			});
+			return { success: `Access updated for ${result.user.email}. No email was sent.` };
+		} catch (cause) {
+			if (cause instanceof AuthError) return fail(400, { error: cause.message });
+			return fail(400, { error: 'Access could not be added. Check the user and assignment.' });
 		}
 	},
 	revoke: async ({ locals, platform, request }) => {

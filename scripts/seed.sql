@@ -35,13 +35,16 @@ INSERT INTO users (id, email, display_name, status) VALUES
   ('user-coach-beta', 'coach@beta.example', 'Beta Coach', 'active'),
   ('user-coach-gamma', 'coach@gamma.example', 'Gamma Coach', 'active'),
   ('user-scorekeeper', 'scorekeeper@wsmc.example', 'Region 1 Scorekeeper', 'active'),
-  ('user-regional-coordinator', 'regional@wsmc.example', 'Region 1 Coordinator', 'active');
+  ('user-regional-coordinator', 'regional@wsmc.example', 'Region 1 Coordinator', 'active'),
+  ('user-regional-coordinator-2', 'regional2@wsmc.example', 'Region 2 Coordinator', 'active');
 
 INSERT INTO statewide_assignments (id, user_id, season_id) VALUES ('assignment-state-2026', 'user-coordinator', 'season-2026');
 INSERT INTO statewide_assignments (id, user_id, season_id) VALUES ('assignment-system', 'user-coordinator', NULL);
-INSERT INTO regional_coordinator_assignments (user_id, contest_id) VALUES ('user-coordinator', 'contest-region-1');
-INSERT INTO regional_coordinator_assignments (user_id, contest_id) VALUES ('user-regional-coordinator', 'contest-region-1');
+INSERT INTO regional_coordinator_assignments (user_id, contest_id) VALUES
+  ('user-regional-coordinator', 'contest-region-1'),
+  ('user-regional-coordinator-2', 'contest-region-2');
 INSERT INTO coach_assignments (user_id, season_id, school_id) VALUES
+  ('user-regional-coordinator', 'season-2026', 'school-alpha'),
   ('user-coach-alpha-1', 'season-2026', 'school-alpha'),
   ('user-coach-alpha-2', 'season-2026', 'school-alpha'),
   ('user-coach-beta', 'season-2026', 'school-beta'),

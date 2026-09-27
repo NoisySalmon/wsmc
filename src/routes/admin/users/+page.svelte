@@ -1,5 +1,7 @@
 <script lang="ts">
 	let { data, form } = $props();
+	let inviteRole = $state('statewide');
+	let accessRole = $state('statewide');
 </script>
 
 <svelte:head>
@@ -8,18 +10,19 @@
 
 <main>
 	<h1>User administration</h1>
-	<p>Invite coordinators, coaches, and scorekeepers. Each new link invalidates earlier outstanding links for that user.</p>
+	<p>Invite new people or add roles to existing accounts.</p>
 
 	{#if form?.error}<p class="error">{form.error}</p>{/if}
 	{#if form?.success}<p class="success">{form.success}</p>{/if}
 
 	<section>
-		<h2>Invite or add access</h2>
+		<h2>Invite someone</h2>
+		<p>Use this for someone who does not have an account yet. We’ll email a sign-in link. Sending another invitation replaces their earlier outstanding link.</p>
 		<form method="POST" action="?/invite">
 			<label>Email <input type="email" name="email" autocomplete="email" required /></label>
 			<label>Name <input type="text" name="displayName" autocomplete="name" required /></label>
 			<label>Assignment
-				<select name="role" required>
+				<select name="role" bind:value={inviteRole} required>
 					<option value="statewide">System-wide coordinator</option>
 					<option value="season">Season coordinator</option>
 					<option value="regional">Regional coordinator</option>
@@ -27,25 +30,68 @@
 					<option value="scorekeeper">Scorekeeper</option>
 				</select>
 			</label>
-			<label>Season (for season coordinator or coach)
+			{#if inviteRole === 'season' || inviteRole === 'coach'}<label>Season
 				<select name="seasonId">
 					<option value="">Select a season</option>
 					{#each data.seasons as season}<option value={season.id}>{season.year} — {season.name}</option>{/each}
 				</select>
-			</label>
-			<label>Contest (for regional coordinator or scorekeeper)
+			</label>{/if}
+			{#if inviteRole === 'regional' || inviteRole === 'scorekeeper'}<label>Contest
 				<select name="contestId">
 					<option value="">Select a contest</option>
 					{#each data.contests as contest}<option value={contest.id}>{contest.name} ({contest.kind})</option>{/each}
 				</select>
-			</label>
-			<label>School (for coach)
+			</label>{/if}
+			{#if inviteRole === 'coach'}<label>School
 				<select name="schoolId">
 					<option value="">Select a school</option>
 					{#each data.schools as school}<option value={school.id}>{school.name}</option>{/each}
 				</select>
-			</label>
+			</label>{/if}
 			<button type="submit">Send invitation</button>
+		</form>
+	</section>
+
+	<section>
+		<h2>Add access to an existing user</h2>
+		<p>Choose an existing account and assign another role or scope. This does not send an email or change their sign-in links.</p>
+		<form method="POST" action="?/addAccess">
+			<label>User
+				<select name="userId" required>
+					<option value="">Select a user</option>
+					{#each data.users.filter((user) => user.status !== 'disabled') as user}
+						<option value={user.id}>{user.displayName || user.email} — {user.email}{user.status === 'pending' ? ' (pending)' : ''}</option>
+					{/each}
+				</select>
+			</label>
+			<label>Assignment
+				<select name="role" bind:value={accessRole} required>
+					<option value="statewide">System-wide coordinator</option>
+					<option value="season">Season coordinator</option>
+					<option value="regional">Regional coordinator</option>
+					<option value="coach">School coach</option>
+					<option value="scorekeeper">Scorekeeper</option>
+				</select>
+			</label>
+			{#if accessRole === 'season' || accessRole === 'coach'}<label>Season
+				<select name="seasonId">
+					<option value="">Select a season</option>
+					{#each data.seasons as season}<option value={season.id}>{season.year} — {season.name}</option>{/each}
+				</select>
+			</label>{/if}
+			{#if accessRole === 'regional' || accessRole === 'scorekeeper'}<label>Contest
+				<select name="contestId">
+					<option value="">Select a contest</option>
+					{#each data.contests as contest}<option value={contest.id}>{contest.name} ({contest.kind})</option>{/each}
+				</select>
+			</label>{/if}
+			{#if accessRole === 'coach'}<label>School
+				<select name="schoolId">
+					<option value="">Select a school</option>
+					{#each data.schools as school}<option value={school.id}>{school.name}</option>{/each}
+				</select>
+			</label>{/if}
+			<button type="submit">Add access</button>
 		</form>
 	</section>
 

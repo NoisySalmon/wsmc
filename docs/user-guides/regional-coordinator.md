@@ -198,11 +198,11 @@ Knowdown alternate or a result correction made after an earlier review.
 
 ## Local verification data
 
-The seed includes `regional@wsmc.example`, assigned to Region 1. The
-isolated demo command also assigns that user to Region 2 so you can rehearse
-roster lock and scoring without system-wide access masking permission
-problems. Request a local sign-in link for that email from `/login`.
+The seed includes `regional@wsmc.example`, assigned to Region 1, and
+`regional2@wsmc.example`, assigned to Region 2. Each account is limited to its
+own region. The Region 1 coordinator is also assigned as a coach for Alpha
+High School. Request a local sign-in link for either email from `/login`.
 
 Region 2 is seeded in `registration_open`. Region 1 is finalized. The seeded
-state coordinator is also assigned to Region 1, but is not a valid substitute
-for testing regional-only access boundaries.
+state coordinator has statewide access only, so use the regional accounts to
+test regional-only access boundaries.

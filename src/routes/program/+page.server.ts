@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { error, fail } from '@sveltejs/kit';
 import { canAdministerUsers, canCoordinateState } from '$lib/server/auth/capabilities';
-import { createContest, createRegion, createSeason, ProgramError, setContestLifecycle, setSeasonStatus, type ContestLifecycle } from '$lib/server/program/service';
+import { createRegionWithContest, createSeason, ensureStateContest, ProgramError, setContestLifecycle, setSeasonStatus, updateContestMeta, updateRegion, type ContestLifecycle } from '$lib/server/program/service';
 import { computeSeasonReadiness } from '$lib/server/program/readiness';
 import { getDb, schema } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
@@ -66,25 +66,53 @@ export const actions: Actions = {
 		const seasonId = textValue(data, 'seasonId');
 		if (!canManageSeason(locals, seasonId)) throw error(403, 'You cannot manage this season.');
 		try {
-			await createRegion(getDb(platform.env.DB), { seasonId, number: numberValue(data, 'number'), name: textValue(data, 'name') });
-			return { success: 'Region created.' };
+			await createRegionWithContest(getDb(platform.env.DB), { seasonId, number: numberValue(data, 'number'), name: textValue(data, 'name') });
+			return { success: 'Region and its regional contest created.' };
 		} catch (cause) {
-			return fail(400, { error: cause instanceof ProgramError ? cause.message : 'Region could not be created.' });
+			return fail(400, { error: cause instanceof ProgramError ? cause.message : 'Region could not be created. Check for a duplicate region number.' });
 		}
 	},
-	createContest: async ({ locals, platform, request }) => {
+	ensureStateContest: async ({ locals, platform, request }) => {
 		requireCoordinator(locals);
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const data = await request.formData();
 		const seasonId = textValue(data, 'seasonId');
 		if (!canManageSeason(locals, seasonId)) throw error(403, 'You cannot manage this season.');
-		const kind = textValue(data, 'kind');
-		if (kind !== 'regional' && kind !== 'state') return fail(400, { error: 'Choose a valid contest type.' });
 		try {
-			await createContest(getDb(platform.env.DB), { seasonId, kind, regionId: textValue(data, 'regionId') || undefined, name: textValue(data, 'name'), startsAt: textValue(data, 'startsAt') ? Date.parse(textValue(data, 'startsAt')) : null, stateSettings: kind === 'state' ? { topicalIndividualAllowed: textValue(data, 'topicalIndividualAllowed') === 'yes', crossSchoolTopicalTeamsAllowed: textValue(data, 'crossSchoolTopicalTeamsAllowed') === 'yes' } : undefined });
-			return { success: 'Contest created.' };
+			await ensureStateContest(getDb(platform.env.DB), { seasonId, name: textValue(data, 'name') || undefined });
+			return { success: 'State contest is ready.' };
 		} catch (cause) {
-			return fail(400, { error: cause instanceof ProgramError ? cause.message : 'Contest could not be created.' });
+			return fail(400, { error: cause instanceof ProgramError ? cause.message : 'State contest could not be ensured.' });
+		}
+	},
+	updateRegion: async ({ locals, platform, request }) => {
+		requireCoordinator(locals);
+		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+		const data = await request.formData();
+		const db = getDb(platform.env.DB);
+		const [region] = await db.select({ id: schema.regions.id, seasonId: schema.regions.seasonId }).from(schema.regions).where(eq(schema.regions.id, textValue(data, 'regionId')));
+		if (!region || !canManageSeason(locals, region.seasonId)) throw error(403, 'You cannot manage this region.');
+		try {
+			const numberRaw = textValue(data, 'number');
+			await updateRegion(db, { regionId: region.id, number: numberRaw ? Number(numberRaw) : undefined, name: textValue(data, 'name') });
+			return { success: 'Region corrected.' };
+		} catch (cause) {
+			return fail(400, { error: cause instanceof ProgramError ? cause.message : 'Region could not be updated.' });
+		}
+	},
+	updateContestMeta: async ({ locals, platform, request }) => {
+		requireCoordinator(locals);
+		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+		const data = await request.formData();
+		const db = getDb(platform.env.DB);
+		const [contest] = await db.select({ id: schema.contests.id, seasonId: schema.contests.seasonId }).from(schema.contests).where(eq(schema.contests.id, textValue(data, 'contestId')));
+		if (!contest || !canManageSeason(locals, contest.seasonId)) throw error(403, 'You cannot manage this contest.');
+		try {
+			const startsRaw = textValue(data, 'startsAt');
+			await updateContestMeta(db, { contestId: contest.id, name: textValue(data, 'name') || undefined, startsAt: startsRaw ? Date.parse(startsRaw) : undefined });
+			return { success: 'Contest details saved.' };
+		} catch (cause) {
+			return fail(400, { error: cause instanceof ProgramError ? cause.message : 'Contest could not be updated.' });
 		}
 	},
 	setLifecycle: async ({ locals, platform, request }) => {

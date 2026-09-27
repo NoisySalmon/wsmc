@@ -42,6 +42,20 @@ export async function assignCoach(db: Database, input: { userId: string; seasonI
 	await db.insert(schema.coachAssignments).values({ userId: input.userId, seasonId: input.seasonId, schoolId: input.schoolId, createdAt: input.now ?? Date.now() }).onConflictDoNothing();
 }
 
+/** Remove a school from a contest so it can be re-added elsewhere (region moves).
+ * Blocked when roster members or entries already reference the school in that contest. */
+export async function withdrawSchool(db: Database, input: { participationId: string; contestId: string }): Promise<void> {
+	const [participation] = await db.select().from(schema.schoolParticipations).where(and(eq(schema.schoolParticipations.id, input.participationId), eq(schema.schoolParticipations.contestId, input.contestId)));
+	if (!participation) throw new ParticipationError('not_found', 'Participation record not found.');
+	const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, input.contestId));
+	if (!contest || !['setup', 'registration_open'].includes(contest.lifecycle)) throw new ParticipationError('locked', 'Schools can only be removed before rosters are locked.');
+	const roster = await db.select({ contestId: schema.contestRosterMembers.contestId }).from(schema.contestRosterMembers).where(and(eq(schema.contestRosterMembers.contestId, input.contestId), eq(schema.contestRosterMembers.participationId, input.participationId)));
+	if (roster.length > 0) throw new ParticipationError('has_roster', 'Remove roster students and entries before moving this school.');
+	const entries = await db.select({ id: schema.entries.id }).from(schema.entries).where(and(eq(schema.entries.contestId, input.contestId), eq(schema.entries.ownerSchoolId, participation.schoolId)));
+	if (entries.length > 0) throw new ParticipationError('has_entries', 'Delete category entries before moving this school.');
+	await db.delete(schema.schoolParticipations).where(and(eq(schema.schoolParticipations.id, input.participationId), eq(schema.schoolParticipations.contestId, input.contestId)));
+}
+
 export async function removeCoach(db: Database, input: { userId: string; seasonId: string; schoolId: string }): Promise<void> {
 	await db.delete(schema.coachAssignments).where(and(eq(schema.coachAssignments.userId, input.userId), eq(schema.coachAssignments.seasonId, input.seasonId), eq(schema.coachAssignments.schoolId, input.schoolId)));
 }

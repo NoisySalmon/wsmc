@@ -41,8 +41,9 @@ npm run demo:preview
 
 Open `http://127.0.0.1:8797/login`. Request a sign-in link for
 `coordinator@wsmc.example` (statewide administrator),
-`regional@wsmc.example`, `coach@gamma.example`, or
-`scorekeeper@wsmc.example`. The local email adapter prints each one-time link
+`regional@wsmc.example` (Region 1 coordinator and Alpha coach),
+`regional2@wsmc.example` (Region 2 coordinator),
+`coach@gamma.example`, or `scorekeeper@wsmc.example`. The local email adapter prints each one-time link
 in the server terminal. Open it in your browser, and sign out before changing
 roles. These are fictional fixture users; `natpeterson@gmail.com` is not in
 this isolated database.
