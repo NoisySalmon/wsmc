@@ -22,17 +22,39 @@ export class ResendEmailProvider implements EmailProvider {
 	constructor(private readonly apiKey: string, private readonly from: string, private readonly fetcher: typeof fetch = fetch) {}
 
 	async sendSignInLink(message: SignInEmail): Promise<void> {
-		const response = await this.fetcher('https://api.resend.com/emails', {
-			method: 'POST',
-			headers: { authorization: `Bearer ${this.apiKey}`, 'content-type': 'application/json' },
-			body: JSON.stringify({
-				from: this.from,
-				to: [message.to],
-				subject: 'Your WSMC sign-in link',
-				text: `Sign in to WSMC: ${message.url}\n\nThis link expires at ${new Date(message.expiresAt).toISOString()}.`,
-			}),
-		});
-		if (!response.ok) throw new Error(`Email provider rejected the message (${response.status}).`);
+		let response: Response;
+		try {
+			response = await this.fetcher.call(globalThis, 'https://api.resend.com/emails', {
+				method: 'POST',
+				headers: { authorization: `Bearer ${this.apiKey}`, 'content-type': 'application/json' },
+				body: JSON.stringify({
+					from: this.from,
+					to: [message.to],
+					subject: 'Your WSMC sign-in link',
+					text: `Sign in to WSMC: ${message.url}\n\nThis link expires at ${new Date(message.expiresAt).toISOString()}.`,
+				}),
+			});
+		} catch (error) {
+			const cause = error instanceof Error ? error.cause : undefined;
+			const causeDetails = cause && typeof cause === 'object' ? cause as { name?: unknown; code?: unknown } : undefined;
+			console.error(JSON.stringify({
+					source: 'wsmc_email',
+				event: 'resend_request_failed',
+				errorType: error instanceof Error ? error.name : 'unknown',
+				...(typeof causeDetails?.name === 'string' ? { causeType: causeDetails.name } : {}),
+				...(typeof causeDetails?.code === 'string' ? { causeCode: causeDetails.code } : {}),
+			}));
+			throw new Error('Email provider request failed.');
+		}
+		if (!response.ok) {
+			let errorName: string | undefined;
+			try {
+				const body: unknown = await response.clone().json();
+				if (body && typeof body === 'object' && 'name' in body && typeof body.name === 'string') errorName = body.name;
+			} catch {}
+			console.error(JSON.stringify({ source: 'wsmc_email', event: 'resend_rejected', status: response.status, ...(errorName ? { errorName } : {}) }));
+			throw new Error(`Email provider rejected the message (${response.status}).`);
+		}
 	}
 }
 

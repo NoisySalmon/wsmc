@@ -33,15 +33,19 @@ INSERT INTO users (id, email, display_name, status) VALUES
   ('user-coach-alpha-1', 'coach1@alpha.example', 'Alpha Coach One', 'active'),
   ('user-coach-alpha-2', 'coach2@alpha.example', 'Alpha Coach Two', 'active'),
   ('user-coach-beta', 'coach@beta.example', 'Beta Coach', 'active'),
-  ('user-scorekeeper', 'scorekeeper@wsmc.example', 'Region 1 Scorekeeper', 'active');
+  ('user-coach-gamma', 'coach@gamma.example', 'Gamma Coach', 'active'),
+  ('user-scorekeeper', 'scorekeeper@wsmc.example', 'Region 1 Scorekeeper', 'active'),
+  ('user-regional-coordinator', 'regional@wsmc.example', 'Region 1 Coordinator', 'active');
 
 INSERT INTO statewide_assignments (id, user_id, season_id) VALUES ('assignment-state-2026', 'user-coordinator', 'season-2026');
 INSERT INTO statewide_assignments (id, user_id, season_id) VALUES ('assignment-system', 'user-coordinator', NULL);
 INSERT INTO regional_coordinator_assignments (user_id, contest_id) VALUES ('user-coordinator', 'contest-region-1');
+INSERT INTO regional_coordinator_assignments (user_id, contest_id) VALUES ('user-regional-coordinator', 'contest-region-1');
 INSERT INTO coach_assignments (user_id, season_id, school_id) VALUES
   ('user-coach-alpha-1', 'season-2026', 'school-alpha'),
   ('user-coach-alpha-2', 'season-2026', 'school-alpha'),
-  ('user-coach-beta', 'season-2026', 'school-beta');
+  ('user-coach-beta', 'season-2026', 'school-beta'),
+  ('user-coach-gamma', 'season-2026', 'school-gamma');
 INSERT INTO scorekeeper_assignments (user_id, contest_id) VALUES ('user-scorekeeper', 'contest-region-1');
 
 INSERT INTO annual_students (id, season_id, school_id, name, actual_grade) VALUES
@@ -50,6 +54,7 @@ INSERT INTO annual_students (id, season_id, school_id, name, actual_grade) VALUE
   ('student-alpha-10', 'season-2026', 'school-alpha', 'Ash Alpha', 10),
   ('student-beta-12', 'season-2026', 'school-beta', 'Blair Beta', 12),
   ('student-beta-11', 'season-2026', 'school-beta', 'Brook Beta', 11),
+  ('student-beta-10', 'season-2026', 'school-beta', 'Bailey Beta', 10),
   ('student-gamma-12', 'season-2026', 'school-gamma', 'Gray Gamma', 12),
   ('student-gamma-11', 'season-2026', 'school-gamma', 'Glen Gamma', 11),
   ('student-gamma-10', 'season-2026', 'school-gamma', 'Gale Gamma', 10);
@@ -60,6 +65,7 @@ INSERT INTO contest_roster_members (contest_id, participation_id, annual_student
   ('contest-region-1', 'participation-r1-alpha', 'student-alpha-10'),
   ('contest-region-1', 'participation-r1-beta', 'student-beta-12'),
   ('contest-region-1', 'participation-r1-beta', 'student-beta-11'),
+  ('contest-region-1', 'participation-r1-beta', 'student-beta-10'),
   ('contest-region-2', 'participation-r2-gamma', 'student-gamma-12'),
   ('contest-region-2', 'participation-r2-gamma', 'student-gamma-11'),
   ('contest-region-2', 'participation-r2-gamma', 'student-gamma-10'),
@@ -82,13 +88,13 @@ INSERT INTO entries (id, contest_id, owner_school_id, category, entry_kind, entr
 
 INSERT INTO entry_members (entry_id, annual_student_id, competing_grade) VALUES
   ('entry-r1-project-alpha', 'student-alpha-12', 12),
-  ('entry-r1-project-alpha', 'student-alpha-11', 12),
+  ('entry-r1-project-alpha', 'student-alpha-11', 11),
   ('entry-r1-team-alpha', 'student-alpha-12', 12),
   ('entry-r1-team-alpha', 'student-alpha-11', 11),
   ('entry-r1-topical-team-beta', 'student-beta-12', 12),
-  ('entry-r1-topical-team-beta', 'student-beta-11', 11),
+  ('entry-r1-topical-team-beta', 'student-beta-10', 10),
   ('entry-r1-topical-ind-alpha', 'student-alpha-10', NULL),
-  ('entry-r1-topical-ind-beta', 'student-beta-12', NULL),
+  ('entry-r1-topical-ind-beta', 'student-beta-11', NULL),
   ('entry-r1-knowdown-alpha', 'student-alpha-12', NULL),
   ('entry-r1-knowdown-beta', 'student-beta-12', NULL),
   ('entry-r1-project-beta', 'student-beta-12', 12),
@@ -140,7 +146,7 @@ INSERT INTO entries (id, contest_id, owner_school_id, category, entry_kind, entr
   ('entry-state-cross-school-team', 'contest-state-2026', NULL, 'team_contest', 'team', 1, 1);
 INSERT INTO entry_members (entry_id, annual_student_id, competing_grade) VALUES
   ('entry-state-cross-school-team', 'student-alpha-12', 12),
-  ('entry-state-cross-school-team', 'student-gamma-12', 12);
+  ('entry-state-cross-school-team', 'student-gamma-11', 11);
 INSERT INTO state_team_berths (id, qualification_id, state_entry_id, school_id, category) VALUES
   ('berth-team-alpha', 'qualification-team-alpha', 'entry-state-cross-school-team', 'school-alpha', 'team_contest');
 INSERT INTO state_attendances (contest_id, school_id, intent) VALUES
@@ -149,4 +155,4 @@ INSERT INTO state_attendances (contest_id, school_id, intent) VALUES
 INSERT INTO state_roster_members (contest_id, school_id, annual_student_id, admission_basis, qualification_id, state_entry_id) VALUES
   ('contest-state-2026', 'school-alpha', 'student-alpha-10', 'individual_qualification', 'qualification-topical-alpha', NULL),
   ('contest-state-2026', 'school-alpha', 'student-alpha-12', 'team_berth', NULL, 'entry-state-cross-school-team'),
-  ('contest-state-2026', 'school-gamma', 'student-gamma-12', 'team_berth', NULL, 'entry-state-cross-school-team');
+  ('contest-state-2026', 'school-gamma', 'student-gamma-11', 'team_berth', NULL, 'entry-state-cross-school-team');

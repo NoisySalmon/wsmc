@@ -10,7 +10,7 @@ sqlite3 "$database_path" < drizzle/0001_v2_baseline.sql
 sqlite3 "$database_path" < scripts/seed.sql
 
 counts="$(sqlite3 -noheader -separator '|' "$database_path" "SELECT (SELECT COUNT(*) FROM seasons), (SELECT COUNT(*) FROM regions), (SELECT COUNT(*) FROM contests), (SELECT COUNT(*) FROM schools), (SELECT COUNT(*) FROM annual_students), (SELECT COUNT(*) FROM entries), (SELECT COUNT(*) FROM entry_members);")"
-[[ "$counts" == "1|2|3|3|8|15|24" ]] || { echo "unexpected seed counts: $counts" >&2; exit 1; }
+[[ "$counts" == "1|2|3|3|9|15|24" ]] || { echo "unexpected seed counts: $counts" >&2; exit 1; }
 
 # Exercise the documented backup/restore path against a fresh SQLite copy.
 sqlite3 "$database_path" .dump | sqlite3 "$restore_path"
@@ -19,6 +19,15 @@ restored_counts="$(sqlite3 -noheader -separator '|' "$restore_path" "SELECT (SEL
 
 category_count="$(sqlite3 -noheader "$database_path" "SELECT COUNT(DISTINCT category) FROM entries;")"
 [[ "$category_count" == "5" ]] || { echo "seed does not cover all categories" >&2; exit 1; }
+
+team_grade_collisions="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM (SELECT entry_id, competing_grade FROM entry_members WHERE competing_grade IS NOT NULL GROUP BY entry_id, competing_grade HAVING COUNT(*) > 1);")"
+[[ "$team_grade_collisions" == "0" ]] || { echo "seed repeats a competing grade within a team" >&2; exit 1; }
+
+topical_overlap="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM entry_members tm JOIN entries te ON te.id = tm.entry_id JOIN entries ie ON ie.contest_id = te.contest_id AND ie.owner_school_id = te.owner_school_id AND ie.category = 'topical_individual' JOIN entry_members im ON im.entry_id = ie.id AND im.annual_student_id = tm.annual_student_id WHERE te.category = 'topical_team';")"
+[[ "$topical_overlap" == "0" ]] || { echo "seed enters a student in both Topical Team and Topical Individual" >&2; exit 1; }
+
+coach_registration="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM coach_assignments ca JOIN contests c ON c.season_id = ca.season_id JOIN school_participations p ON p.contest_id = c.id AND p.school_id = ca.school_id WHERE ca.user_id = 'user-coach-gamma' AND c.id = 'contest-region-2' AND c.lifecycle = 'registration_open';")"
+[[ "$coach_registration" == "1" ]] || { echo "demo coach cannot reach the open regional registration" >&2; exit 1; }
 
 cross_school_count="$(sqlite3 -noheader "$database_path" "SELECT COUNT(DISTINCT annual_students.school_id) FROM entry_members JOIN entries ON entries.id = entry_members.entry_id JOIN annual_students ON annual_students.id = entry_members.annual_student_id WHERE entries.id = 'entry-state-cross-school-team';")"
 [[ "$cross_school_count" == "2" ]] || { echo "state entry is not cross-school" >&2; exit 1; }

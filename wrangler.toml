@@ -8,3 +8,14 @@ binding = "DB"
 database_name = "wsmc-db"
 database_id = "5c5a8cb8-f2b9-489a-8a2d-b32a87c70cce"
 migrations_dir = "drizzle"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "wsmc-db"
+database_id = "5c5a8cb8-f2b9-489a-8a2d-b32a87c70cce"
+migrations_dir = "drizzle"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+APP_ORIGIN = "https://wsmc.pages.dev"
+EMAIL_FROM = "WSMC <noreply@nanonat.com>"

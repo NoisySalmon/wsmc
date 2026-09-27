@@ -9,7 +9,7 @@ sqlite3 "$database_path" < drizzle/0001_v2_baseline.sql
 sqlite3 "$database_path" < scripts/seed.sql
 
 # Add 21 additional state-participating schools with 11 annual students each,
-# plus one twelfth-grade student, for a 24-school/240-student rehearsal.
+# plus one twelfth-grade student, for a 24-school/241-student rehearsal.
 rehearsal_sql='BEGIN;'
 for school_number in $(seq 1 21); do
 	printf -v school_suffix '%02d' "$school_number"
@@ -33,7 +33,7 @@ rehearsal_sql+='COMMIT;'
 sqlite3 "$database_path" "$rehearsal_sql"
 
 counts="$(sqlite3 -noheader -separator '|' "$database_path" "SELECT (SELECT COUNT(*) FROM schools), (SELECT COUNT(*) FROM annual_students), (SELECT COUNT(*) FROM school_participations WHERE contest_id = 'contest-state-2026'), (SELECT COUNT(*) FROM entries WHERE contest_id = 'contest-state-2026');")"
-[[ "$counts" == "24|240|24|22" ]] || { echo "unexpected rehearsal counts: $counts" >&2; exit 1; }
+[[ "$counts" == "24|241|24|22" ]] || { echo "unexpected rehearsal counts: $counts" >&2; exit 1; }
 
 # Verify the seeded end-to-end handoff remains intact after scaling the data.
 journey="$(sqlite3 -noheader -separator '|' "$database_path" "SELECT (SELECT COUNT(*) FROM contests WHERE id = 'contest-region-1' AND lifecycle = 'finalized'), (SELECT COUNT(*) FROM qualification_rounds WHERE id = 'round-regional-2026' AND status = 'published'), (SELECT COUNT(*) FROM state_roster_members WHERE contest_id = 'contest-state-2026'), (SELECT COUNT(*) FROM state_team_berths WHERE state_entry_id = 'entry-state-cross-school-team');")"
@@ -54,4 +54,4 @@ sqlite3 "$database_path" "INSERT INTO users (id, email, display_name, status) VA
 recovery_access="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM users JOIN statewide_assignments ON statewide_assignments.user_id = users.id WHERE users.id = 'user-rehearsal-recovery' AND users.status = 'active' AND statewide_assignments.season_id IS NULL;")"
 [[ "$recovery_access" == "1" ]] || { echo "coordinator recovery fixture failed" >&2; exit 1; }
 
-echo "dress rehearsal passed: 24 schools, 240 annual students, 2 scorekeepers, stale edit rejected, coordinator recovery verified"
+echo "dress rehearsal passed: 24 schools, 241 annual students, 2 scorekeepers, stale edit rejected, coordinator recovery verified"
