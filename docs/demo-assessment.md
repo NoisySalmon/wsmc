@@ -1,7 +1,7 @@
 # Readiness for an admin feedback tour
 
-Reviewed September 27, 2026, against `e97ea31` plus the local demo-readiness
-changes. See [the recording scripts](demo-scripts.md).
+Reviewed September 27, 2026, against commit `6c822f9`. See
+[the recording scripts](demo-scripts.md).
 
 ## Recommendation
 
@@ -32,8 +32,10 @@ app against a real workbook. No browser-based visual review was possible in
 this session.
 
 The live Pages project was verified separately: production uses the v2 D1
-schema and has the required text settings and encrypted email key. The current
-application changes are being committed and deployed after this local review.
+schema and has the required text settings and encrypted email key. Commit
+`6c822f9` is deployed to `https://wsmc.pages.dev`. The production database has
+the fictional demo fixture (3 schools, 9 students, 15 entries, and 9 scoring
+rows), plus the coordinator account used for the walkthrough.
 
 ## What is worth showing
 
