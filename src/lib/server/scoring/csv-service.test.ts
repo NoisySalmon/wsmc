@@ -21,7 +21,7 @@ describe('score CSV contest scope', () => {
 			}) }),
 		} as never;
 		const csv = await exportScoreCsvFromDb(db, 'state-1');
-		expect(csv).toContain('wsmc.scores.v1');
+		expect(csv).toContain('wsmc.scores.v2');
 		expect(csv).toContain('entry-state-1');
 	});
 });

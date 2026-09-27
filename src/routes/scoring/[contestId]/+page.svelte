@@ -13,7 +13,7 @@
 	function label(category: string) { return labels[category] ?? category; }
 	function missing(entry: typeof data.entries[number]) {
 		if (entry.category === 'topical_team' || entry.category === 'topical_individual') return entry.part1 === null || entry.part2 === null;
-		if (entry.category === 'knowdown') return entry.placement === null;
+		if (entry.category === 'knowdown') return entry.knowdownOutcome === null;
 		return entry.score === null;
 	}
 	function visible(entry: typeof data.entries[number]) {
@@ -27,7 +27,7 @@
 <svelte:head><title>{data.contest.name} scoring — WSMC</title></svelte:head>
 
 <main>
-	<p><a href="/participation">← Program</a></p>
+	<p><a href="/">← Home</a>{#if data.contest.kind === 'regional'} · <a href="/contests/{data.contest.id}">Contest overview</a>{/if}</p>
 	<h1>{data.contest.name}</h1>
 	<p class="subheading">{data.contest.kind} · {data.contest.lifecycle}{#if data.contest.resultsPublishedAt} · published{/if}{#if data.contest.lifecycle === 'finalized'} · {#if data.contest.kind === 'state'}<a href="/state/{data.contest.id}/results">View state results</a>{:else}<a href="/results/{data.contest.id}">View regional results</a>{/if} · <a href="/reports/results?contestId={data.contest.id}">Download results CSV</a>{/if}</p>
 	{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
@@ -35,7 +35,8 @@
 
 	<section class="summary" aria-label="Scoring completeness">
 		<strong>{data.finalization.missing.length === 0 ? 'Complete' : `${data.finalization.missing.length} missing result${data.finalization.missing.length === 1 ? '' : 's'}`}</strong>
-		<span>Blank fields are missing. A score of 0 is an entered score.</span>
+		<span>Blank fields are missing. A score of 0 is an entered score. Knowdown outcomes are placed or eliminated.</span>
+		{#if data.finalization.duplicateKnowdownPlaces.length}<span class="error">Duplicate Knowdown places: {data.finalization.duplicateKnowdownPlaces.map((item) => item.placement).join(', ')}. Places must be unique.</span>{/if}
 	</section>
 
 	<section class="filters" aria-label="Score filters">
@@ -53,7 +54,8 @@
 					{#if entry.category === 'topical_team' || entry.category === 'topical_individual'}
 						<label>Part 1 <input aria-label="{label(entry.category)} Part 1" name="part1" type="number" min="0" max="75" step="any" value={entry.part1 ?? ''} /></label><label>Part 2 <input aria-label="{label(entry.category)} Part 2" name="part2" type="number" min="0" max="75" step="any" value={entry.part2 ?? ''} /></label><output>Total {entry.score === null ? '—' : entry.score}</output>
 					{:else if entry.category === 'knowdown'}
-						<label>Placement <input aria-label="Knowdown placement" name="placement" type="number" min="1" max="4" step="1" value={entry.placement ?? ''} /></label>
+						<label>Final outcome <select name="knowdownOutcome" value={entry.knowdownOutcome ?? ''}><option value="">Missing</option><option value="placed">Placed</option><option value="eliminated">Eliminated</option></select></label>
+						<label>Final place (if placed) <input aria-label="Knowdown final place" name="placement" type="number" min="1" max="4" step="1" value={entry.placement ?? ''} /></label>
 					{:else}
 						<label>Score <input aria-label="{label(entry.category)} score" name="score" type="number" min="0" step="any" value={entry.score ?? ''} /></label>
 					{/if}
@@ -66,13 +68,13 @@
 
 	{#if data.canFinalize}
 		<section class="controls"><h2>Contest controls</h2>
-			<p>{data.finalization.complete ? 'All entries have results and this contest can be finalized.' : 'Finalization is blocked until every entry has a result.'}</p>
+			<p>{data.finalization.complete ? 'All entries have results and this contest can be finalized.' : 'Finalization is blocked until every entry has an outcome and all Knowdown places are unique.'}</p>
 			<form method="POST" action="?/finalize"><button type="submit" disabled={data.contest.lifecycle !== 'scoring' || !data.finalization.complete}>Finalize results</button></form>
 			{#if data.contest.lifecycle === 'finalized'}<form method="POST" action="?/publish"><button type="submit">{data.contest.resultsPublishedAt ? 'Republish results' : 'Publish results'}</button></form><form method="POST" action="?/reopen"><label>Reason to reopen <textarea name="reason" required></textarea></label><button class="quiet" type="submit">Reopen for correction</button></form>{/if}
 		</section>
 	{/if}
 
-	<section class="csv"><h2>Score CSV round trip</h2><p>Download the prefilled contest template, edit numeric scores, preview the complete file, then import it atomically. The version column rejects stale spreadsheets.</p><p><a href="/scoring/{data.contest.id}/csv">Download score CSV</a></p><div class="csv-forms">
+	<section class="csv"><h2>Score CSV round trip</h2><p>Download the prefilled contest template, edit scores and Knowdown outcomes, preview the complete file, then import it atomically. The version column rejects stale spreadsheets.</p><p><a href="/scoring/{data.contest.id}/csv">Download score CSV</a></p><div class="csv-forms">
 		<form method="POST" action="?/previewCsv" enctype="multipart/form-data"><label>CSV file to preview <input type="file" name="file" accept=".csv,text/csv" required /></label><button type="submit">Preview CSV</button></form>
 		<form method="POST" action="?/importCsv" enctype="multipart/form-data"><label>CSV file to import <input type="file" name="file" accept=".csv,text/csv" required /></label><button type="submit" disabled={data.contest.lifecycle !== 'scoring'}>Import CSV</button></form>
 	</div>{#if scoreCsvForm?.scoreCsvSummary}<p class="success">{scoreCsvForm.scoreCsvSummary.rows.length} rows · {scoreCsvForm.scoreCsvSummary.updatedRows} changed · {scoreCsvForm.scoreCsvSummary.clearedRows} cleared.</p>{/if}{#if scoreCsvForm?.scoreCsvErrors?.length}<ul class="csv-errors">{#each scoreCsvForm.scoreCsvErrors as csvError}<li>Row {csvError.rowNumber}, {csvError.field}: {csvError.message}</li>{/each}</ul>{/if}</section>

@@ -7,10 +7,11 @@ trap 'rm -f "$database_path" "$database_path-wal" "$database_path-shm" "$restore
 
 sqlite3 "$database_path" < drizzle/0000_woozy_bruce_banner.sql
 sqlite3 "$database_path" < drizzle/0001_v2_baseline.sql
+sqlite3 "$database_path" < drizzle/0002_knowdown_outcomes.sql
 sqlite3 "$database_path" < scripts/seed.sql
 
 counts="$(sqlite3 -noheader -separator '|' "$database_path" "SELECT (SELECT COUNT(*) FROM seasons), (SELECT COUNT(*) FROM regions), (SELECT COUNT(*) FROM contests), (SELECT COUNT(*) FROM schools), (SELECT COUNT(*) FROM annual_students), (SELECT COUNT(*) FROM entries), (SELECT COUNT(*) FROM entry_members);")"
-[[ "$counts" == "1|2|3|3|9|15|24" ]] || { echo "unexpected seed counts: $counts" >&2; exit 1; }
+[[ "$counts" == "1|2|3|3|9|19|28" ]] || { echo "unexpected seed counts: $counts" >&2; exit 1; }
 
 # Exercise the documented backup/restore path against a fresh SQLite copy.
 sqlite3 "$database_path" .dump | sqlite3 "$restore_path"
@@ -19,6 +20,15 @@ restored_counts="$(sqlite3 -noheader -separator '|' "$restore_path" "SELECT (SEL
 
 category_count="$(sqlite3 -noheader "$database_path" "SELECT COUNT(DISTINCT category) FROM entries;")"
 [[ "$category_count" == "5" ]] || { echo "seed does not cover all categories" >&2; exit 1; }
+
+knowdown_outcomes="$(sqlite3 -noheader -separator '|' "$database_path" "SELECT SUM(knowdown_outcome = 'placed'), SUM(knowdown_outcome = 'eliminated') FROM results JOIN entries ON entries.id = results.entry_id WHERE entries.contest_id = 'contest-region-1' AND entries.category = 'knowdown';")"
+[[ "$knowdown_outcomes" == "4|2" ]] || { echo "demo Knowdown field should have four places and two eliminated entrants: $knowdown_outcomes" >&2; exit 1; }
+fourth_place="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM results JOIN entries ON entries.id = results.entry_id WHERE entries.contest_id = 'contest-region-1' AND entries.category = 'knowdown' AND results.knowdown_outcome = 'placed' AND results.placement = 4;")"
+[[ "$fourth_place" == "1" ]] || { echo "demo Knowdown field must retain fourth place internally" >&2; exit 1; }
+knowdown_qualifications="$(sqlite3 -noheader -separator '|' "$database_path" "SELECT SUM(qualifications.active = 1), SUM(qualifications.active = 0) FROM qualifications JOIN entries ON entries.id = qualifications.entry_id WHERE qualifications.round_id = 'round-regional-2026' AND entries.category = 'knowdown';")"
+[[ "$knowdown_qualifications" == "3|1" ]] || { echo "demo qualifications should include the top three and inactive fourth-place alternate: $knowdown_qualifications" >&2; exit 1; }
+alternate_reason="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM qualification_reasons JOIN qualifications ON qualifications.id = qualification_reasons.qualification_id WHERE qualifications.id = 'qualification-knowdown-beta-2' AND qualification_reasons.kind = 'knowdown_alternate' AND qualification_reasons.rank = 4;")"
+[[ "$alternate_reason" == "1" ]] || { echo "fourth-place Knowdown qualification should carry its alternate reason" >&2; exit 1; }
 
 team_grade_collisions="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM (SELECT entry_id, competing_grade FROM entry_members WHERE competing_grade IS NOT NULL GROUP BY entry_id, competing_grade HAVING COUNT(*) > 1);")"
 [[ "$team_grade_collisions" == "0" ]] || { echo "seed repeats a competing grade within a team" >&2; exit 1; }

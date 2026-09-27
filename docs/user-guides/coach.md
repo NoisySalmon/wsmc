@@ -18,10 +18,11 @@ regional registration and state attendance/entries. Students do not sign in.
 For local development, the server terminal prints the link when no production
 email provider is configured.
 
-**Current implementation note:** The signed-in coach home page does not yet
-list school assignments or workflow links, and coaches cannot currently open
-Participation to respond to invitations. Ask your coordinator for these exact
-links:
+Select **My schools** in the top navigation to see your assigned schools,
+invitation responses, and registration links. You can accept or decline a
+school's participation while its contest is in setup or registration open.
+The navigation also shows assigned Registration links and published regional
+Results links. Keep these direct links for other views:
 
 - regional registration:
   `/registration/<regional-contest-id>/<school-id>`;
@@ -29,9 +30,6 @@ links:
   `/reports/season/<season-id>`;
 - state attendance and entries, if the school qualified:
   `/state/<state-contest-id>`.
-
-During initial testing, a state coordinator must record Accept or Decline for
-the school on Participation.
 
 ## 1. Build the annual student list
 
@@ -144,7 +142,8 @@ The page contains:
 
 Regional result pages show Project, Team Contest, and Topical Team rankings by
 division; Topical Individual overall and actual-grade rankings by division;
-and the ordered Knowdown finish.
+and Knowdown places with fourth place labeled as the state alternate. Entrants
+who were eliminated are listed separately.
 
 **Current implementation note:** A finalized regional result page is currently
 available to any coach assigned in that season even when its publication flag
@@ -250,7 +249,8 @@ scores.
 The seed includes these coach accounts:
 
 - `coach1@alpha.example` and `coach2@alpha.example` for Alpha High School;
-- `coach@beta.example` for Beta High School.
+- `coach@beta.example` for Beta High School;
+- `coach@gamma.example` for Gamma High School in Region 2.
 
 Useful seeded URLs are:
 
@@ -260,7 +260,6 @@ Useful seeded URLs are:
 - Alpha state administration (qualified, state registration open):
   `/state/contest-state-2026`.
 
-To verify editable regional registration, a state coordinator can invite Alpha
-High School to the seeded `contest-region-2`, record the participation as
-accepted, and then give the Alpha coach this URL:
-`/registration/contest-region-2/school-alpha`.
+To verify editable regional registration, sign in as the Gamma coach and open
+`/my-schools`, then follow the Region 2 registration link. Region 2 starts in
+`registration_open`.

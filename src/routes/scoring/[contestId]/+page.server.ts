@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { canFinalizeContest, canScoreContest } from '$lib/server/auth/capabilities';
 import { getDb, schema } from '$lib/server/db';
 import { importScoreCsv, previewScoreCsv, ScoreCsvValidationError } from '$lib/server/scoring/csv-service';
-import { finalizeContest, getFinalizationReport, getScoringSnapshot, publishContestResults, reopenContest, saveContestResult, ScoringError } from '$lib/server/scoring/service';
+import { finalizeContest, getFinalizationReport, getScoringSnapshot, publishContestResults, reopenContest, saveContestResult, ScoringError, type KnowdownOutcome } from '$lib/server/scoring/service';
 import type { Actions, PageServerLoad } from './$types';
 
 function text(data: FormData, name: string): string {
@@ -43,8 +43,13 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	if (!locals.principal) throw error(401, 'Sign in required.');
 	if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 	const db = getDb(platform.env.DB);
+	const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, params.contestId));
+	if (!contest) throw error(404, 'Contest not found.');
+	if (!canScoreContest(locals.principal, contest.id, contest.seasonId)) throw error(403, 'You cannot score this contest.');
+	if (!['roster_locked', 'scoring', 'finalized'].includes(contest.lifecycle)) {
+		throw error(409, 'Scoring is available after registration closes and the roster is locked.');
+	}
 	const snapshot = await getScoringSnapshot(db, params.contestId);
-	if (!canScoreContest(locals.principal, snapshot.contest.id, snapshot.contest.seasonId)) throw error(403, 'You cannot score this contest.');
 	const report = await getFinalizationReport(db, params.contestId);
 	return {
 		contest: snapshot.contest,
@@ -64,7 +69,8 @@ export const actions: Actions = {
 		try {
 			const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, contestId));
 			if (!contest || !canScoreContest(locals.principal, contestId, contest.seasonId)) throw error(403, 'You cannot score this contest.');
-			await saveContestResult(db, { contestId, entryId: text(data, 'entryId'), actorUserId: locals.principal.id, expectedVersion: expectedVersion(data), score: numberOrNull(data, 'score'), part1: numberOrNull(data, 'part1'), part2: numberOrNull(data, 'part2'), placement: numberOrNull(data, 'placement') });
+			const outcome = text(data, 'knowdownOutcome');
+			await saveContestResult(db, { contestId, entryId: text(data, 'entryId'), actorUserId: locals.principal.id, expectedVersion: expectedVersion(data), score: numberOrNull(data, 'score'), part1: numberOrNull(data, 'part1'), part2: numberOrNull(data, 'part2'), placement: numberOrNull(data, 'placement'), knowdownOutcome: (outcome || null) as KnowdownOutcome | null });
 			return { success: 'Score saved.' };
 		} catch (cause) {
 			if (isHttpError(cause)) throw cause;

@@ -68,11 +68,14 @@ export async function createContest(db: Database, input: { seasonId: string; kin
 }
 
 export async function setContestLifecycle(db: Database, contestId: string, seasonId: string, lifecycle: ContestLifecycle, now = Date.now()): Promise<void> {
+	if (lifecycle === 'finalized') {
+		throw new ProgramError('scoring_required', 'Finalize results from the Scoring page after reviewing completeness. Publish results there as a separate step.');
+	}
 	const [contest] = await db.select().from(schema.contests).where(and(eq(schema.contests.id, contestId), eq(schema.contests.seasonId, seasonId)));
 	if (!contest) throw new ProgramError('not_found', 'Contest not found.');
-	if (contest.lifecycle === 'finalized' && lifecycle !== 'finalized') throw new ProgramError('finalized', 'Finalized contests are read-only.');
+	if (contest.lifecycle === 'finalized') throw new ProgramError('finalized', 'Finalized contests are read-only. Reopen them from the Scoring page to make a correction.');
 	if (lifecycleOrder.indexOf(lifecycle) < lifecycleOrder.indexOf(contest.lifecycle as ContestLifecycle)) {
 		throw new ProgramError('invalid_transition', 'Contest lifecycle cannot move backward.');
 	}
-	await db.update(schema.contests).set({ lifecycle, updatedAt: now, resultsPublishedAt: lifecycle === 'finalized' ? now : contest.resultsPublishedAt }).where(eq(schema.contests.id, contestId));
+	await db.update(schema.contests).set({ lifecycle, updatedAt: now }).where(eq(schema.contests.id, contestId));
 }

@@ -175,10 +175,11 @@ export const results = sqliteTable('results', {
 	part1: real('part1'),
 	part2: real('part2'),
 	placement: integer('placement'),
+	knowdownOutcome: text('knowdown_outcome', { enum: ['placed', 'eliminated'] }),
 	version: integer('version').notNull().default(1),
 	lastEditedBy: text('last_edited_by').references(() => users.id, { onDelete: 'set null' }),
 	updatedAt: integer('updated_at').notNull().default(timestamp()),
-}, (table) => [check('results_nonnegative_check', sql`(${table.score} IS NULL OR ${table.score} >= 0) AND (${table.part1} IS NULL OR ${table.part1} BETWEEN 0 AND 75) AND (${table.part2} IS NULL OR ${table.part2} BETWEEN 0 AND 75) AND (${table.placement} IS NULL OR ${table.placement} BETWEEN 1 AND 4)`)]);
+}, (table) => [check('results_nonnegative_check', sql`(${table.score} IS NULL OR ${table.score} >= 0) AND (${table.part1} IS NULL OR ${table.part1} BETWEEN 0 AND 75) AND (${table.part2} IS NULL OR ${table.part2} BETWEEN 0 AND 75) AND (${table.placement} IS NULL OR ${table.placement} BETWEEN 1 AND 4) AND (${table.knowdownOutcome} IS NULL OR (${table.knowdownOutcome} = 'eliminated' AND ${table.placement} IS NULL) OR (${table.knowdownOutcome} = 'placed' AND ${table.placement} IS NOT NULL))`)]);
 
 // ── Qualification and state ──────────────────────────────
 export const qualificationRounds = sqliteTable('qualification_rounds', {

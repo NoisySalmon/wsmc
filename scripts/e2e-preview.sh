@@ -28,11 +28,12 @@ d1() {
 
 d1 --file=drizzle/0000_woozy_bruce_banner.sql
 d1 --file=drizzle/0001_v2_baseline.sql
+d1 --file=drizzle/0002_knowdown_outcomes.sql
 d1 --file=scripts/seed.sql
 
 # Exercise scoring in the open state while retaining the seeded regional and
 # qualification records needed by the end-to-end handoff.
-d1 --command="UPDATE contests SET lifecycle = 'scoring' WHERE id = 'contest-region-1'; INSERT INTO sessions (id, user_id, expires_at, created_at, last_seen_at) VALUES ('e2e-coordinator-session', 'user-coordinator', 4102444800000, 1700000000000, 1700000000000), ('e2e-scorekeeper-session', 'user-scorekeeper', 4102444800000, 1700000000000, 1700000000000);"
+d1 --command="UPDATE contests SET lifecycle = 'scoring' WHERE id = 'contest-region-1'; INSERT INTO regional_coordinator_assignments (user_id, contest_id) VALUES ('user-regional-coordinator', 'contest-region-2'); INSERT INTO sessions (id, user_id, expires_at, created_at, last_seen_at) VALUES ('e2e-coordinator-session', 'user-coordinator', 4102444800000, 1700000000000, 1700000000000), ('e2e-scorekeeper-session', 'user-scorekeeper', 4102444800000, 1700000000000, 1700000000000), ('e2e-coach-session', 'user-coach-alpha-1', 4102444800000, 1700000000000, 1700000000000), ('e2e-gamma-coach-session', 'user-coach-gamma', 4102444800000, 1700000000000, 1700000000000), ('e2e-regional-session', 'user-regional-coordinator', 4102444800000, 1700000000000, 1700000000000);"
 
 npx wrangler pages dev .svelte-kit/cloudflare --d1 DB=5c5a8cb8-f2b9-489a-8a2d-b32a87c70cce --local --persist-to "$persist_dir" --port "$port" >"$persist_dir/server.log" 2>&1 &
 server_pid=$!
@@ -106,8 +107,27 @@ assert_action_failure() {
 	echo "e2e check passed: $method $path -> action status $expected"
 }
 
+assert_page_contains() {
+	local method="$1"
+	local path="$2"
+	local session_id="$3"
+	local expected_text="$4"
+	local actual
+	actual="$(status_for "$method" "$path" "$session_id")"
+	if [[ "$actual" != "200" ]] || ! grep --fixed-strings --quiet "$expected_text" "$response_file"; then
+		echo "e2e check failed: $method $path did not contain: $expected_text" >&2
+		[[ -z "$response_file" ]] || sed -n '1,100p' "$response_file" >&2
+		cat "$persist_dir/server.log" >&2
+		exit 1
+	fi
+	echo "e2e check passed: $method $path contains expected content"
+}
+
 coordinator="e2e-coordinator-session"
 scorekeeper="e2e-scorekeeper-session"
+coach="e2e-coach-session"
+gamma_coach="e2e-gamma-coach-session"
+regional="e2e-regional-session"
 
 # Anonymous and exact public-route boundaries.
 assert_status GET /program 303
@@ -117,7 +137,14 @@ assert_status GET /state/contest-state-2026/results/details 303
 # A statewide coordinator can traverse the operational handoff and execute a
 # real mutation against the isolated database.
 assert_status GET /program 200 "$coordinator"
+assert_status GET /contests/contest-region-2 200 "$coordinator"
 assert_status GET /registration/contest-region-2/school-gamma 200 "$coordinator"
+assert_status GET /my-schools 200 "$gamma_coach"
+assert_status GET /my-schools 403 "$scorekeeper"
+assert_status POST '/my-schools?/respond' 403 "$gamma_coach" --data 'participationId=participation-r1-alpha&contestId=contest-region-1&status=declined'
+assert_status POST '/my-schools?/respond' 200 "$gamma_coach" --data 'participationId=participation-r2-gamma&contestId=contest-region-2&status=declined'
+assert_status POST '/my-schools?/respond' 200 "$gamma_coach" --data 'participationId=participation-r2-gamma&contestId=contest-region-2&status=accepted'
+assert_status GET /scoring/contest-region-2 409 "$coordinator"
 assert_status GET /scoring/contest-region-1 200 "$coordinator"
 assert_status GET /qualifications/season-2026 200 "$coordinator"
 assert_status GET /state/contest-state-2026 200 "$coordinator"
@@ -127,9 +154,37 @@ assert_status POST '/state/contest-state-2026?/setAttendance' 200 "$coordinator"
 # Two authenticated score editors can reach the same contest, but a stale
 # conditional write is rejected and a scorekeeper cannot finalize.
 assert_status GET /scoring/contest-region-1 200 "$scorekeeper"
+assert_status GET /contests/contest-region-1 200 "$scorekeeper"
+assert_status GET /contests/contest-region-1 403 "$coach"
+assert_page_contains GET /contests/contest-region-1 "$coordinator" "Ash Alpha"
+assert_page_contains GET /contests/contest-region-1 "$coordinator" "Bailey Beta"
 assert_status POST '/scoring/contest-region-1?/saveResult' 200 "$coordinator" --data 'entryId=entry-r1-team-alpha&expectedVersion=1&score=89'
 assert_action_failure POST '/scoring/contest-region-1?/saveResult' 409 "$scorekeeper" --data 'entryId=entry-r1-team-alpha&expectedVersion=1&score=87'
 assert_status POST '/scoring/contest-region-1?/finalize' 403 "$scorekeeper" --data ''
+assert_status POST '/scoring/contest-region-1?/finalize' 200 "$coordinator" --data ''
+assert_status GET /results/contest-region-1 200 "$coordinator"
+assert_page_contains GET /results/contest-region-1 "$coordinator" "4 ranked places from 6 registered entrants; 2 eliminated."
+assert_page_contains GET /results/contest-region-1 "$coordinator" "4th (Alt)"
+assert_page_contains GET /results/contest-region-1 "$coordinator" "Ash Alpha — Alpha"
+assert_page_contains GET /results/contest-region-1 "$coordinator" "Bailey Beta — Beta"
+assert_status GET /results/contest-region-1 403 "$coach"
+assert_status GET '/reports/results?contestId=contest-region-1' 403 "$coach"
+assert_status POST '/scoring/contest-region-1?/publish' 200 "$coordinator" --data ''
+assert_status GET /results/contest-region-1 200 "$coach"
+assert_status GET '/reports/results?contestId=contest-region-1' 200 "$coach"
+
+# A regional-only coordinator can advance their own registration through roster
+# lock and scoring, then review the missing scores without statewide help.
+assert_status GET /contests/contest-region-2 200 "$regional"
+assert_status GET '/reports/participation?contestId=contest-region-2' 200 "$regional"
+assert_status POST '/contests/contest-region-2?/advanceLifecycle' 200 "$regional" --data 'lifecycle=roster_locked'
+assert_status POST '/contests/contest-region-2?/advanceLifecycle' 200 "$regional" --data 'lifecycle=scoring'
+assert_status GET /scoring/contest-region-2 200 "$regional"
+assert_action_failure POST '/scoring/contest-region-2?/finalize' 400 "$regional" --data ''
+assert_status GET /contests/contest-region-1/staff 200 "$regional"
+assert_status GET /contests/contest-region-1/staff 403 "$scorekeeper"
+assert_status POST '/contests/contest-region-1/staff?/remove' 200 "$regional" --data 'userId=user-scorekeeper'
+assert_status GET /scoring/contest-region-1 403 "$scorekeeper"
 
 # Cross-scope scorekeeper access is denied at the route boundary.
 assert_status GET /state/contest-state-2026 403 "$scorekeeper"

@@ -1,7 +1,7 @@
-import { validateScoreInput, type ScoreCategory, type ScoreInput } from './service';
+import { validateScoreInput, type KnowdownOutcome, type ScoreCategory, type ScoreInput } from './service';
 
-export const scoreCsvFormat = 'wsmc.scores.v1';
-export const scoreCsvHeaders = ['format_version', 'entry_id', 'category', 'division', 'entry_number', 'school_name', 'score', 'part1', 'part2', 'placement', 'version'] as const;
+export const scoreCsvFormat = 'wsmc.scores.v2';
+export const scoreCsvHeaders = ['format_version', 'entry_id', 'category', 'division', 'entry_number', 'school_name', 'score', 'part1', 'part2', 'placement', 'knowdown_outcome', 'version'] as const;
 
 export type ScoreCsvEntry = {
 	id: string;
@@ -13,6 +13,7 @@ export type ScoreCsvEntry = {
 	part1: number | null;
 	part2: number | null;
 	placement: number | null;
+	knowdownOutcome: KnowdownOutcome | null;
 	version: number;
 };
 
@@ -68,7 +69,7 @@ function numberValue(record: Record<string, string>, field: string): number | nu
 export function exportScoreCsv(entries: ScoreCsvEntry[]): string {
 	const rows = [scoreCsvHeaders.join(',')];
 	for (const entry of [...entries].sort((a, b) => a.category.localeCompare(b.category) || a.division - b.division || (a.entryNumber ?? 0) - (b.entryNumber ?? 0) || a.id.localeCompare(b.id))) {
-		rows.push([scoreCsvFormat, entry.id, entry.category, entry.division, entry.entryNumber, entry.schoolName, entry.score, entry.part1, entry.part2, entry.placement, entry.version].map((value) => csvCell(value)).join(','));
+		rows.push([scoreCsvFormat, entry.id, entry.category, entry.division, entry.entryNumber, entry.schoolName, entry.score, entry.part1, entry.part2, entry.placement, entry.knowdownOutcome, entry.version].map((value) => csvCell(value)).join(','));
 	}
 	return `${rows.join('\r\n')}\r\n`;
 }
@@ -87,7 +88,8 @@ export function parseScoreCsv(text: string): ScoreCsvRow[] {
 		const part1 = numberValue(record, 'part1');
 		const part2 = numberValue(record, 'part2');
 		const placement = numberValue(record, 'placement');
-		return { rowNumber: index + 2, id: record.entry_id.trim(), category: record.category.trim() as ScoreCategory, division: division ?? Number.NaN, entryNumber, schoolName: record.school_name.trim(), score, part1, part2, placement, version: numberValue(record, 'version') ?? Number.NaN };
+		const knowdownOutcome = record.knowdown_outcome.trim() === '' ? null : record.knowdown_outcome.trim() as KnowdownOutcome;
+		return { rowNumber: index + 2, id: record.entry_id.trim(), category: record.category.trim() as ScoreCategory, division: division ?? Number.NaN, entryNumber, schoolName: record.school_name.trim(), score, part1, part2, placement, knowdownOutcome, version: numberValue(record, 'version') ?? Number.NaN };
 	});
 }
 
@@ -97,6 +99,8 @@ export function validateScoreCsv(rows: ScoreCsvRow[], entries: ScoreCsvEntry[]):
 	const errors: ScoreCsvRowError[] = [];
 	const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
 	const seen = new Set<string>();
+	const proposedKnowdownPlaces = new Map<string, { placement: number; rowNumber?: number }>();
+	for (const entry of entries) if (entry.category === 'knowdown' && entry.knowdownOutcome === 'placed' && entry.placement !== null) proposedKnowdownPlaces.set(entry.id, { placement: entry.placement });
 	let updatedRows = 0;
 	let clearedRows = 0;
 	for (const row of rows) {
@@ -117,13 +121,24 @@ export function validateScoreCsv(rows: ScoreCsvRow[], entries: ScoreCsvEntry[]):
 				// Topical exports include a derived total for readability, while the
 				// shared validator accepts only the two source parts.
 				const values = validateScoreInput(row.category, { ...row, score: null } as ScoreInput);
+				if (row.category === 'knowdown') {
+					if (row.knowdownOutcome === 'eliminated' && row.placement !== null) addError(errors, row.rowNumber, 'placement', 'An eliminated entrant cannot have a final place.');
+					if (row.knowdownOutcome === null && row.placement !== null) addError(errors, row.rowNumber, 'knowdown_outcome', 'A final place requires the placed outcome.');
+					if (values.knowdownOutcome === 'placed' && values.placement !== null) proposedKnowdownPlaces.set(row.id, { placement: values.placement, rowNumber: row.rowNumber });
+					else proposedKnowdownPlaces.delete(row.id);
+				}
 				if (row.category === 'topical_team' || row.category === 'topical_individual') {
 					if (row.score !== null && (values.score === null || row.score !== values.score)) addError(errors, row.rowNumber, 'score', 'Topical total must equal Part 1 plus Part 2, or be blank.');
 				}
 			} catch (cause) { addError(errors, row.rowNumber, 'score', cause instanceof Error ? cause.message : 'Invalid score.'); }
-			if (row.score === null && row.part1 === null && row.part2 === null && row.placement === null) clearedRows += 1;
+			if (row.score === null && row.part1 === null && row.part2 === null && row.placement === null && row.knowdownOutcome === null) clearedRows += 1;
 			else updatedRows += 1;
 		}
+	}
+	const knowdownRowsByPlace = new Map<number, { id: string; rowNumber?: number }[]>();
+	for (const [id, value] of proposedKnowdownPlaces) knowdownRowsByPlace.set(value.placement, [...(knowdownRowsByPlace.get(value.placement) ?? []), { id, rowNumber: value.rowNumber }]);
+	for (const [placement, rowsAtPlace] of knowdownRowsByPlace) if (rowsAtPlace.length > 1) {
+		for (const row of rowsAtPlace) if (row.rowNumber !== undefined) addError(errors, row.rowNumber, 'placement', `Knowdown place ${placement} is assigned more than once in this contest.`);
 	}
 	return { rows, errors, updatedRows, clearedRows };
 }

@@ -13,7 +13,11 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	if (!season) throw error(404, 'Season not found.');
 	const canView = canCoordinateState(locals.principal, season.id) || locals.principal.coachAssignments.some((assignment) => assignment.seasonId === season.id);
 	if (!canView) throw error(403, 'You cannot view reports for this season.');
+	const canReviewUnpublished = canCoordinateState(locals.principal, season.id);
 	const contests = await db.select().from(schema.contests).where(eq(schema.contests.seasonId, season.id)).orderBy(asc(schema.contests.startsAt));
-	const rounds = await Promise.all((['regional_placements', 'state_cutoff', 'manual_review'] as const).map(async (kind) => ({ kind, review: await getQualificationRoundReview(db, season.id, kind) })));
-	return { season, contests, rounds };
+	const rounds = await Promise.all((['regional_placements', 'state_cutoff', 'manual_review'] as const).map(async (kind) => {
+		const review = await getQualificationRoundReview(db, season.id, kind);
+		return { kind, review: canReviewUnpublished || review.round?.status === 'published' ? review : { round: null, qualifications: [] } };
+	}));
+	return { season, contests: contests.map((contest) => ({ ...contest, canViewRegionalResults: contest.kind === 'regional' && contest.lifecycle === 'finalized' && (contest.resultsPublishedAt !== null || canReviewUnpublished) })), rounds, canReviewUnpublished };
 };

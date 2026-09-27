@@ -9,17 +9,19 @@ export const load: LayoutServerLoad = async ({ locals, platform }) => {
 	const db = getDb(platform.env.DB);
 	const contestIds = [...new Set([...principal.regionalContestIds, ...principal.scorekeeperContestIds])];
 	const assignedContests = contestIds.length
-		? await db.select({ id: schema.contests.id, name: schema.contests.name, kind: schema.contests.kind }).from(schema.contests).where(inArray(schema.contests.id, contestIds))
+		? await db.select({ id: schema.contests.id, name: schema.contests.name, kind: schema.contests.kind, lifecycle: schema.contests.lifecycle }).from(schema.contests).where(inArray(schema.contests.id, contestIds))
 		: [];
-	const roleLinks = assignedContests
-		.filter((contest) => contest.kind === 'regional')
-		.map((contest) => ({ href: `/scoring/${contest.id}`, label: `Scoring · ${contest.name}` }));
+	const roleLinks: { href: string; label: string }[] = [];
+	for (const contest of assignedContests.filter((item) => item.kind === 'regional')) {
+		roleLinks.push({ href: `/contests/${contest.id}`, label: `Overview · ${contest.name}` });
+		if (['roster_locked', 'scoring', 'finalized'].includes(contest.lifecycle)) roleLinks.push({ href: `/scoring/${contest.id}`, label: `Scoring · ${contest.name}` });
+	}
 
 	const coachAssignments = principal.coachAssignments;
 	const seasonIds = [...new Set(coachAssignments.map((assignment) => assignment.seasonId))];
 	if (seasonIds.length) {
 		const [contests, schools] = await Promise.all([
-			db.select({ id: schema.contests.id, seasonId: schema.contests.seasonId, name: schema.contests.name, kind: schema.contests.kind })
+				db.select({ id: schema.contests.id, seasonId: schema.contests.seasonId, name: schema.contests.name, kind: schema.contests.kind, lifecycle: schema.contests.lifecycle, resultsPublishedAt: schema.contests.resultsPublishedAt })
 				.from(schema.contests)
 				.where(inArray(schema.contests.seasonId, seasonIds)),
 			db.select({ id: schema.schools.id, name: schema.schools.name })
@@ -27,6 +29,9 @@ export const load: LayoutServerLoad = async ({ locals, platform }) => {
 				.where(inArray(schema.schools.id, [...new Set(coachAssignments.map((assignment) => assignment.schoolId))])),
 		]);
 		const regionalContests = contests.filter((contest) => contest.kind === 'regional');
+		for (const contest of regionalContests.filter((item) => item.lifecycle === 'finalized' && item.resultsPublishedAt !== null)) {
+			roleLinks.push({ href: `/results/${contest.id}`, label: `Results · ${contest.name}` });
+		}
 		const regionalIds = regionalContests.map((contest) => contest.id);
 		const participationRows = regionalIds.length
 			? await db.select({ contestId: schema.schoolParticipations.contestId, schoolId: schema.schoolParticipations.schoolId })

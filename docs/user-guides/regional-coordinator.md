@@ -23,13 +23,14 @@ email provider is configured.
 | Page | Purpose |
 |---|---|
 | `/participation` | Invite existing schools, invite or assign coaches, and open a school's registration. |
+| `/contests/<contest-id>` | Review all invited schools, rosters, entries, result coverage, and move from registration to roster lock and scoring. |
+| `/contests/<contest-id>/staff` | Invite or remove scorekeepers for this contest. |
 | `/registration/<contest-id>/<school-id>` | Edit any participating school's regional roster and entries. |
 | `/scoring/<contest-id>` | Enter scores, finalize, publish, or reopen the assigned contest. |
 | `/results/<contest-id>` | Review finalized regional rankings. |
 
-Only **Participation** appears in the current top navigation. Keep the exact
-scoring link supplied by the state coordinator, or copy the contest ID from a
-registration URL.
+The top navigation includes **Participation** and an **Overview** link for
+each assigned contest. A **Scoring** link appears after roster lock.
 
 ## 1. Prepare school participation
 
@@ -55,15 +56,17 @@ school or help a coach.
 
 - Regional coordinators cannot create or reactivate schools. Ask a state
   coordinator to maintain the School directory.
-- The page displays Accept and Decline buttons, but a regional-only account is
-  not currently authorized to submit them. A state coordinator must record the
-  response during initial testing.
-- The visible participation CSV link currently rejects a regional-only
-  account. Registration and score CSV downloads do work within contest scope.
+- The page's Accept and Decline buttons let you record a response for an
+  uncoached school in your assigned contest. Assigned coaches can also respond
+  from **My schools**.
+- Participation, registration, and score CSV downloads work within the
+  assigned contest scope.
 
 ## 2. Review and edit registration
 
 The state coordinator must first place the contest in `registration_open`.
+Use the contest overview to check school responses, rostered students, and
+category entry counts before locking rosters.
 
 1. From Participation, select **Open registration** for a school.
 2. Review the summary: annual students, rostered students, entry count, and
@@ -108,8 +111,8 @@ returns it to `registration_open`.
 
 ## 3. Enter scores
 
-Ask the state coordinator to advance the contest to `scoring`, then open
-`/scoring/<contest-id>`.
+On the contest overview, select **Lock rosters**, then **Start scoring**.
+Open `/scoring/<contest-id>` from the navigation.
 
 1. Check the completeness card. A blank is missing; numeric zero is a real
    score.
@@ -118,7 +121,8 @@ Ask the state coordinator to advance the contest to `scoring`, then open
    - one score for Project;
    - one score for Team Contest;
    - Part 1 and Part 2, each from 0 to 75, for topical entries;
-   - a placement from 1 through 4 for Knowdown.
+   - the final outcome for each Knowdown entrant: **Eliminated**, or
+     **Placed** with a unique place from 1 through 4.
 4. Select **Save** on each card.
 5. Confirm the entry is labeled **Entered** and the editor/version information
    changes.
@@ -130,7 +134,7 @@ the newer value, and make the correction again if needed.
 ### Score CSV
 
 1. Select **Download score CSV**.
-2. Edit only the appropriate score, part, or placement fields.
+2. Edit only the appropriate score, part, placement, or Knowdown outcome fields.
 3. Use **Preview CSV** and resolve every error.
 4. Use **Import CSV**. Any invalid or stale row rejects the complete import.
 
@@ -144,7 +148,8 @@ See `docs/score-csv.md` for the exact columns.
 4. Open **View regional results** and review rankings:
    - Project, Team Contest, and Topical Team by division;
    - Topical Individual by division, with overall and actual-grade ranks;
-   - Knowdown as one statewide-style ordered list for the region.
+   - Knowdown as one ordered list for the region, with fourth place labeled
+     **Alt** and eliminated entrants listed separately.
 5. Return to scoring and select **Publish results**.
 
 Rankings use competition ranking, so a tie can produce `1, 2, 2, 4`. Tied
@@ -168,17 +173,14 @@ Knowdown alternate or a result correction made after an earlier review.
 
 ## Current implementation gaps to verify
 
-- A regional-only account has no lifecycle control for moving a contest from
-  setup to registration, roster locked, or scoring. A state coordinator must
-  perform those transitions on Program.
-- A regional-only account cannot administer scorekeeper assignments; User
-  administration is system-wide only.
-- Scoring and results are not linked from the regional coordinator's top
-  navigation or Participation page, so direct URLs are currently required.
-- Invitation response buttons and participation CSV appear on Participation
-  but fail authorization for a regional-only account.
-- Knowdown accepts only placements 1 through 4, but the current score service
-  does not reject duplicate placements across different students.
+- A state coordinator opens registration from Program. The regional
+  coordinator can then lock rosters and start scoring from the contest overview.
+- Scorekeeper management is limited to the assigned contest; general user
+  administration remains system-wide only.
+- Overview and stage-valid Scoring links appear in the regional coordinator's
+  top navigation; finalized results are linked from Scoring and the overview.
+- Knowdown finalization requires an outcome for every registered entrant and
+  rejects duplicate places. Missing remains distinct from eliminated.
 
 ## Verification checklist
 
@@ -196,13 +198,10 @@ Knowdown alternate or a result correction made after an earlier review.
 
 ## Local verification data
 
-The seed does not include a regional-only user. To test this role without
-system-wide access masking permission problems:
-
-1. Sign in as `coordinator@wsmc.example`.
-2. On Users, invite a new email as Regional coordinator for
-   `contest-region-2`.
-3. Sign out and use the new invitation.
+The seed includes `regional@wsmc.example`, assigned to Region 1. The
+isolated demo command also assigns that user to Region 2 so you can rehearse
+roster lock and scoring without system-wide access masking permission
+problems. Request a local sign-in link for that email from `/login`.
 
 Region 2 is seeded in `registration_open`. Region 1 is finalized. The seeded
 state coordinator is also assigned to Region 1, but is not a valid substitute

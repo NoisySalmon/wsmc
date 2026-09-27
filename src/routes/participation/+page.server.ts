@@ -1,10 +1,11 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { error, fail } from '@sveltejs/kit';
-import { canAdministerUsers, canCoachSchool, canCoordinateRegion, canCoordinateState } from '$lib/server/auth/capabilities';
+import { canAdministerUsers, canCoordinateRegion, canCoordinateState } from '$lib/server/auth/capabilities';
 import { createEmailProvider, resolveAppOrigin } from '$lib/server/auth/email';
 import { AuthError, inviteUser } from '$lib/server/auth/service';
 import { assignCoach, inviteSchool, ParticipationError, removeCoach, setParticipationStatus, type InvitationStatus } from '$lib/server/program/participation';
 import { canManageSeasonAssignments } from '$lib/server/program/access';
+import { canManageParticipationResponse } from '$lib/server/program/participation-access';
 import { getDb, schema } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -64,7 +65,7 @@ export const actions: Actions = {
 		const contestId = text(data, 'contestId');
 		const participationId = text(data, 'participationId');
 		const [row] = await db.select({ schoolId: schema.schoolParticipations.schoolId, seasonId: schema.contests.seasonId }).from(schema.schoolParticipations).innerJoin(schema.contests, eq(schema.contests.id, schema.schoolParticipations.contestId)).where(and(eq(schema.schoolParticipations.id, participationId), eq(schema.schoolParticipations.contestId, contestId)));
-		if (!row || !canCoordinateState(locals.principal, row.seasonId) && !canCoachSchool(locals.principal, row.schoolId, row.seasonId)) throw error(403, 'You cannot respond for this school.');
+		if (!row || !canManageParticipationResponse(locals.principal, { contestId, schoolId: row.schoolId, seasonId: row.seasonId })) throw error(403, 'You cannot respond for this school.');
 		const status = text(data, 'status') as InvitationStatus;
 		if (!['accepted', 'declined'].includes(status)) return fail(400, { error: 'Choose accept or decline.' });
 		try {

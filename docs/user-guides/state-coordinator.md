@@ -50,8 +50,9 @@ Open **Program**.
 2. Under **New region**, select the season, enter the positive region number
    and optional name, then select **Add region**.
 3. Under **New contest**, create one regional contest for each region. Choose
-   **Regional**, supply the Region ID, name, and optional start date.
-4. Create one state contest. Choose **State**, leave Region ID blank, and make
+   **Regional**, select the season and region, then supply a name and optional
+   start date.
+4. Create one state contest. Choose **State** and make
    an explicit Yes/No choice for both state policies:
    - whether every state-rostered student may enter Topical Individual;
    - whether cross-school Topical Teams are allowed.
@@ -62,11 +63,6 @@ Open **Program**.
 
 Season status values are `setup`, `active`, and `archived`. Archiving is
 one-way in the current implementation and makes the season read-only.
-
-**Current implementation note:** The New contest form requires the internal
-Region ID, but the Program page does not display region IDs. The seeded Region
-IDs are listed under [Local verification data](#local-verification-data). For a
-new region, obtain its ID from the database until the UI exposes it.
 
 ## 2. Maintain the school directory
 
@@ -159,7 +155,9 @@ The intended contest sequence is:
 `setup` → `registration_open` → `roster_locked` → `scoring` → `finalized`
 
 Open **Program** and use the lifecycle selector to advance through the first
-four states. The general selector does not move backward.
+four states. The general selector does not move backward or finalize results.
+An assigned regional coordinator can also lock rosters and start scoring from
+the regional contest overview.
 
 For scoring:
 
@@ -167,7 +165,7 @@ For scoring:
 2. Confirm the contest is in `scoring`. Save buttons are disabled otherwise.
 3. Filter by category, division, or **Missing only**.
 4. Enter one score for Project and Team Contest; enter Part 1 and Part 2 for
-   topical entries; enter placement 1–4 for Knowdown.
+   topical entries; record each Knowdown entrant as eliminated or placed 1–4.
 5. Confirm the card changes from **Missing** to **Entered** and shows the last
    editor and version.
 6. Resolve every missing result. A numeric zero counts as entered; a blank is
@@ -183,10 +181,9 @@ If finalized results need correction, enter a reason and select **Reopen for
 correction**. Reopening returns the contest to `scoring`, clears publication,
 and adds an audit event.
 
-**Important:** Do not select `finalized` in the Program lifecycle selector for
-normal scoring. In the current implementation that shortcut bypasses the
-scoring completeness check and also sets the publication timestamp. Finalize
-from the scoring page, then publish separately.
+Program does not offer `finalized`. Finalize from the scoring page after the
+completeness check, then publish separately. Coaches can see regional results
+only after publication.
 
 ## 7. Publish state qualifications
 
@@ -299,5 +296,5 @@ The representative seed includes:
 - state contest: `contest-state-2026` (`registration_open`).
 
 The seeded state coordinator is both system-wide and assigned to Region 1.
-Use a separately invited, regional-only user when verifying regional access
-boundaries.
+Use `regional@wsmc.example` to verify regional-only access boundaries. The
+isolated demo command also assigns that user to Region 2.

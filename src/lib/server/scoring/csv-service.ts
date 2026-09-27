@@ -25,7 +25,9 @@ async function entriesSnapshot(db: Database, contestId: string): Promise<ScoreCs
 	return rows.map(({ entry, result, schoolName, schoolFullName }) => ({
 		...(() => { const part1 = result?.part1 ?? null; const part2 = result?.part2 ?? null; return { score: result?.score ?? (part1 !== null && part2 !== null ? part1 + part2 : null), part1, part2 }; })(),
 		id: entry.id, category: entry.category, division: entry.division, entryNumber: entry.entryNumber, schoolName: schoolName || schoolFullName || 'Statewide entry',
-		placement: result?.placement ?? null, version: result?.version ?? 0,
+		placement: entry.category === 'knowdown' ? result?.placement ?? null : null,
+		knowdownOutcome: entry.category === 'knowdown' ? result?.knowdownOutcome ?? null : null,
+		version: result?.version ?? 0,
 	}));
 }
 
@@ -48,11 +50,11 @@ export async function importScoreCsv(db: Database, input: { contestId: string; a
 	for (const row of rows) {
 		const values = validateScoreInput(row.category, { ...row, score: null });
 		const current = entries.find((entry) => entry.id === row.id)!;
-		if (row.version === 0 && values.score === null && values.part1 === null && values.part2 === null && values.placement === null) continue;
+		if (row.version === 0 && values.score === null && values.part1 === null && values.part2 === null && values.placement === null && values.knowdownOutcome === null) continue;
 		if (row.version === 0) {
-			operations.push(db.insert(schema.results).values({ entryId: row.id, score: values.score, part1: values.part1, part2: values.part2, placement: values.placement, version: 1, lastEditedBy: input.actorUserId, updatedAt: now }));
+			operations.push(db.insert(schema.results).values({ entryId: row.id, score: values.score, part1: values.part1, part2: values.part2, placement: values.placement, knowdownOutcome: values.knowdownOutcome, version: 1, lastEditedBy: input.actorUserId, updatedAt: now }));
 		} else {
-			operations.push(db.update(schema.results).set({ score: values.score, part1: values.part1, part2: values.part2, placement: values.placement, version: row.version + 1, lastEditedBy: input.actorUserId, updatedAt: now }).where(and(eq(schema.results.entryId, row.id), eq(schema.results.version, current.version))));
+			operations.push(db.update(schema.results).set({ score: values.score, part1: values.part1, part2: values.part2, placement: values.placement, knowdownOutcome: values.knowdownOutcome, version: row.version + 1, lastEditedBy: input.actorUserId, updatedAt: now }).where(and(eq(schema.results.entryId, row.id), eq(schema.results.version, current.version))));
 		}
 	}
 	operations.push(db.insert(schema.imports).values({ id: crypto.randomUUID(), contestId: input.contestId, schoolId: null, kind: 'score', filename: 'score-import.csv', status: 'committed', createdBy: input.actorUserId, createdAt: now }));

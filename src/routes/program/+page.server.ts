@@ -89,13 +89,14 @@ export const actions: Actions = {
 	},
 	setLifecycle: async ({ locals, platform, request }) => {
 		requireCoordinator(locals);
-		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const data = await request.formData();
+		const lifecycle = textValue(data, 'lifecycle') as ContestLifecycle;
+		if (lifecycle === 'finalized') return fail(400, { error: 'Finalize results from the Scoring page after reviewing completeness. Publish results there as a separate step.' });
+		if (!['setup', 'registration_open', 'roster_locked', 'scoring'].includes(lifecycle)) return fail(400, { error: 'Choose a valid lifecycle.' });
+		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const contestId = textValue(data, 'contestId');
 		const [contest] = await getDb(platform.env.DB).select({ id: schema.contests.id, seasonId: schema.contests.seasonId }).from(schema.contests).where(eq(schema.contests.id, contestId));
 		if (!contest || !canManageSeason(locals, contest.seasonId)) throw error(403, 'You cannot manage this contest.');
-		const lifecycle = textValue(data, 'lifecycle') as ContestLifecycle;
-		if (!['setup', 'registration_open', 'roster_locked', 'scoring', 'finalized'].includes(lifecycle)) return fail(400, { error: 'Choose a valid lifecycle.' });
 		try {
 			await setContestLifecycle(getDb(platform.env.DB), contest.id, contest.seasonId, lifecycle);
 			return { success: 'Contest lifecycle updated.' };

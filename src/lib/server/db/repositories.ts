@@ -168,7 +168,7 @@ export async function addEntryMember(
 /** Save a score through the contest-scoped entry boundary. */
 export async function saveResult(
 	db: Database,
-	input: { contestId: string; entryId: string; expectedVersion?: number; score?: number | null; part1?: number | null; part2?: number | null; placement?: number | null; lastEditedBy?: string | null },
+	input: { contestId: string; entryId: string; expectedVersion?: number; score?: number | null; part1?: number | null; part2?: number | null; placement?: number | null; knowdownOutcome?: 'placed' | 'eliminated' | null; lastEditedBy?: string | null },
 ) {
 	await requireEntryInContest(db, input.contestId, input.entryId);
 	const [current] = await db.select().from(schema.results).where(eq(schema.results.entryId, input.entryId));
@@ -183,7 +183,7 @@ export async function saveResult(
 		const updateWhere = input.expectedVersion === undefined
 			? eq(schema.results.entryId, input.entryId)
 			: and(eq(schema.results.entryId, input.entryId), eq(schema.results.version, input.expectedVersion));
-		const updated = await db.update(schema.results).set({ score: input.score ?? null, part1: input.part1 ?? null, part2: input.part2 ?? null, placement: input.placement ?? null, version, lastEditedBy: input.lastEditedBy ?? null }).where(updateWhere).returning();
+		const updated = await db.update(schema.results).set({ score: input.score ?? null, part1: input.part1 ?? null, part2: input.part2 ?? null, placement: input.placement ?? null, knowdownOutcome: input.knowdownOutcome ?? null, version, lastEditedBy: input.lastEditedBy ?? null }).where(updateWhere).returning();
 		if (updated.length === 0 && input.expectedVersion !== undefined) {
 			throw new PersistenceRuleError('stale_result', 'This result changed after it was loaded. Refresh before saving.');
 		}
@@ -192,7 +192,7 @@ export async function saveResult(
 	if (input.expectedVersion !== undefined && input.expectedVersion !== 0) {
 		throw new PersistenceRuleError('stale_result', 'This result changed after it was loaded. Refresh before saving.');
 	}
-	return db.insert(schema.results).values({ entryId: input.entryId, score: input.score ?? null, part1: input.part1 ?? null, part2: input.part2 ?? null, placement: input.placement ?? null, version, lastEditedBy: input.lastEditedBy ?? null }).returning();
+	return db.insert(schema.results).values({ entryId: input.entryId, score: input.score ?? null, part1: input.part1 ?? null, part2: input.part2 ?? null, placement: input.placement ?? null, knowdownOutcome: input.knowdownOutcome ?? null, version, lastEditedBy: input.lastEditedBy ?? null }).returning();
 }
 
 /** Archive a school in the directory without deleting historical references. */

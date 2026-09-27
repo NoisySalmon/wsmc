@@ -14,6 +14,7 @@ export const load: PageServerLoad = async ({ platform, params }) => {
 		const result = await getStateRankings(db, contest.id);
 		return {
 			contest: result.contest,
+			knowdownOutcomes: result.knowdownOutcomes,
 			rankings: Object.fromEntries(Object.entries(result.rankings).map(([category, rows]) => [category, rows.map((row) => toPublicStateResult(category, row))])),
 		};
 	} catch (cause) {

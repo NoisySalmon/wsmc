@@ -27,43 +27,37 @@ and [implementation progress](docs/implementation-progress.md).
 
 ## Getting Started
 
-### Prerequisites
+### Run the isolated demo locally
 
-- Node.js (v20+)
-- Cloudflare Wrangler CLI
+Install Node.js 20+ and the repository dependencies, then start a fresh Pages
+preview with its own local D1 database:
 
-### Installation
+```bash
+git clone https://github.com/NoisySalmon/wsmc.git
+cd wsmc
+npm ci
+npm run demo:preview
+```
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/NoisySalmon/wsmc.git
-   cd wsmc
-   ```
+Open `http://127.0.0.1:8797/login`. Request a sign-in link for
+`coordinator@wsmc.example` (statewide administrator),
+`regional@wsmc.example`, `coach@gamma.example`, or
+`scorekeeper@wsmc.example`. The local email adapter prints each one-time link
+in the server terminal. Open it in your browser, and sign out before changing
+roles. These are fictional fixture users; `natpeterson@gmail.com` is not in
+this isolated database.
 
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Initialize the local database:
-   ```bash
-   npx wrangler d1 migrations apply wsmc-db --local
-   npm run seed
-   ```
+The command builds the app, applies all D1 migrations, loads `scripts/seed.sql`,
+adds Region 2 access for the regional coordinator and scorekeeper, and starts
+Wrangler Pages on port 8797. It uses a fresh temporary database and deletes it
+when the server stops. Set `WSMC_DEMO_PORT=8798` if that port is occupied.
+Nothing is read from or written to production D1. See the
+[local development guide](docs/operations/local-development.md) for the exact
+configuration, tour URLs, a persistent Vite development option, and tests.
 
 The project enables npm's `ignore-scripts` setting because Wrangler's optional
 local image dependency does not provide a Node 26 prebuilt binary. The app and
 local D1 workflow do not use that dependency.
-
-4. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-For the Pages preview with D1 binding, backup/restore, and coordinator
-recovery, see the [coordinator workflow](docs/operations/coordinator-workflow.md),
-[D1 operations runbook](docs/operations/d1-runbook.md), and [authentication
-bootstrap guide](docs/operations/auth-bootstrap.md).
 
 ## Verification
 
@@ -77,11 +71,10 @@ npm run test:db
 npm run test:e2e:preview
 ```
 
-The authenticated preview journey builds an isolated local D1, provisions
-disposable fixture sessions, exercises the regional-to-state route and action
-handoff, and removes the temporary database when it finishes. It requires the
-production build output and a local Wrangler listener; it never uses remote
-D1 or real email tokens.
+The authenticated preview journey creates its own temporary D1 and fixture
+sessions, exercises the regional-to-state route and action handoff, and removes
+that database when it finishes. Run it after `npm run build`; it starts its own
+Wrangler listener and never uses remote D1 or real email tokens.
 
 The same checks run in [GitHub Actions](.github/workflows/ci.yml) for pushes
 and pull requests.
@@ -90,12 +83,9 @@ and pull requests.
 
 The project is configured for Cloudflare Pages.
 
-Before deploying the configured `wsmc` project, confirm that the target D1 is
-the disposable database intended for the v2 reset, apply and verify the v2
-migration, and configure the production Pages values documented in the
-[D1 runbook](docs/operations/d1-runbook.md). The current remote target still
-contains the legacy prototype schema and has no production email secrets, so
-it has intentionally not been changed.
+The production D1 already has the v2 demo fixture. Before deploying these
+local changes, back it up, apply the Knowdown outcome migration, and follow
+the production checks in the [D1 runbook](docs/operations/d1-runbook.md).
 
 1. Build the project:
    ```bash

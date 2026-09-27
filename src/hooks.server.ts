@@ -24,7 +24,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		const next = `${event.url.pathname}${event.url.search}`;
 		throw redirect(303, `/login?next=${encodeURIComponent(next)}`);
 	}
-	if (event.locals.principal && event.url.pathname.startsWith('/contests')) {
+	if (event.locals.principal && /^\/contests\/?$/.test(event.url.pathname)) {
 		throw error(410, 'The unauthenticated prototype contest routes have been retired.');
 	}
 

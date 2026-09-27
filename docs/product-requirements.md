@@ -164,6 +164,14 @@ The responsible coordinator can reopen a contest or an individual school for cor
 - Project, Team Contest, and Topical Team are ranked separately by division.
 - Topical Individual has a separate leaderboard per division, including overall and actual-grade placement.
 - Knowdown is a single ordered result, not divided by school division.
+- Participating schools may nominate up to three Knowdown students each.
+  Knowdown is an elimination event: entrants may be eliminated during its
+  rounds, and the event ends when places 1, 2, 3, and 4 are determined.
+  Scoring records the final outcome for every entrant as either eliminated or
+  one unique place from 1 through 4. Fourth place is the alternate for state
+  qualification. A missing outcome must remain distinct from elimination so
+  finalization can identify unfinished result entry. Detailed round results
+  are not required in this release.
 - Rankings use competition ranking, such as `1, 2, 2, 4`.
 - Every entry tied at a qualifying rank qualifies.
 - Ties do not change recorded scores. Coaches may try to resolve Team Contest ties operationally, but the application must support remaining ties correctly.
@@ -344,4 +352,3 @@ These are contest setup choices, not implementation blockers:
 - Division assigned to each mixed-school state entry.
 
 The transactional email provider and exact sign-in/session durations are implementation choices, provided the behavior in Section 6 is met.
-

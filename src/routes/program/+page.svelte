@@ -1,6 +1,9 @@
 <script lang="ts">
 	let { data, form } = $props();
-	const lifecycleOptions = ['setup', 'registration_open', 'roster_locked', 'scoring', 'finalized'];
+	const lifecycleOptions = ['setup', 'registration_open', 'roster_locked', 'scoring'];
+	let newContestSeasonId = $state('');
+	let newContestKind = $state<'regional' | 'state'>('regional');
+	let regionsForNewContest = $derived(data.regions.filter((region: { seasonId: string }) => region.seasonId === newContestSeasonId));
 	function readinessFor(seasonId: string) { return data.readiness.find((item: { seasonId: string }) => item.seasonId === seasonId); }
 </script>
 
@@ -25,9 +28,12 @@
 			<button type="submit">Add region</button>
 		</form></div>
 		<div><h2>New contest</h2><form method="POST" action="?/createContest">
-			<label>Season <select name="seasonId" required>{#each data.seasons as season}<option value={season.id}>{season.year} — {season.name}</option>{/each}</select></label>
-			<label>Type <select name="kind"><option value="regional">Regional</option><option value="state">State</option></select></label>
-			<label>Region ID <input name="regionId" placeholder="Required for regional contests" /></label>
+			<label>Season <select name="seasonId" bind:value={newContestSeasonId} required><option value="" disabled>Select a season</option>{#each data.seasons as season}<option value={season.id}>{season.year} — {season.name}</option>{/each}</select></label>
+			<label>Type <select name="kind" bind:value={newContestKind}><option value="regional">Regional</option><option value="state">State</option></select></label>
+			{#if newContestKind === 'regional'}
+				<label>Region <select name="regionId" required><option value="" disabled selected>Select a region</option>{#each regionsForNewContest as region}<option value={region.id}>Region {region.number}{region.name ? ` — ${region.name}` : ''}</option>{/each}</select></label>
+				{#if regionsForNewContest.length === 0}<p>Add a region for this season before creating a regional contest.</p>{/if}
+			{/if}
 			<label>Name <input name="name" required /></label>
 			<label>Start <input type="datetime-local" name="startsAt" /></label>
 			<label>State: allow all state students in Topical Individual <select name="topicalIndividualAllowed"><option value="yes">Yes</option><option value="no">No</option></select></label>
@@ -45,7 +51,7 @@
 	{/each}
 
 	<h2>Contests</h2><p><a href="/reports/schools">Download school directory CSV</a></p>
-	<ul class="contests">{#each data.contests as contest}<li><div><strong>{contest.name}</strong><span>{contest.kind} · {contest.lifecycle}</span>{#if contest.kind === 'state'}<a href="/state/{contest.id}">Open state administration</a>{:else}<a href="/scoring/{contest.id}">Open scoring</a>{/if}{#if contest.kind === 'regional' && contest.lifecycle === 'finalized'}<a href="/results/{contest.id}">View results</a>{/if}</div><form method="POST" action="?/setLifecycle"><input type="hidden" name="contestId" value={contest.id} /><input type="hidden" name="seasonId" value={contest.seasonId} /><select name="lifecycle">{#each lifecycleOptions as lifecycle}<option value={lifecycle} selected={lifecycle === contest.lifecycle}>{lifecycle}</option>{/each}</select><button type="submit">Update</button></form></li>{/each}</ul>
+	<ul class="contests">{#each data.contests as contest}<li><div><strong>{contest.name}</strong><span>{contest.kind} · {contest.lifecycle}</span>{#if contest.kind === 'state'}<a href="/state/{contest.id}">Open state administration</a>{#if ['roster_locked', 'scoring', 'finalized'].includes(contest.lifecycle)}<a href="/scoring/{contest.id}">Open scoring</a>{/if}{:else}<a href="/contests/{contest.id}">Open contest overview</a>{#if ['roster_locked', 'scoring', 'finalized'].includes(contest.lifecycle)}<a href="/scoring/{contest.id}">Open scoring</a>{/if}{/if}{#if contest.kind === 'regional' && contest.lifecycle === 'finalized'}<a href="/results/{contest.id}">View results</a>{/if}{#if contest.lifecycle === 'finalized'}<p>Results are finalized. Publish or reopen them from Scoring; publishing is a separate step.</p>{:else}<form method="POST" action="?/setLifecycle"><input type="hidden" name="contestId" value={contest.id} /><input type="hidden" name="seasonId" value={contest.seasonId} /><select name="lifecycle">{#each lifecycleOptions as lifecycle}<option value={lifecycle} selected={lifecycle === contest.lifecycle}>{lifecycle}</option>{/each}</select><button type="submit">Update</button></form>{/if}</div></li>{/each}</ul>
 </main>
 
 <style>

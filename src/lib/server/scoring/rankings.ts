@@ -45,11 +45,7 @@ function rankedTopicalIndividuals(rows: RegionalResultRow[]): RegionalRankedResu
 
 function rankedKnowdown(rows: RegionalResultRow[]): RegionalRankedResult[] {
 	const ordered = rows.filter((row) => row.category === 'knowdown' && row.placement !== null).sort((a, b) => a.placement! - b.placement!);
-	let rank = 1;
-	return ordered.map((row, index) => {
-		if (index > 0 && row.placement! > ordered[index - 1].placement!) rank = index + 1;
-		return { ...row, rank };
-	});
+	return ordered.map((row) => ({ ...row, rank: row.placement! }));
 }
 
 /** Build all regional result boards from complete, already-validated result rows. */

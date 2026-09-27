@@ -83,6 +83,10 @@ INSERT INTO entries (id, contest_id, owner_school_id, category, entry_kind, entr
   ('entry-r1-topical-ind-beta', 'contest-region-1', 'school-beta', 'topical_individual', 'individual', 1, 2),
   ('entry-r1-knowdown-alpha', 'contest-region-1', 'school-alpha', 'knowdown', 'individual', 1, 1),
   ('entry-r1-knowdown-beta', 'contest-region-1', 'school-beta', 'knowdown', 'individual', 1, 2),
+  ('entry-r1-knowdown-alpha-2', 'contest-region-1', 'school-alpha', 'knowdown', 'individual', 2, 1),
+  ('entry-r1-knowdown-alpha-3', 'contest-region-1', 'school-alpha', 'knowdown', 'individual', 3, 1),
+  ('entry-r1-knowdown-beta-2', 'contest-region-1', 'school-beta', 'knowdown', 'individual', 2, 2),
+  ('entry-r1-knowdown-beta-3', 'contest-region-1', 'school-beta', 'knowdown', 'individual', 3, 2),
   ('entry-r1-project-beta', 'contest-region-1', 'school-beta', 'project', 'team', 1, 2),
   ('entry-r1-team-beta', 'contest-region-1', 'school-beta', 'team_contest', 'team', 1, 2);
 
@@ -97,21 +101,29 @@ INSERT INTO entry_members (entry_id, annual_student_id, competing_grade) VALUES
   ('entry-r1-topical-ind-beta', 'student-beta-11', NULL),
   ('entry-r1-knowdown-alpha', 'student-alpha-12', NULL),
   ('entry-r1-knowdown-beta', 'student-beta-12', NULL),
+  ('entry-r1-knowdown-alpha-2', 'student-alpha-11', NULL),
+  ('entry-r1-knowdown-alpha-3', 'student-alpha-10', NULL),
+  ('entry-r1-knowdown-beta-2', 'student-beta-11', NULL),
+  ('entry-r1-knowdown-beta-3', 'student-beta-10', NULL),
   ('entry-r1-project-beta', 'student-beta-12', 12),
   ('entry-r1-project-beta', 'student-beta-11', 11),
   ('entry-r1-team-beta', 'student-beta-12', 12),
   ('entry-r1-team-beta', 'student-beta-11', 11);
 
-INSERT INTO results (entry_id, score, part1, part2, placement, version, last_edited_by) VALUES
-  ('entry-r1-project-alpha', 92, NULL, NULL, 1, 1, 'user-scorekeeper'),
-  ('entry-r1-team-alpha', 88, NULL, NULL, 1, 1, 'user-scorekeeper'),
-  ('entry-r1-topical-team-beta', NULL, 70, 68, 1, 1, 'user-scorekeeper'),
-  ('entry-r1-topical-ind-alpha', NULL, 65, 72, 1, 1, 'user-scorekeeper'),
-  ('entry-r1-topical-ind-beta', NULL, 60, 64, 2, 1, 'user-scorekeeper'),
-  ('entry-r1-knowdown-alpha', NULL, NULL, NULL, 1, 1, 'user-scorekeeper'),
-  ('entry-r1-knowdown-beta', NULL, NULL, NULL, 2, 1, 'user-scorekeeper'),
-  ('entry-r1-project-beta', 81, NULL, NULL, 1, 1, 'user-scorekeeper'),
-  ('entry-r1-team-beta', 79, NULL, NULL, 2, 1, 'user-scorekeeper');
+INSERT INTO results (entry_id, score, part1, part2, placement, knowdown_outcome, version, last_edited_by) VALUES
+  ('entry-r1-project-alpha', 92, NULL, NULL, NULL, NULL, 1, 'user-scorekeeper'),
+  ('entry-r1-team-alpha', 88, NULL, NULL, NULL, NULL, 1, 'user-scorekeeper'),
+  ('entry-r1-topical-team-beta', NULL, 70, 68, NULL, NULL, 1, 'user-scorekeeper'),
+  ('entry-r1-topical-ind-alpha', NULL, 65, 72, NULL, NULL, 1, 'user-scorekeeper'),
+  ('entry-r1-topical-ind-beta', NULL, 60, 64, NULL, NULL, 1, 'user-scorekeeper'),
+  ('entry-r1-knowdown-alpha', NULL, NULL, NULL, 1, 'placed', 1, 'user-scorekeeper'),
+  ('entry-r1-knowdown-beta', NULL, NULL, NULL, 2, 'placed', 1, 'user-scorekeeper'),
+  ('entry-r1-knowdown-alpha-2', NULL, NULL, NULL, 3, 'placed', 1, 'user-scorekeeper'),
+  ('entry-r1-knowdown-beta-2', NULL, NULL, NULL, 4, 'placed', 1, 'user-scorekeeper'),
+  ('entry-r1-knowdown-alpha-3', NULL, NULL, NULL, NULL, 'eliminated', 1, 'user-scorekeeper'),
+  ('entry-r1-knowdown-beta-3', NULL, NULL, NULL, NULL, 'eliminated', 1, 'user-scorekeeper'),
+  ('entry-r1-project-beta', 81, NULL, NULL, NULL, NULL, 1, 'user-scorekeeper'),
+  ('entry-r1-team-beta', 79, NULL, NULL, NULL, NULL, 1, 'user-scorekeeper');
 
 -- Region 2 includes another entry in every category for statewide aggregation.
 INSERT INTO entries (id, contest_id, owner_school_id, category, entry_kind, entry_number, division) VALUES
@@ -133,14 +145,22 @@ INSERT INTO entry_members (entry_id, annual_student_id, competing_grade) VALUES
 -- A sample frozen placement round and a state team berth.
 INSERT INTO qualification_rounds (id, season_id, kind, status, created_by) VALUES
   ('round-regional-2026', 'season-2026', 'regional_placements', 'published', 'user-coordinator');
-INSERT INTO qualifications (id, round_id, season_id, entry_id, student_id) VALUES
-  ('qualification-project-alpha', 'round-regional-2026', 'season-2026', 'entry-r1-project-alpha', NULL),
-  ('qualification-team-alpha', 'round-regional-2026', 'season-2026', 'entry-r1-team-alpha', NULL),
-  ('qualification-topical-alpha', 'round-regional-2026', 'season-2026', 'entry-r1-topical-ind-alpha', 'student-alpha-10');
+INSERT INTO qualifications (id, round_id, season_id, entry_id, student_id, active) VALUES
+  ('qualification-project-alpha', 'round-regional-2026', 'season-2026', 'entry-r1-project-alpha', NULL, 1),
+  ('qualification-team-alpha', 'round-regional-2026', 'season-2026', 'entry-r1-team-alpha', NULL, 1),
+  ('qualification-topical-alpha', 'round-regional-2026', 'season-2026', 'entry-r1-topical-ind-alpha', 'student-alpha-10', 1),
+  ('qualification-knowdown-alpha', 'round-regional-2026', 'season-2026', 'entry-r1-knowdown-alpha', 'student-alpha-12', 1),
+  ('qualification-knowdown-beta', 'round-regional-2026', 'season-2026', 'entry-r1-knowdown-beta', 'student-beta-12', 1),
+  ('qualification-knowdown-alpha-2', 'round-regional-2026', 'season-2026', 'entry-r1-knowdown-alpha-2', 'student-alpha-11', 1),
+  ('qualification-knowdown-beta-2', 'round-regional-2026', 'season-2026', 'entry-r1-knowdown-beta-2', 'student-beta-11', 0);
 INSERT INTO qualification_reasons (id, qualification_id, kind, rank, scope, detail_json) VALUES
   ('reason-project-alpha-placement', 'qualification-project-alpha', 'regional_placement', 1, NULL, '{}'),
   ('reason-team-alpha-placement', 'qualification-team-alpha', 'regional_placement', 1, NULL, '{}'),
-  ('reason-topical-alpha-overall', 'qualification-topical-alpha', 'regional_placement', 1, 'overall', '{}');
+  ('reason-topical-alpha-overall', 'qualification-topical-alpha', 'regional_placement', 1, 'overall', '{}'),
+  ('reason-knowdown-alpha-placement', 'qualification-knowdown-alpha', 'regional_placement', 1, 'overall', '{}'),
+  ('reason-knowdown-beta-placement', 'qualification-knowdown-beta', 'regional_placement', 2, 'overall', '{}'),
+  ('reason-knowdown-alpha-2-placement', 'qualification-knowdown-alpha-2', 'regional_placement', 3, 'overall', '{}'),
+  ('reason-knowdown-beta-2-alternate', 'qualification-knowdown-beta-2', 'knowdown_alternate', 4, 'overall', '{}');
 
 INSERT INTO entries (id, contest_id, owner_school_id, category, entry_kind, entry_number, division) VALUES
   ('entry-state-cross-school-team', 'contest-state-2026', NULL, 'team_contest', 'team', 1, 1);

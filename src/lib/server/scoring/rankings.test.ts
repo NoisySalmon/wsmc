@@ -22,4 +22,16 @@ describe('regional rankings', () => {
 		]);
 		expect(result.topical_individual.map((entry) => [entry.studentId, entry.rank, entry.actualGradeRank])).toEqual([['senior', 1, 1], ['junior', 2, 1], ['other-senior', 3, 2]]);
 	});
+
+	it('ranks four unique Knowdown places and excludes eliminated entrants', () => {
+		const result = rankRegionalResults([
+			row({ entryId: 'kd-1', category: 'knowdown', placement: 1, score: null, studentId: 's1', studentName: 'One' }),
+			row({ entryId: 'kd-2', category: 'knowdown', placement: 2, score: null, studentId: 's2', studentName: 'Two' }),
+			row({ entryId: 'kd-3', category: 'knowdown', placement: 3, score: null, studentId: 's3', studentName: 'Three' }),
+			row({ entryId: 'kd-4', category: 'knowdown', placement: 4, score: null, studentId: 's4', studentName: 'Four' }),
+			row({ entryId: 'kd-eliminated-a', category: 'knowdown', placement: null, score: null, studentId: 's5', studentName: 'Five' }),
+			row({ entryId: 'kd-eliminated-b', category: 'knowdown', placement: null, score: null, studentId: 's6', studentName: 'Six' }),
+		]);
+		expect(result.knowdown.map((entry) => [entry.placement, entry.rank])).toEqual([[1, 1], [2, 2], [3, 3], [4, 4]]);
+	});
 });

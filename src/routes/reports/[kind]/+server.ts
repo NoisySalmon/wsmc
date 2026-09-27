@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { and, asc, eq, inArray } from 'drizzle-orm';
-import { canCoordinateState } from '$lib/server/auth/capabilities';
+import { canCoordinateRegion, canCoordinateState, canScoreContest } from '$lib/server/auth/capabilities';
 import { getDb, schema } from '$lib/server/db';
 import { exportReportCsv } from '$lib/server/reports/csv';
 import { getRegionalRankings, getStateRankings, ScoringError } from '$lib/server/scoring/service';
@@ -29,14 +29,17 @@ export const GET: RequestHandler = async ({ locals, platform, params, url }) => 
 	} else if (params.kind === 'participation') {
 		const contestId = required(url, 'contestId');
 		const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, contestId));
-		if (!contest || !accessToSeason(locals.principal, contest.seasonId)) throw error(403, 'You cannot export this participation report.');
+		if (!contest || !(accessToSeason(locals.principal, contest.seasonId) || canCoordinateRegion(locals.principal, contest.id, contest.seasonId))) throw error(403, 'You cannot export this participation report.');
 		const rows = await db.select({ participation: schema.schoolParticipations, schoolName: schema.schools.name }).from(schema.schoolParticipations).innerJoin(schema.schools, eq(schema.schools.id, schema.schoolParticipations.schoolId)).where(eq(schema.schoolParticipations.contestId, contestId));
 		csv = exportReportCsv(['report_version', 'contest_id', 'school_id', 'school_name', 'division', 'invitation_status'], rows.map(({ participation, schoolName }) => ['wsmc.participation.v1', contestId, participation.schoolId, schoolName, participation.division, participation.invitationStatus]));
 		filename = `wsmc-${contestId}-participation.csv`;
 	} else if (params.kind === 'results') {
 		const contestId = required(url, 'contestId');
 		const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, contestId));
-		if (!contest || !accessToSeason(locals.principal, contest.seasonId)) throw error(403, 'You cannot export these results.');
+		if (!contest) throw error(404, 'Contest not found.');
+		const canReviewUnpublished = canScoreContest(locals.principal, contest.id, contest.seasonId);
+		const isCoach = locals.principal.coachAssignments.some((assignment) => assignment.seasonId === contest.seasonId);
+		if (!canReviewUnpublished && !(isCoach && contest.resultsPublishedAt !== null)) throw error(403, 'You cannot export these results before publication.');
 		try {
 			const result = contest.kind === 'regional' ? await getRegionalRankings(db, contestId) : await getStateRankings(db, contestId);
 			const rows = Object.values(result.rankings).flat().map((row) => ['wsmc.results.v1', contestId, row.category, row.division, row.rank, row.actualGradeRank ?? null, row.schoolName, row.studentName, row.entryNumber, row.score, row.part1, row.part2, row.placement]);

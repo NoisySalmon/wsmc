@@ -4,7 +4,15 @@ The v2 schema is append-only after the baseline migration. The local seed is
 disposable; production backups must be kept outside the repository and access
 controlled as student data.
 
-## Apply migrations and seed a local database
+## Run an isolated local demo
+
+Use `npm run demo:preview` after `npm ci`. It builds a Pages preview, applies
+all migrations, seeds a fresh temporary D1, and prints the local sign-in
+instructions. The database is removed when the server stops. See the
+[local development guide](local-development.md) for the role accounts and
+hands-on walkthrough.
+
+## Apply migrations and seed the default local database
 
 ```bash
 npx wrangler d1 migrations apply wsmc-db --local
@@ -19,21 +27,19 @@ replays a stale concurrent score edit, and exercises the system-coordinator
 recovery shape. It creates a temporary SQLite database and never changes a
 remote D1.
 
-For a clean Pages preview, build first and bind the configured D1 database:
-
-```bash
-npm run build
-npx wrangler pages dev .svelte-kit/cloudflare --d1 DB=5c5a8cb8-f2b9-489a-8a2d-b32a87c70cce --local --persist-to /tmp/wsmc-pages-state --port 8790
-npm run smoke:preview -- http://127.0.0.1:8790
-npm run test:e2e:preview
-```
+These commands use Wrangler's default `.wrangler/state`. Seed only once on a
+fresh database; the isolated demo above is easier to reset. With the demo
+running, use `npm run smoke:preview -- http://127.0.0.1:8797`. Run
+`npm run build` followed by `npm run test:e2e:preview` for the automated
+authenticated journey.
 
 `test:e2e:preview` starts its own disposable Pages preview on port 8791,
-seeds an isolated D1, creates fixture sessions for a statewide coordinator
-and scorekeeper, and removes the temporary state afterward. It verifies
-authenticated route traversal, a state attendance mutation, scorekeeper
-scope, and stale score rejection. Run it after `npm run build`; it does not
-touch the persistent preview above or any remote database.
+seeds an isolated D1, creates fixture sessions for statewide and regional
+coordinators, a coach, and a scorekeeper, and removes the temporary state
+afterward. It verifies the contest overview, stage changes, score coverage,
+finalization, publication access, state attendance, scorekeeper scope, and
+stale score rejection. Run it after `npm run build`; it does not touch the
+persistent preview above or any remote database.
 
 ## Configure production email
 
@@ -44,21 +50,19 @@ Set these Pages environment values for the production deployment:
 - `EMAIL_FROM=WSMC <noreply@<verified-domain>>`
 - `EMAIL_API_KEY` as an encrypted secret for the Resend API
 
-The local environment intentionally omits `ENVIRONMENT` and uses the
+The isolated local preview sets `ENVIRONMENT=development` and uses the
 development adapter, which logs disposable links for testing. A production
 environment without both email credentials fails closed instead of logging a
 sign-in link.
 
 ## Production deployment preflight
 
-The configured Pages project is `wsmc` at `wsmc.pages.dev`. The remote D1
-currently contains the retired prototype tables and reports
-`0001_v2_baseline.sql` as unapplied. Do not deploy the v2 worker against that
-database until the operator confirms the existing data is disposable, exports
-the database for recovery, applies the v2 migration, and verifies the seeded
-or imported v2 counts. The production Pages environment must also have
-`ENVIRONMENT`, `APP_ORIGIN`, `EMAIL_FROM`, and the encrypted `EMAIL_API_KEY`
-configured before sign-in can support a live season.
+The configured Pages project is `wsmc` at `wsmc.pages.dev`. The production
+database already runs the v2 baseline with the demo fixture. Before deploying
+this local change, export the production D1, apply
+`0002_knowdown_outcomes.sql`, and verify that existing Knowdown placements
+were backfilled as `placed`. The production Pages environment has the required
+email settings and encrypted key; verify them again during deployment review.
 
 After those prerequisites are verified, deploy the built Pages output and run
 the post-deploy smoke command below. The current remote target has not been

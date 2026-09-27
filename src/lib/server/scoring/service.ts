@@ -5,12 +5,14 @@ import { PersistenceRuleError, saveResult } from '$lib/server/db/repositories';
 import { rankRegionalResults, type RegionalRankings, type RegionalResultRow } from './rankings';
 
 export type ScoreCategory = 'project' | 'team_contest' | 'topical_team' | 'topical_individual' | 'knowdown';
+export type KnowdownOutcome = 'placed' | 'eliminated';
 
 export type ScoreInput = {
 	score?: number | null;
 	part1?: number | null;
 	part2?: number | null;
 	placement?: number | null;
+	knowdownOutcome?: KnowdownOutcome | null;
 };
 
 export class ScoringError extends Error {
@@ -34,6 +36,8 @@ export function validateScoreInput(category: ScoreCategory, input: ScoreInput): 
 	const part1 = optionalNumber(input.part1, 'Part 1');
 	const part2 = optionalNumber(input.part2, 'Part 2');
 	const placement = input.placement === undefined || input.placement === null ? null : input.placement;
+	const knowdownOutcome = input.knowdownOutcome === undefined ? (placement === null ? null : 'placed') : input.knowdownOutcome;
+	if (knowdownOutcome !== null && knowdownOutcome !== 'placed' && knowdownOutcome !== 'eliminated') throw new ScoringError('invalid_knowdown_outcome', 'Knowdown outcome must be placed or eliminated.');
 
 	if (placement !== null && (!Number.isInteger(placement) || placement < 1 || placement > 4)) {
 		throw new ScoringError('invalid_placement', 'Placement must be an integer from 1 through 4.');
@@ -41,20 +45,22 @@ export function validateScoreInput(category: ScoreCategory, input: ScoreInput): 
 
 	if (teamCategories.has(category) && category !== 'topical_team') {
 		if (score !== null && score < 0) throw new ScoringError('invalid_score', 'Score cannot be negative.');
-		if (part1 !== null || part2 !== null || placement !== null) throw new ScoringError('wrong_score_shape', 'This category accepts one numeric score only.');
-		return { score, part1: null, part2: null, placement: null };
+		if (part1 !== null || part2 !== null || placement !== null || knowdownOutcome !== null) throw new ScoringError('wrong_score_shape', 'This category accepts one numeric score only.');
+		return { score, part1: null, part2: null, placement: null, knowdownOutcome: null };
 	}
 
 	if (category === 'topical_team' || category === 'topical_individual') {
 		if (part1 !== null && (part1 < 0 || part1 > 75)) throw new ScoringError('invalid_part', 'Part 1 must be between 0 and 75.');
 		if (part2 !== null && (part2 < 0 || part2 > 75)) throw new ScoringError('invalid_part', 'Part 2 must be between 0 and 75.');
-		if (score !== null || placement !== null) throw new ScoringError('wrong_score_shape', 'Topical scoring accepts Part 1 and Part 2 only.');
-		return { score: part1 !== null && part2 !== null ? part1 + part2 : null, part1, part2, placement: null };
+		if (score !== null || placement !== null || knowdownOutcome !== null) throw new ScoringError('wrong_score_shape', 'Topical scoring accepts Part 1 and Part 2 only.');
+		return { score: part1 !== null && part2 !== null ? part1 + part2 : null, part1, part2, placement: null, knowdownOutcome: null };
 	}
 
 	if (category === 'knowdown') {
-		if (score !== null || part1 !== null || part2 !== null) throw new ScoringError('wrong_score_shape', 'Knowdown scoring accepts placement only.');
-		return { score: null, part1: null, part2: null, placement };
+		if (score !== null || part1 !== null || part2 !== null) throw new ScoringError('wrong_score_shape', 'Knowdown scoring accepts an outcome and optional placement only.');
+		if (knowdownOutcome === 'eliminated' || knowdownOutcome === null) return { score: null, part1: null, part2: null, placement: null, knowdownOutcome };
+		if (knowdownOutcome === 'placed' && placement === null) throw new ScoringError('placement_required', 'Enter a final place from 1 through 4.');
+		return { score: null, part1: null, part2: null, placement, knowdownOutcome };
 	}
 
 	throw new ScoringError('invalid_category', 'Unknown score category.');
@@ -114,6 +120,7 @@ export async function getScoringSnapshot(db: Database, contestId: string) {
 				part1,
 				part2,
 				placement: result?.placement ?? null,
+				knowdownOutcome: result?.knowdownOutcome ?? null,
 				version: result?.version ?? 0,
 				lastEditedBy: result?.lastEditedBy ?? null,
 				updatedAt: result?.updatedAt ?? null,
@@ -127,6 +134,12 @@ export async function saveContestResult(db: Database, input: { contestId: string
 	const [entry] = await db.select().from(schema.entries).where(and(eq(schema.entries.id, input.entryId), eq(schema.entries.contestId, contest.id)));
 	if (!entry) throw new ScoringError('entry_out_of_scope', 'Entry does not belong to this contest.');
 	const values = validateScoreInput(entry.category as ScoreCategory, input);
+	if (entry.category === 'knowdown' && values.knowdownOutcome === 'placed' && values.placement !== null) {
+		const conflicts = await db.select({ entryId: schema.entries.id }).from(schema.entries)
+			.innerJoin(schema.results, eq(schema.results.entryId, schema.entries.id))
+			.where(and(eq(schema.entries.contestId, contest.id), eq(schema.entries.category, 'knowdown'), eq(schema.results.placement, values.placement)));
+		if (conflicts.some((row) => row.entryId !== entry.id)) throw new ScoringError('duplicate_placement', `Knowdown place ${values.placement} is already assigned to another entrant.`);
+	}
 	let saved;
 	try {
 		saved = await saveResult(db, { contestId: contest.id, entryId: entry.id, expectedVersion: input.expectedVersion, ...values, lastEditedBy: input.actorUserId });
@@ -137,7 +150,7 @@ export async function saveContestResult(db: Database, input: { contestId: string
 	const [result] = saved;
 	await db.insert(schema.auditEvents).values({
 		id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: contest.id, entityType: 'result', entityId: entry.id,
-		action: 'score_saved', detailsJson: JSON.stringify({ category: entry.category, score: values.score, part1: values.part1, part2: values.part2, placement: values.placement, version: result?.version ?? null }), createdAt: input.now ?? Date.now(),
+		action: 'score_saved', detailsJson: JSON.stringify({ category: entry.category, score: values.score, part1: values.part1, part2: values.part2, placement: values.placement, knowdownOutcome: values.knowdownOutcome, version: result?.version ?? null }), createdAt: input.now ?? Date.now(),
 	});
 	const [publishedQualificationRound] = contest.kind === 'regional'
 		? await db.select({ id: schema.qualificationRounds.id }).from(schema.qualificationRounds).where(and(eq(schema.qualificationRounds.seasonId, contest.seasonId), eq(schema.qualificationRounds.status, 'published'))).limit(1)
@@ -149,6 +162,15 @@ export async function saveContestResult(db: Database, input: { contestId: string
 	return result;
 }
 
+export function findDuplicateKnowdownPlaces(rows: { entryId: string; category: string; placement: number | null; knowdownOutcome: string | null }[]) {
+	const entriesByPlace = new Map<number, string[]>();
+	for (const row of rows) {
+		if (row.category !== 'knowdown' || row.knowdownOutcome !== 'placed' || row.placement === null) continue;
+		entriesByPlace.set(row.placement, [...(entriesByPlace.get(row.placement) ?? []), row.entryId]);
+	}
+	return [...entriesByPlace].filter(([, entryIds]) => entryIds.length > 1).map(([placement, entryIds]) => ({ placement, entryIds }));
+}
+
 export async function getFinalizationReport(db: Database, contestId: string) {
 	const contest = await requireScoringContest(db, contestId, true);
 	const rows = await db.select({ entry: schema.entries, result: schema.results, schoolName: schema.schools.shortName })
@@ -156,16 +178,18 @@ export async function getFinalizationReport(db: Database, contestId: string) {
 		.where(eq(schema.entries.contestId, contest.id));
 	const missing = rows.filter(({ entry, result }) => {
 		if (entry.category === 'topical_team' || entry.category === 'topical_individual') return result?.part1 === null || result?.part1 === undefined || result?.part2 === null || result?.part2 === undefined;
-		if (entry.category === 'knowdown') return result?.placement === null || result?.placement === undefined;
+		if (entry.category === 'knowdown') return result?.knowdownOutcome === null || result?.knowdownOutcome === undefined;
 		return result?.score === null || result?.score === undefined;
 	}).map(({ entry, result, schoolName }) => ({ entryId: entry.id, category: entry.category, entryNumber: entry.entryNumber, division: entry.division, schoolName: schoolName || 'Statewide entry', resultVersion: result?.version ?? 0 }));
-	return { contest, missing, complete: missing.length === 0 };
+	const duplicateKnowdownPlaces = findDuplicateKnowdownPlaces(rows.map(({ entry, result }) => ({ entryId: entry.id, category: entry.category, placement: result?.placement ?? null, knowdownOutcome: result?.knowdownOutcome ?? null })));
+	return { contest, missing, duplicateKnowdownPlaces, complete: missing.length === 0 && duplicateKnowdownPlaces.length === 0 };
 }
 
 export async function finalizeContest(db: Database, input: { contestId: string; actorUserId: string; now?: number }) {
 	const report = await getFinalizationReport(db, input.contestId);
 	if (report.contest.lifecycle !== 'scoring') throw new ScoringError('invalid_transition', 'Only contests in scoring can be finalized.');
-	if (!report.complete) throw new ScoringError('incomplete', `${report.missing.length} result${report.missing.length === 1 ? '' : 's'} still need attention.`);
+	if (report.duplicateKnowdownPlaces.length) throw new ScoringError('duplicate_placement', `Knowdown places must be unique. Duplicate place${report.duplicateKnowdownPlaces.length === 1 ? '' : 's'}: ${report.duplicateKnowdownPlaces.map((item) => item.placement).join(', ')}.`);
+	if (report.missing.length) throw new ScoringError('incomplete', `${report.missing.length} result${report.missing.length === 1 ? '' : 's'} still need attention.`);
 	await db.update(schema.contests).set({ lifecycle: 'finalized', updatedAt: input.now ?? Date.now() }).where(and(eq(schema.contests.id, input.contestId), eq(schema.contests.lifecycle, 'scoring')));
 	await db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: input.contestId, entityType: 'contest', entityId: input.contestId, action: 'contest_finalized', detailsJson: '{}', createdAt: input.now ?? Date.now() });
 }
@@ -189,7 +213,19 @@ export async function publishContestResults(db: Database, input: { contestId: st
 	await db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: input.contestId, entityType: 'contest', entityId: input.contestId, action: 'results_published', detailsJson: JSON.stringify({ publishedAt }), createdAt: input.now ?? Date.now() });
 }
 
-export async function getRegionalRankings(db: Database, contestId: string): Promise<{ contest: Awaited<ReturnType<typeof getScoringSnapshot>>['contest']; rankings: RegionalRankings }> {
+function knowdownOutcomeRows(snapshot: Awaited<ReturnType<typeof getScoringSnapshot>>) {
+	return snapshot.entries.filter((entry) => entry.category === 'knowdown' && entry.knowdownOutcome !== null).map((entry) => ({
+		entryId: entry.id,
+		outcome: entry.knowdownOutcome!,
+		placement: entry.placement,
+		division: entry.division,
+		entryNumber: entry.entryNumber,
+		studentName: entry.members[0]?.name ?? null,
+		schoolName: entry.schoolName,
+	}));
+}
+
+export async function getRegionalRankings(db: Database, contestId: string): Promise<{ contest: Awaited<ReturnType<typeof getScoringSnapshot>>['contest']; rankings: RegionalRankings; knowdownOutcomes: ReturnType<typeof knowdownOutcomeRows> }> {
 	const snapshot = await getScoringSnapshot(db, contestId);
 	if (snapshot.contest.kind !== 'regional') throw new ScoringError('not_regional', 'Only regional contests have regional rankings.');
 	if (snapshot.contest.lifecycle !== 'finalized') throw new ScoringError('not_finalized', 'Regional rankings are available after finalization.');
@@ -200,10 +236,10 @@ export async function getRegionalRankings(db: Database, contestId: string): Prom
 		studentName: entry.category === 'topical_individual' || entry.category === 'knowdown' ? entry.members[0]?.name ?? null : null,
 		actualGrade: entry.category === 'topical_individual' ? entry.members[0]?.actualGrade ?? null : null,
 	}));
-	return { contest: snapshot.contest, rankings: rankRegionalResults(rows) };
+	return { contest: snapshot.contest, rankings: rankRegionalResults(rows), knowdownOutcomes: knowdownOutcomeRows(snapshot) };
 }
 
-export async function getStateRankings(db: Database, contestId: string): Promise<{ contest: Awaited<ReturnType<typeof getScoringSnapshot>>['contest']; rankings: RegionalRankings }> {
+export async function getStateRankings(db: Database, contestId: string): Promise<{ contest: Awaited<ReturnType<typeof getScoringSnapshot>>['contest']; rankings: RegionalRankings; knowdownOutcomes: ReturnType<typeof knowdownOutcomeRows> }> {
 	const snapshot = await getScoringSnapshot(db, contestId);
 	if (snapshot.contest.kind !== 'state') throw new ScoringError('not_state', 'Only state contests have state rankings.');
 	if (snapshot.contest.lifecycle !== 'finalized') throw new ScoringError('not_finalized', 'State rankings are available after finalization.');
@@ -214,5 +250,5 @@ export async function getStateRankings(db: Database, contestId: string): Promise
 		studentName: entry.category === 'topical_individual' || entry.category === 'knowdown' ? entry.members[0]?.name ?? null : null,
 		actualGrade: entry.category === 'topical_individual' ? entry.members[0]?.actualGrade ?? null : null,
 	}));
-	return { contest: snapshot.contest, rankings: rankRegionalResults(rows) };
+	return { contest: snapshot.contest, rankings: rankRegionalResults(rows), knowdownOutcomes: knowdownOutcomeRows(snapshot) };
 }

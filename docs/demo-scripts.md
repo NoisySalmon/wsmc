@@ -47,9 +47,8 @@ unsupported transition worked automatically.
 > participation and divisions are recorded for the particular contest.
 >
 > You create the season here. I've already prepared the regions and contests
-> so we can look at the whole structure. Creating a regional contest currently
-> asks for an internal region identifier; that still needs a normal selection
-> control before I'd hand annual setup over to you.”
+> so we can look at the whole structure. The new contest form now shows the
+> regions for the season you select.”
 
 **Show:** State contest policy fields; use a prepared contest with cross-school
 Topical Teams disabled.
@@ -81,10 +80,10 @@ participation and division. Show **Invite a coach** separately.
 > Sending a coach a sign-in invitation is a separate step. Sign-in uses an
 > emailed link.
 >
-> The current version needs the statewide or regional coordinator to record a
-> school's acceptance or decline. A coach's navigation shows a registration
-> link for each assigned school with a participation record in a regional
-> contest. The coach still has no invitation-response dashboard.”
+> The coach can accept or decline from **My schools**. A regional coordinator
+> can also record a response for an uncoached school. The coach's navigation
+> shows a registration link for each assigned school with a participation
+> record in a regional contest.”
 
 **Show:** Program season readiness and outstanding invitations. On a prepared
 setup contest, choose `registration_open` and **Update**; do not use `finalized`.
@@ -101,14 +100,15 @@ setup contest, choose `registration_open` and **Update**; do not use `finalized`
 
 ## Script 2 — Running a regional contest
 
-**Accounts:** Regional-only coordinator, with an explicit statewide-admin
-handoff for lifecycle changes. **Screens:** Registration → Scoring → Results.
-Use the assigned contest's Scoring link in the coordinator's navigation.
+**Accounts:** Regional-only coordinator, then statewide coordinator for
+qualifications. **Screens:** Contest overview → Registration → Scoring → Results.
+Use the assigned contest's Overview link in the coordinator's navigation.
 
 ### 1. Check what the schools are bringing
 
-**Show:** A prepared school registration page from **Participation** →
-**Open registration**, including roster and category entries.
+**Show:** The contest overview's school counts, rostered students, registered
+entries and score coverage. Open a prepared school registration page from its
+school row, including roster and category entries.
 
 **Say:**
 
@@ -116,15 +116,18 @@ Use the assigned contest's Scoring link in the coordinator's navigation.
 > Project, Team Contest, Topical Team or Individual, and Knowdown. The team
 > entries include the members and their competing grades.
 >
-> That gives the coordinator the entries that will need scores. The event
-> itself still runs in person, with people judging or marking the work.”
+> The overview shows how many schools, students and entries are in this contest,
+> including the Knowdown field. That gives the coordinator the entries that will
+> need scores. The event itself still runs in person, with people judging or
+> marking the work.”
 
-**Show:** Switch explicitly to the statewide account and move the prepared
-contest through `roster_locked` to `scoring`, or cut to that prepared stage.
+**Show:** On the regional coordinator's contest overview, lock rosters and
+then start scoring. Use the prepared scoring example if its entries differ.
 
-> “When registration is ready, the roster is locked and the contest moves to
-> scoring. Today the statewide admin has to make those transitions. That
-> handoff needs improvement if regional coordinators will run this independently.”
+> “When registration is ready, I lock the roster and move this contest into
+> scoring. The regional coordinator can make those stage changes and manage
+> scorekeepers for this contest. We will not send a real invitation in this
+> recording.”
 
 ### 2. Enter and check results
 
@@ -147,18 +150,19 @@ Save one topical result, such as Part 1 = 60 and Part 2 = 65.
 > edit, preview, then import. Version checks help prevent an older file from
 > silently overwriting a newer edit.”
 
-**Knowdown caveat — retain in recording:**
+**Knowdown final outcomes:**
 
-> “Knowdown still needs a scoring fix: the completeness check expects a top-four
-> place for every entrant, including people who didn't place. I wouldn't use
-> this for a full live contest until that's corrected.”
+> “Knowdown records each entrant's final outcome as placed or eliminated.
+> Places one through four are unique across the contest, so the six-person
+> example can be finalized without inventing places for the two eliminated
+> students. The app records final outcomes; it does not track each round.”
 
 ### 3. Review results and hand them to the state admin
 
-**Show:** A clearly labeled prepared small example with valid complete results.
-Use **Finalize results** on Scoring, then **View regional results**. If the
-example cannot be finalized faithfully, show prepared results without simulating
-successful finalization. Never fill in fake Knowdown places to clear the check.
+**Show:** The prepared six-person Knowdown field with four places and two
+eliminated outcomes, plus valid complete results in the other categories. Use
+**Finalize results** on Scoring, then **View regional results**. Show fourth
+place labeled **Alt** and the eliminated entrants listed separately.
 
 **Say:**
 
@@ -167,9 +171,8 @@ successful finalization. Never fill in fake Knowdown places to clear the check.
 > Topical Individual and an ordered Knowdown finish. Ties keep the recorded
 > scores; they can produce shared qualifying places.
 >
-> There is a separate Publish control. One current gap is that signed-in
-> coaches can already see finalized regional results before publication, so
-> this doesn't yet provide a private review period.”
+> There is a separate Publish control. Coordinators can review finalized
+> results first; coaches receive a Results link only after publication.”
 
 **Show:** **Reopen for correction** reason field without submitting; then switch
 to statewide admin and open **Qualifications** to preview the next chapter.
@@ -185,21 +188,22 @@ to statewide admin and open **Qualifications** to preview the next chapter.
 
 ## Script 3 — What a school coach does
 
-**Account:** Coach-only. **Screen:** Assigned Registration link for an editable
+**Account:** Coach-only. **Screens:** My schools, then assigned Registration for an editable
 regional contest. Prepare students in grades 9, 9 and 11 for a team example;
 keep their other entries valid and the intended category available.
 
 ### 1. Get to the school's registration
 
-**Show:** Already signed in as the coach, opening the assigned Registration
-link from the navigation. Do not display sign-in tokens.
+**Show:** Already signed in as the coach, open **My schools** to show the
+assigned school and its invitation status, then open its Registration link.
+Do not display sign-in tokens.
 
 **Say:**
 
-> “The coach signs in with an emailed link and manages the assigned school's
-> registration. Students don't need accounts. The assigned registration link
-> appears in the menu when the school has a participation record for a regional
-> contest.”
+> “The coach signs in with an emailed link, can respond to the school's
+> invitation here, and manages that school's registration. Students don't need
+> accounts. The assigned registration link appears in the menu when the school
+> has a participation record for a regional contest.”
 
 ### 2. Separate the student list, attendance, and events
 
@@ -307,10 +311,10 @@ The example school must already have state participation recorded.
 - Keep an editable registration example, a scoring example, and a finalized
   results example. Make cuts between those stages explicit.
 - Do not reuse a frozen qualification round for a draft-generation scene.
-- Use the scoring page's finalization control. Program's `finalized` shortcut
-  currently bypasses completeness and publishes immediately.
-- Do not describe the current regional publishing control as an access embargo,
-  Knowdown as contest-ready, or mixed-school Topical Teams as working.
+- Use the scoring page's finalization control. Program no longer offers a
+  direct `finalized` transition; publishing is a separate action.
+- Explain that Knowdown captures final outcomes but does not track each
+  elimination round. Do not present mixed-school Topical Teams as working.
 - Do not promise offline use, legacy workbook import, payments, automatic
   annual roster rollover, or automatic coach notifications after qualification.
 - In a live discussion, pause after each chapter. Ask for a real task or

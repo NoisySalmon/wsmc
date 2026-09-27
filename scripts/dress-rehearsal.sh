@@ -6,6 +6,7 @@ trap 'rm -f "$database_path" "$database_path-wal" "$database_path-shm"' EXIT
 
 sqlite3 "$database_path" < drizzle/0000_woozy_bruce_banner.sql
 sqlite3 "$database_path" < drizzle/0001_v2_baseline.sql
+sqlite3 "$database_path" < drizzle/0002_knowdown_outcomes.sql
 sqlite3 "$database_path" < scripts/seed.sql
 
 # Add 21 additional state-participating schools with 11 annual students each,
