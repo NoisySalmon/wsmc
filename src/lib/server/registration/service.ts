@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
 import { addEntryMember, assertContestScope, createEntry, PersistenceRuleError } from '$lib/server/db/repositories';
@@ -90,6 +90,229 @@ export async function addRosterStudent(db: Database, input: { contestId: string;
 	const now = input.now ?? Date.now();
 	const [roster] = await db.insert(schema.contestRosterMembers).values({ contestId: input.contestId, participationId: participation.id, annualStudentId: input.studentId, createdAt: now }).returning();
 	return roster;
+}
+
+export async function setContestRoster(db: Database, input: { contestId: string; schoolId: string; studentIds: string[]; now?: number }): Promise<{ added: number; removed: number }> {
+	const contest = await requireOpenContest(db, input.contestId);
+	const participation = await requireParticipation(db, input.contestId, input.schoolId);
+	const uniqueIds = [...new Set(input.studentIds)];
+	if (uniqueIds.length > 0) {
+		const students = await db.select({ id: schema.annualStudents.id }).from(schema.annualStudents).where(and(eq(schema.annualStudents.seasonId, contest.seasonId), eq(schema.annualStudents.schoolId, input.schoolId)));
+		const valid = new Set(students.map((student) => student.id));
+		for (const studentId of uniqueIds) {
+			if (!valid.has(studentId)) throw new RegistrationError('student_not_found', 'Student is not in this school\u2019s annual list.');
+		}
+	}
+	const current = await db.select({ annualStudentId: schema.contestRosterMembers.annualStudentId }).from(schema.contestRosterMembers).where(eq(schema.contestRosterMembers.contestId, input.contestId));
+	const currentIds = new Set(current.map((row) => row.annualStudentId));
+	const wanted = new Set(uniqueIds);
+	const toAdd = uniqueIds.filter((id) => !currentIds.has(id));
+	const toRemove = [...currentIds].filter((id) => !wanted.has(id));
+	if (toRemove.length > 0) {
+		const inEntries = await db.select({ studentId: schema.entryMembers.annualStudentId }).from(schema.entryMembers).innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId)).where(and(eq(schema.entries.contestId, input.contestId), inArray(schema.entryMembers.annualStudentId, toRemove)));
+		if (inEntries.length > 0) throw new RegistrationError('student_in_entry', 'Remove the student from category entries before removing the roster selection.');
+	}
+	const now = input.now ?? Date.now();
+	const operations: any[] = [];
+	for (const studentId of toAdd) operations.push(db.insert(schema.contestRosterMembers).values({ contestId: input.contestId, participationId: participation.id, annualStudentId: studentId, createdAt: now }));
+	for (const studentId of toRemove) operations.push(db.delete(schema.contestRosterMembers).where(and(eq(schema.contestRosterMembers.contestId, input.contestId), eq(schema.contestRosterMembers.annualStudentId, studentId))));
+	if (operations.length > 0) await db.batch(operations as [any, ...any[]]);
+	return { added: toAdd.length, removed: toRemove.length };
+}
+
+export async function setKnowdownNominees(db: Database, input: { contestId: string; schoolId: string; studentIds: string[]; now?: number }): Promise<{ count: number }> {
+	const contest = await requireOpenContest(db, input.contestId);
+	const participation = await requireParticipation(db, input.contestId, input.schoolId);
+	const uniqueIds = [...new Set(input.studentIds.filter(Boolean))];
+	if (uniqueIds.length > 3) throw new RegistrationError('knowdown_limit', 'A school may designate at most 3 Knowdown competitors.');
+	if (uniqueIds.length > 0) {
+		const roster = await db.select({ annualStudentId: schema.contestRosterMembers.annualStudentId }).from(schema.contestRosterMembers).where(eq(schema.contestRosterMembers.contestId, input.contestId));
+		const rostered = new Set(roster.map((row) => row.annualStudentId));
+		for (const studentId of uniqueIds) {
+			if (!rostered.has(studentId)) throw new RegistrationError('student_not_rostered', 'Knowdown nominees must be on the contest roster first.');
+		}
+		const students = await db.select({ id: schema.annualStudents.id }).from(schema.annualStudents).where(and(eq(schema.annualStudents.seasonId, contest.seasonId), eq(schema.annualStudents.schoolId, input.schoolId)));
+		const valid = new Set(students.map((student) => student.id));
+		for (const studentId of uniqueIds) {
+			if (!valid.has(studentId)) throw new RegistrationError('student_not_found', 'Student is not in this school\u2019s annual list.');
+		}
+	}
+	const existing = await db.select().from(schema.entries).where(and(eq(schema.entries.contestId, input.contestId), eq(schema.entries.ownerSchoolId, input.schoolId), eq(schema.entries.category, 'knowdown')));
+	const now = input.now ?? Date.now();
+	const operations: any[] = [];
+	for (const entry of existing) operations.push(db.delete(schema.entries).where(and(eq(schema.entries.id, entry.id), eq(schema.entries.contestId, input.contestId))));
+	const created: { id: string }[] = [];
+	uniqueIds.forEach((studentId, index) => {
+		const entryId = crypto.randomUUID();
+		created.push({ id: entryId });
+		operations.push(db.insert(schema.entries).values({ id: entryId, contestId: input.contestId, ownerSchoolId: input.schoolId, category: 'knowdown', entryKind: 'individual', entryNumber: index + 1, division: participation.division }));
+		operations.push(db.insert(schema.entryMembers).values({ entryId, annualStudentId: studentId, competingGrade: null }));
+	});
+	if (operations.length > 0) await db.batch(operations as [any, ...any[]]);
+	return { count: uniqueIds.length };
+}
+
+// ── Student-first bulk assignment (matrix) ──────────────────────────
+// Coaches assign rostered students to teams from the student side; the
+// service reconciles category entries. Team Contest and Topical are
+// independent groupings: teammates may differ between categories.
+
+export type MatrixTeamAssignment = { studentId: string; team: number | null; competingGrade?: number | null };
+export type MatrixTopicalAssignment = { studentId: string; mode: 'unassigned' | 'team' | 'individual'; team?: number | null; competingGrade?: number | null };
+type ResolvedMember = { studentId: string; competingGrade: number };
+
+/** Pure planning: group raw team assignments, resolving grades and checking team rules. */
+export function resolveTeamGroups(
+	studentsById: Map<string, number>,
+	assignments: MatrixTeamAssignment[],
+): Map<number, ResolvedMember[]> {
+	const teams = new Map<number, ResolvedMember[]>();
+	for (const assignment of assignments) {
+		const actualGrade = studentsById.get(assignment.studentId);
+		if (actualGrade === undefined) throw new RegistrationError('student_not_found', 'Student is not in this school\u2019s annual list.');
+		if (assignment.team === null || assignment.team === undefined) continue;
+		if (!Number.isInteger(assignment.team) || assignment.team < 1) throw new RegistrationError('invalid_team', 'Team number must be a positive integer.');
+		const competingGrade = assignment.competingGrade ?? actualGrade;
+		requireGrade(competingGrade);
+		const playUp = validatePlayUp(actualGrade, competingGrade);
+		if (playUp) throw new RegistrationError('playing_down', playUp);
+		const group = teams.get(assignment.team) ?? [];
+		if (group.length >= 3) throw new RegistrationError('team_too_large', 'A team may have at most 3 members.');
+		if (group.some((member) => member.competingGrade === competingGrade)) throw new RegistrationError('duplicate_competing_grade', 'Team members must have distinct competing grades.');
+		group.push({ studentId: assignment.studentId, competingGrade });
+		teams.set(assignment.team, group);
+	}
+	return teams;
+}
+
+/** Pure planning: split topical assignments into team groups and individual entrants. */
+export function planTopicalAssignments(
+	studentsById: Map<string, number>,
+	assignments: MatrixTopicalAssignment[],
+): { teams: Map<number, ResolvedMember[]>; individuals: string[] } {
+	const teamInputs: MatrixTeamAssignment[] = [];
+	const individuals: string[] = [];
+	for (const assignment of assignments) {
+		if (!studentsById.has(assignment.studentId)) throw new RegistrationError('student_not_found', 'Student is not in this school\u2019s annual list.');
+		if (assignment.mode === 'unassigned') continue;
+		if (assignment.mode === 'individual') {
+			individuals.push(assignment.studentId);
+			continue;
+		}
+		if (assignment.mode !== 'team') throw new RegistrationError('invalid_assignment', 'Topical assignment must be unassigned, team, or individual.');
+		teamInputs.push({ studentId: assignment.studentId, team: assignment.team ?? null, competingGrade: assignment.competingGrade });
+	}
+	return { teams: resolveTeamGroups(studentsById, teamInputs), individuals };
+}
+
+async function loadStudentGrades(db: Database, seasonId: string, schoolId: string): Promise<Map<string, number>> {
+	const rows = await db.select({ id: schema.annualStudents.id, actualGrade: schema.annualStudents.actualGrade }).from(schema.annualStudents).where(and(eq(schema.annualStudents.seasonId, seasonId), eq(schema.annualStudents.schoolId, schoolId)));
+	return new Map(rows.map((row) => [row.id, row.actualGrade]));
+}
+
+async function loadRosteredIds(db: Database, contestId: string): Promise<Set<string>> {
+	const rows = await db.select({ annualStudentId: schema.contestRosterMembers.annualStudentId }).from(schema.contestRosterMembers).where(eq(schema.contestRosterMembers.contestId, contestId));
+	return new Set(rows.map((row) => row.annualStudentId));
+}
+
+/** Bulk saves replace whole entries, so refuse when scores already exist for the category. */
+async function guardNoScores(db: Database, contestId: string, schoolId: string, categories: RegistrationCategory[]): Promise<void> {
+	const existing = await db.select({ id: schema.entries.id }).from(schema.entries).where(and(eq(schema.entries.contestId, contestId), eq(schema.entries.ownerSchoolId, schoolId), inArray(schema.entries.category, categories)));
+	if (existing.length === 0) return;
+	const scored = await db.select({ entryId: schema.results.entryId }).from(schema.results).where(inArray(schema.results.entryId, existing.map((entry) => entry.id)));
+	if (scored.length > 0) throw new RegistrationError('has_scores', 'Scores are already entered for this category. Edit entries individually instead of bulk-saving.');
+}
+
+async function replaceTeamEntries(db: Database, input: { contestId: string; schoolId: string; category: RegistrationCategory; teams: Map<number, ResolvedMember[]>; division: number; now: number }): Promise<{ teams: number; students: number }> {
+	const existing = await db.select({ id: schema.entries.id }).from(schema.entries).where(and(eq(schema.entries.contestId, input.contestId), eq(schema.entries.ownerSchoolId, input.schoolId), eq(schema.entries.category, input.category)));
+	const operations: any[] = [];
+	for (const entry of existing) operations.push(db.delete(schema.entries).where(and(eq(schema.entries.id, entry.id), eq(schema.entries.contestId, input.contestId))));
+	const sortedTeams = [...input.teams.entries()].sort((a, b) => a[0] - b[0]);
+	let students = 0;
+	for (const [teamNumber, members] of sortedTeams) {
+		const entryId = crypto.randomUUID();
+		operations.push(db.insert(schema.entries).values({ id: entryId, contestId: input.contestId, ownerSchoolId: input.schoolId, category: input.category, entryKind: 'team', entryNumber: teamNumber, division: input.division }));
+		for (const member of members) {
+			operations.push(db.insert(schema.entryMembers).values({ entryId, annualStudentId: member.studentId, competingGrade: member.competingGrade }));
+			students += 1;
+		}
+	}
+	if (operations.length > 0) await db.batch(operations as [any, ...any[]]);
+	return { teams: sortedTeams.length, students };
+}
+
+export async function saveTeamContestAssignments(db: Database, input: { contestId: string; schoolId: string; assignments: MatrixTeamAssignment[]; now?: number }): Promise<{ teams: number; students: number }> {
+	const contest = await requireOpenContest(db, input.contestId);
+	const participation = await requireParticipation(db, input.contestId, input.schoolId);
+	const studentsById = await loadStudentGrades(db, contest.seasonId, input.schoolId);
+	const rostered = await loadRosteredIds(db, input.contestId);
+	for (const assignment of input.assignments) {
+		if (assignment.team === null || assignment.team === undefined) continue;
+		if (!studentsById.has(assignment.studentId)) throw new RegistrationError('student_not_found', 'Student is not in this school\u2019s annual list.');
+		if (!rostered.has(assignment.studentId)) throw new RegistrationError('student_not_rostered', 'Team members must be on the contest roster first.');
+	}
+	await guardNoScores(db, input.contestId, input.schoolId, ['team_contest']);
+	const teams = resolveTeamGroups(studentsById, input.assignments);
+	return replaceTeamEntries(db, { contestId: input.contestId, schoolId: input.schoolId, category: 'team_contest', teams, division: participation.division, now: input.now ?? Date.now() });
+}
+
+export async function saveTopicalAssignments(db: Database, input: { contestId: string; schoolId: string; assignments: MatrixTopicalAssignment[]; now?: number }): Promise<{ teams: number; teamStudents: number; individuals: number }> {
+	const contest = await requireOpenContest(db, input.contestId);
+	const participation = await requireParticipation(db, input.contestId, input.schoolId);
+	const studentsById = await loadStudentGrades(db, contest.seasonId, input.schoolId);
+	const rostered = await loadRosteredIds(db, input.contestId);
+	for (const assignment of input.assignments) {
+		if (assignment.mode === 'unassigned') continue;
+		if (!studentsById.has(assignment.studentId)) throw new RegistrationError('student_not_found', 'Student is not in this school\u2019s annual list.');
+		if (!rostered.has(assignment.studentId)) throw new RegistrationError('student_not_rostered', 'Topical entrants must be on the contest roster first.');
+	}
+	await guardNoScores(db, input.contestId, input.schoolId, ['topical_team', 'topical_individual']);
+	const plan = planTopicalAssignments(studentsById, input.assignments);
+	const now = input.now ?? Date.now();
+	const teamResult = await replaceTeamEntries(db, { contestId: input.contestId, schoolId: input.schoolId, category: 'topical_team', teams: plan.teams, division: participation.division, now });
+	const existingIndividuals = await db.select({ id: schema.entries.id }).from(schema.entries).where(and(eq(schema.entries.contestId, input.contestId), eq(schema.entries.ownerSchoolId, input.schoolId), eq(schema.entries.category, 'topical_individual')));
+	const operations: any[] = [];
+	for (const entry of existingIndividuals) operations.push(db.delete(schema.entries).where(and(eq(schema.entries.id, entry.id), eq(schema.entries.contestId, input.contestId))));
+	plan.individuals.forEach((studentId, index) => {
+		const entryId = crypto.randomUUID();
+		operations.push(db.insert(schema.entries).values({ id: entryId, contestId: input.contestId, ownerSchoolId: input.schoolId, category: 'topical_individual', entryKind: 'individual', entryNumber: index + 1, division: participation.division }));
+		operations.push(db.insert(schema.entryMembers).values({ entryId, annualStudentId: studentId, competingGrade: null }));
+	});
+	if (operations.length > 0) await db.batch(operations as [any, ...any[]]);
+	return { teams: teamResult.teams, teamStudents: teamResult.students, individuals: plan.individuals.length };
+}
+
+export async function createProjectTeam(db: Database, input: { contestId: string; schoolId: string; members: { studentId: string; competingGrade?: number | null }[]; now?: number }): Promise<{ entryNumber: number }> {
+	const contest = await requireOpenContest(db, input.contestId);
+	const participation = await requireParticipation(db, input.contestId, input.schoolId);
+	const uniqueIds = [...new Set(input.members.map((member) => member.studentId).filter(Boolean))];
+	if (uniqueIds.length === 0) throw new RegistrationError('empty_team', 'Select at least one student for the project team.');
+	if (uniqueIds.length > 3) throw new RegistrationError('team_too_large', 'A team may have at most 3 members.');
+	const studentsById = await loadStudentGrades(db, contest.seasonId, input.schoolId);
+	const rostered = await loadRosteredIds(db, input.contestId);
+	const seenGrades = new Set<number>();
+	for (const member of input.members) {
+		if (!member.studentId) continue;
+		if (!studentsById.has(member.studentId)) throw new RegistrationError('student_not_found', 'Student is not in this school\u2019s annual list.');
+		if (!rostered.has(member.studentId)) throw new RegistrationError('student_not_rostered', 'Project team members must be on the contest roster first.');
+		const competingGrade = member.competingGrade ?? studentsById.get(member.studentId)!;
+		requireGrade(competingGrade);
+		const playUp = validatePlayUp(studentsById.get(member.studentId)!, competingGrade);
+		if (playUp) throw new RegistrationError('playing_down', playUp);
+		if (seenGrades.has(competingGrade)) throw new RegistrationError('duplicate_competing_grade', 'Team members must have distinct competing grades.');
+		seenGrades.add(competingGrade);
+	}
+	const alreadyInProject = await db.select({ studentId: schema.entryMembers.annualStudentId }).from(schema.entryMembers).innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId)).where(and(eq(schema.entries.contestId, input.contestId), eq(schema.entries.ownerSchoolId, input.schoolId), eq(schema.entries.category, 'project'), inArray(schema.entryMembers.annualStudentId, uniqueIds)));
+	if (alreadyInProject.length > 0) throw new RegistrationError('duplicate_category_entry', 'A student may be in at most one entry in a category.');
+	const projectEntries = await db.select({ entryNumber: schema.entries.entryNumber }).from(schema.entries).where(and(eq(schema.entries.contestId, input.contestId), eq(schema.entries.ownerSchoolId, input.schoolId), eq(schema.entries.category, 'project')));
+	const entryNumber = Math.max(0, ...projectEntries.map((entry) => entry.entryNumber ?? 0)) + 1;
+	const now = input.now ?? Date.now();
+	const entryId = crypto.randomUUID();
+	await db.batch([
+		db.insert(schema.entries).values({ id: entryId, contestId: input.contestId, ownerSchoolId: input.schoolId, category: 'project', entryKind: 'team', entryNumber, division: participation.division }),
+		...input.members.filter((member) => member.studentId).map((member) => db.insert(schema.entryMembers).values({ entryId, annualStudentId: member.studentId, competingGrade: member.competingGrade ?? studentsById.get(member.studentId)! })),
+	] as [any, ...any[]]);
+	return { entryNumber };
 }
 
 export async function removeRosterStudent(db: Database, input: { contestId: string; schoolId: string; studentId: string }): Promise<void> {

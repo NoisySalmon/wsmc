@@ -63,21 +63,27 @@ The readiness summary distinguishes:
 - category entries;
 - how many of the five categories are in use.
 
-## 3. Create category entries
+## 3. Assign category entries from the student side
 
-Students are not entered in an event automatically.
+Students are not entered in an event automatically. Start from each rostered
+student and decide how they participate:
 
-1. Under **Category entries**, choose Project, Team Contest, Topical Team,
-   Topical Individual, or Knowdown.
-2. Enter a positive entry number when your school has multiple entries.
-3. Select **Create entry**.
-4. On the new entry card, select a rostered student.
-5. For Project, Team Contest, or Topical Team, select the student's competing
-   grade and then **Add member**.
-6. For Topical Individual and Knowdown, add one student per individual entry.
+- Under **Team Contest teams**, pick a team (Team 1, Team 2, …) for each
+  student and an optional competing grade. The grade defaults to the
+  student's actual grade. Select **Save Team Contest** once for all teams.
+- Under **Topical assignments**, choose per student: unassigned, Team (plus
+  which team and optional competing grade), or Individual. A student can be
+  in a Topical Team or Topical Individual, never both. Select **Save
+  Topical** once.
+- Under **Knowdown nominations**, tick up to 3 rostered students and save.
+- Under **Project teams**, tick up to 3 rostered students to form a new team
+  and select **Create project team**. Repeat for additional project teams.
+- The **Advanced entry editor** at the bottom still supports
+  entry-by-entry corrections (create/delete entry, add/remove member).
 
 Competing grade belongs to this particular team membership. A student may play
-at their actual grade or play up, but never down.
+at their actual grade or play up, but never down. Team Contest and Topical
+teams are independent groupings: teammates may differ between categories.
 
 The application rejects:
 
@@ -87,7 +93,9 @@ The application rejects:
 - more than one entry in the same category for a student;
 - placing the same student in Topical Team and Topical Individual;
 - more than three Knowdown students for one school;
-- adding a student who is not on this contest roster.
+- adding a student who is not on this contest roster;
+- bulk-saving a category after scores have been entered (edit entries
+  individually instead).
 
 Use the **×** button to remove a member and **Delete entry** to remove an entire
 entry. These actions do not show a separate confirmation dialog in the current

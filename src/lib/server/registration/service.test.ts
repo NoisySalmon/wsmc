@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RegistrationError, addRosterStudent, createAnnualStudent, createCategoryEntry, reopenRoster } from './service';
+import { RegistrationError, addRosterStudent, createAnnualStudent, createCategoryEntry, planTopicalAssignments, reopenRoster, resolveTeamGroups } from './service';
 
 describe('registration workflow rules', () => {
 	it('validates annual student input before database access', async () => {
@@ -22,6 +22,41 @@ describe('registration workflow rules', () => {
 	it('requires a participating contest before creating a category entry', async () => {
 		const db = { select: () => ({ from: () => ({ where: async () => [] }) }) };
 		await expect(createCategoryEntry(db as never, { contestId: 'contest-1', schoolId: 'school-1', category: 'project' })).rejects.toMatchObject({ code: 'not_found' });
+	});
+
+	it('groups matrix team assignments with default actual grades', () => {
+		const students = new Map([['a', 10], ['b', 11], ['c', 12]]);
+		const teams = resolveTeamGroups(students, [
+			{ studentId: 'a', team: 1, competingGrade: null },
+			{ studentId: 'b', team: 1, competingGrade: 12 },
+			{ studentId: 'c', team: null },
+		]);
+		expect(teams.get(1)).toEqual([{ studentId: 'a', competingGrade: 10 }, { studentId: 'b', competingGrade: 12 }]);
+		expect(teams.has(2)).toBe(false);
+	});
+
+	it('rejects invalid matrix team groups', () => {
+		const students = new Map([['a', 10], ['b', 9], ['c', 9], ['d', 9]]);
+		expect(() => resolveTeamGroups(students, [{ studentId: 'b', team: 1 }, { studentId: 'c', team: 1 }])).toThrowError(expect.objectContaining({ code: 'duplicate_competing_grade' }));
+		expect(() => resolveTeamGroups(students, [{ studentId: 'a', team: 1, competingGrade: 9 }])).toThrowError(expect.objectContaining({ code: 'playing_down' }));
+		expect(() => resolveTeamGroups(students, [
+			{ studentId: 'a', team: 1, competingGrade: 10 }, { studentId: 'b', team: 1, competingGrade: 9 },
+			{ studentId: 'c', team: 1, competingGrade: 11 }, { studentId: 'd', team: 1, competingGrade: 12 },
+		])).toThrowError(expect.objectContaining({ code: 'team_too_large' }));
+		expect(() => resolveTeamGroups(students, [{ studentId: 'ghost', team: 1 }])).toThrowError(expect.objectContaining({ code: 'student_not_found' }));
+		expect(() => resolveTeamGroups(students, [{ studentId: 'a', team: 0 }])).toThrowError(expect.objectContaining({ code: 'invalid_team' }));
+	});
+
+	it('splits topical matrix assignments into teams and individuals', () => {
+		const students = new Map([['a', 10], ['b', 11], ['c', 12]]);
+		const plan = planTopicalAssignments(students, [
+			{ studentId: 'a', mode: 'team', team: 2 },
+			{ studentId: 'b', mode: 'individual' },
+			{ studentId: 'c', mode: 'unassigned' },
+		]);
+		expect(plan.teams.get(2)).toEqual([{ studentId: 'a', competingGrade: 10 }]);
+		expect(plan.individuals).toEqual(['b']);
+		expect(() => planTopicalAssignments(students, [{ studentId: 'a', mode: 'crew' as never }])).toThrowError(expect.objectContaining({ code: 'invalid_assignment' }));
 	});
 
 	it('exposes a stable domain error type', () => {

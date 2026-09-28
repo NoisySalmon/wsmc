@@ -8,17 +8,19 @@ INSERT INTO seasons (id, year, name, status) VALUES
 
 INSERT INTO regions (id, season_id, number, name) VALUES
   ('region-1-2026', 'season-2026', 1, 'Northwest'),
-  ('region-2-2026', 'season-2026', 2, 'Southwest');
+  ('region-2-2026', 'season-2026', 2, 'Southwest'),
+  ('region-virtual-2026', 'season-2026', 3, 'Virtual');
 
 INSERT INTO contests (id, season_id, region_id, kind, name, starts_at, lifecycle, settings_json) VALUES
   ('contest-region-1', 'season-2026', 'region-1-2026', 'regional', 'Region 1 Regional Contest', 1760000000000, 'finalized', '{}'),
   ('contest-region-2', 'season-2026', 'region-2-2026', 'regional', 'Region 2 Regional Contest', 1760086400000, 'registration_open', '{}'),
+  ('contest-virtual-2026', 'season-2026', 'region-virtual-2026', 'regional', 'Virtual Regional Contest', 1760086400000, 'registration_open', '{}'),
   ('contest-state-2026', 'season-2026', NULL, 'state', '2026 State Contest', 1765000000000, 'registration_open', '{"topicalIndividualAllowed":true,"crossSchoolTopicalTeamsAllowed":false}');
 
-INSERT INTO schools (id, name, short_name, address, city, state, postal_code, contact_email) VALUES
-  ('school-alpha', 'Alpha High School', 'Alpha', '100 Main St', 'Seattle', 'WA', '98101', 'office@alpha.example'),
-  ('school-beta', 'Beta High School', 'Beta', '200 Oak St', 'Tacoma', 'WA', '98401', 'office@beta.example'),
-  ('school-gamma', 'Gamma High School', 'Gamma', '300 Pine St', 'Olympia', 'WA', '98501', 'office@gamma.example');
+INSERT INTO schools (id, name, short_name, address, city, state, postal_code, contact_email, division) VALUES
+  ('school-alpha', 'Alpha High School', 'Alpha', '100 Main St', 'Seattle', 'WA', '98101', 'office@alpha.example', 1),
+  ('school-beta', 'Beta High School', 'Beta', '200 Oak St', 'Tacoma', 'WA', '98401', 'office@beta.example', 2),
+  ('school-gamma', 'Gamma High School', 'Gamma', '300 Pine St', 'Olympia', 'WA', '98501', 'office@gamma.example', 1);
 
 INSERT INTO school_participations (id, contest_id, school_id, division, invitation_status) VALUES
   ('participation-r1-alpha', 'contest-region-1', 'school-alpha', 1, 'accepted'),

@@ -1,5 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
-import { createSchool, SchoolDirectoryError, setSchoolActive } from '$lib/server/program/schools';
+import { createSchool, SchoolDirectoryError, setSchoolActive, updateSchoolDivision } from '$lib/server/program/schools';
 import { getDb, schema } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -25,13 +25,27 @@ export const actions: Actions = {
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const data = await request.formData();
 		try {
+			const divisionRaw = value(data, 'division');
 			const result = await createSchool(getDb(platform.env.DB), {
-				name: value(data, 'name'), shortName: value(data, 'shortName'), address: value(data, 'address'), city: value(data, 'city'), state: value(data, 'state'), postalCode: value(data, 'postalCode'), contactEmail: value(data, 'contactEmail'), confirmDuplicate: data.get('confirmDuplicate') === 'yes',
+				name: value(data, 'name'), shortName: value(data, 'shortName'), address: value(data, 'address'), city: value(data, 'city'), state: value(data, 'state'), postalCode: value(data, 'postalCode'), contactEmail: value(data, 'contactEmail'), division: divisionRaw ? Number(divisionRaw) : 1, confirmDuplicate: data.get('confirmDuplicate') === 'yes',
 			});
 			return { success: `Added ${result.school.name}.` };
 		} catch (cause) {
 			if (cause instanceof SchoolDirectoryError) return fail(cause.code === 'duplicate_suggestion' ? 409 : 400, { error: cause.message, duplicates: cause.duplicates, name: value(data, 'name'), city: value(data, 'city') });
 			return fail(400, { error: 'School could not be added.' });
+		}
+	},
+	updateDivision: async ({ locals, platform, request }) => {
+		requireCoordinator(locals);
+		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+		const data = await request.formData();
+		const schoolId = value(data, 'schoolId');
+		if (!schoolId) return fail(400, { error: 'School is required.' });
+		try {
+			await updateSchoolDivision(getDb(platform.env.DB), schoolId, Number(value(data, 'division')));
+			return { success: 'School division updated. New invitations will use it; existing participations keep their snapshot.' };
+		} catch (cause) {
+			return fail(400, { error: cause instanceof SchoolDirectoryError ? cause.message : 'School division could not be updated.' });
 		}
 	},
 	setActive: async ({ locals, platform, request }) => {

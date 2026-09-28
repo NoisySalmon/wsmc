@@ -1,29 +1,37 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	let { data, form } = $props();
+	function schoolDivision(schoolId: string): number {
+		return (data.schools.find((school: { id: string }) => school.id === schoolId) as { division?: number } | undefined)?.division ?? 1;
+	}
+	let inviteSchoolId = $state('');
+	$effect(() => {
+		if (!inviteSchoolId && data.schools[0]?.id) inviteSchoolId = data.schools[0].id;
+	});
 </script>
 
 <svelte:head><title>Participation — WSMC</title></svelte:head>
 
 <main>
 	<h1>Contest participation</h1>
-	<p>Regional coordinators invite schools to their contest and manage coaches. To move a school between regions, remove it here and re-invite it to the correct contest. New schools can be added under <a href="/schools">Schools</a>.</p>
+	<p>Regional coordinators invite schools to their contest and manage coaches. To move a school between regions — including the Virtual catch-all region for schools outside a cluster or unable to attend their home contest — remove it here and re-invite it to the correct contest. The invitation defaults to the school's record division. New schools can be added under <a href="/schools">Schools</a>.</p>
 	{#if form?.error}<p class="error">{form.error}</p>{/if}{#if form?.success}<p class="success">{form.success}</p>{/if}
 
-	<section class="forms"><div><h2>Invite a school</h2><form method="POST" action="?/invite">
+	<section class="forms"><div><h2>Invite a school</h2><form method="POST" action="?/invite" use:enhance>
 		<label>Contest <select name="contestId" required>{#each data.contests as contest}<option value={contest.id}>{contest.name}</option>{/each}</select></label>
-		<label>School <select name="schoolId" required>{#each data.schools as school}<option value={school.id}>{school.name}</option>{/each}</select></label>
-		<label>Division <select name="division"><option value="1">Division 1</option><option value="2">Division 2</option></select></label><button type="submit">Send invitation</button>
-	</form></div><div><h2>Invite a coach</h2><form method="POST" action="?/inviteCoach">
+		<label>School <select name="schoolId" required bind:value={inviteSchoolId}>{#each data.schools as school}<option value={school.id}>{school.name} (Div {school.division ?? 1})</option>{/each}</select></label>
+		<label>Division <select name="division"><option value="">School record ({schoolDivision(inviteSchoolId)})</option><option value="1">Division 1 override</option><option value="2">Division 2 override</option></select></label><button type="submit">Send invitation</button>
+	</form></div><div><h2>Invite a coach</h2><form method="POST" action="?/inviteCoach" use:enhance>
 		<label>Email <input type="email" name="email" required /></label><label>Name <input name="displayName" required /></label>
 		<label>Season <select name="seasonId" required>{#each data.seasons as season}<option value={season.id}>{season.year} — {season.name}</option>{/each}</select></label><label>School <select name="schoolId" required>{#each data.schools as school}<option value={school.id}>{school.name}</option>{/each}</select></label><button type="submit">Send coach invitation</button>
-	</form></div><div><h2>Assign an active coach</h2><form method="POST" action="?/assignCoach">
+	</form></div><div><h2>Assign an active coach</h2><form method="POST" action="?/assignCoach" use:enhance>
 		<label>User <select name="userId" required>{#each data.users as user}<option value={user.id}>{user.displayName || user.email}</option>{/each}</select></label>
 		<label>Season <select name="seasonId" required>{#each data.seasons as season}<option value={season.id}>{season.year} — {season.name}</option>{/each}</select></label><label>School <select name="schoolId" required>{#each data.schools as school}<option value={school.id}>{school.name}</option>{/each}</select></label><button type="submit">Assign coach</button>
 	</form></div></section>
 
-	<section><h2>Participations</h2><ul>{#each data.participations as participation}<li><div><strong>{data.schools.find((school) => school.id === participation.schoolId)?.name ?? participation.schoolId}</strong><span>{data.contests.find((contest) => contest.id === participation.contestId)?.name ?? participation.contestId} · Division {participation.division} · {participation.invitationStatus}</span>{#if data.contests.find((contest) => contest.id === participation.contestId)?.kind === 'regional'}<a href="/contests/{participation.contestId}">Open contest overview</a>{/if}<a href="/registration/{participation.contestId}/{participation.schoolId}">Open registration</a><a href="/reports/participation?contestId={participation.contestId}">Download participation CSV</a></div><div class="actions"><form method="POST" action="?/respond"><input type="hidden" name="participationId" value={participation.id} /><input type="hidden" name="contestId" value={participation.contestId} /><input type="hidden" name="status" value="accepted" /><button type="submit">Accept</button></form><form method="POST" action="?/respond"><input type="hidden" name="participationId" value={participation.id} /><input type="hidden" name="contestId" value={participation.contestId} /><input type="hidden" name="status" value="declined" /><button type="submit">Decline</button></form><form method="POST" action="?/withdraw"><input type="hidden" name="participationId" value={participation.id} /><input type="hidden" name="contestId" value={participation.contestId} /><button type="submit">Remove</button></form></div></li>{/each}</ul></section>
+	<section><h2>Participations</h2><ul>{#each data.participations as participation}<li><div><strong>{data.schools.find((school) => school.id === participation.schoolId)?.name ?? participation.schoolId}</strong><span>{data.contests.find((contest) => contest.id === participation.contestId)?.name ?? participation.contestId} · Division {participation.division} · {participation.invitationStatus}</span>{#if data.contests.find((contest) => contest.id === participation.contestId)?.kind === 'regional'}<a href="/contests/{participation.contestId}">Open contest overview</a>{/if}<a href="/registration/{participation.contestId}/{participation.schoolId}">Open registration</a><a href="/reports/participation?contestId={participation.contestId}">Download participation CSV</a></div><div class="actions"><form method="POST" action="?/respond" use:enhance><input type="hidden" name="participationId" value={participation.id} /><input type="hidden" name="contestId" value={participation.contestId} /><input type="hidden" name="status" value="accepted" /><button type="submit">Accept</button></form><form method="POST" action="?/respond" use:enhance><input type="hidden" name="participationId" value={participation.id} /><input type="hidden" name="contestId" value={participation.contestId} /><input type="hidden" name="status" value="declined" /><button type="submit">Decline</button></form><form method="POST" action="?/withdraw" use:enhance><input type="hidden" name="participationId" value={participation.id} /><input type="hidden" name="contestId" value={participation.contestId} /><button type="submit">Remove</button></form></div></li>{/each}</ul></section>
 
-	<section><h2>Coach assignments</h2><ul>{#each data.coachAssignments as assignment}<li><span>{assignment.userId} → {assignment.schoolId} ({assignment.seasonId})</span><form method="POST" action="?/removeCoach"><input type="hidden" name="userId" value={assignment.userId} /><input type="hidden" name="seasonId" value={assignment.seasonId} /><input type="hidden" name="schoolId" value={assignment.schoolId} /><button type="submit">Remove</button></form></li>{/each}</ul></section>
+	<section><h2>Coach assignments</h2><ul>{#each data.coachAssignments as assignment}<li><span>{assignment.userId} → {assignment.schoolId} ({assignment.seasonId})</span><form method="POST" action="?/removeCoach" use:enhance><input type="hidden" name="userId" value={assignment.userId} /><input type="hidden" name="seasonId" value={assignment.seasonId} /><input type="hidden" name="schoolId" value={assignment.schoolId} /><button type="submit">Remove</button></form></li>{/each}</ul></section>
 </main>
 
 <style>

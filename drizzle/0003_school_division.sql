@@ -1,0 +1,2 @@
+ALTER TABLE schools ADD COLUMN division INTEGER NOT NULL DEFAULT 1
+	CHECK (division IN (1, 2));

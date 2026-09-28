@@ -3,7 +3,7 @@ import { error, fail } from '@sveltejs/kit';
 import { canEditRoster, canFinalizeContest } from '$lib/server/auth/capabilities';
 import { getDb, schema } from '$lib/server/db';
 import { importRegistrationCsv, previewRegistrationCsv, RegistrationCsvValidationError } from '$lib/server/registration/csv-service';
-import { addCategoryMember, addRosterStudent, createAnnualStudent, createCategoryEntry, deleteAnnualStudent, deleteCategoryEntry, RegistrationError, removeCategoryMember, removeRosterStudent, reopenRoster, updateAnnualStudent } from '$lib/server/registration/service';
+import { addCategoryMember, addRosterStudent, createAnnualStudent, createCategoryEntry, createProjectTeam, deleteAnnualStudent, deleteCategoryEntry, RegistrationError, removeCategoryMember, removeRosterStudent, reopenRoster, saveTeamContestAssignments, saveTopicalAssignments, setContestRoster, setKnowdownNominees, updateAnnualStudent, type MatrixTeamAssignment, type MatrixTopicalAssignment } from '$lib/server/registration/service';
 import type { Actions, PageServerLoad } from './$types';
 
 async function scope(db: ReturnType<typeof getDb>, contestId: string, schoolId: string) {
@@ -96,6 +96,18 @@ export const actions: Actions = {
 		if (!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)) throw error(403, 'You cannot edit this registration.');
 		try { await addRosterStudent(db, { contestId: contest.id, schoolId: school.id, studentId: text(data, 'studentId') }); return { success: 'Student added to contest roster.' }; } catch (cause) { return formError(cause); }
 	},
+	saveRoster: async ({ locals, platform, params, request }) => {
+		if (!locals.principal) throw error(401, 'Sign in required.'); if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+		const data = await request.formData(); const db = getDb(platform.env.DB); const { contest, school } = await scope(db, params.contestId, params.schoolId);
+		if (!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)) throw error(403, 'You cannot edit this registration.');
+		try { const result = await setContestRoster(db, { contestId: contest.id, schoolId: school.id, studentIds: data.getAll('studentIds').map(String) }); return { success: `Roster saved: ${result.added} added, ${result.removed} removed.` }; } catch (cause) { return formError(cause); }
+	},
+	saveKnowdown: async ({ locals, platform, params, request }) => {
+		if (!locals.principal) throw error(401, 'Sign in required.'); if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+		const data = await request.formData(); const db = getDb(platform.env.DB); const { contest, school } = await scope(db, params.contestId, params.schoolId);
+		if (!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)) throw error(403, 'You cannot edit this registration.');
+		try { const result = await setKnowdownNominees(db, { contestId: contest.id, schoolId: school.id, studentIds: data.getAll('studentIds').map(String) }); return { success: `Knowdown nominations saved (${result.count} of 3).` }; } catch (cause) { return formError(cause); }
+	},
 	removeRoster: async ({ locals, platform, params, request }) => {
 		if (!locals.principal) throw error(401, 'Sign in required.'); if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const data = await request.formData(); const db = getDb(platform.env.DB); const { contest, school } = await scope(db, params.contestId, params.schoolId);
@@ -120,6 +132,44 @@ export const actions: Actions = {
 		const data = await request.formData(); const db = getDb(platform.env.DB); const { contest, school } = await scope(db, params.contestId, params.schoolId);
 		if (!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)) throw error(403, 'You cannot edit this registration.');
 		try { await addCategoryMember(db, { contestId: contest.id, schoolId: school.id, entryId: text(data, 'entryId'), studentId: text(data, 'studentId'), competingGrade: text(data, 'competingGrade') ? Number(text(data, 'competingGrade')) : null }); return { success: 'Student added to entry.' }; } catch (cause) { return formError(cause); }
+	},
+	saveTeamContest: async ({ locals, platform, params, request }) => {
+		if (!locals.principal) throw error(401, 'Sign in required.'); if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+		const data = await request.formData(); const db = getDb(platform.env.DB); const { contest, school } = await scope(db, params.contestId, params.schoolId);
+		if (!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)) throw error(403, 'You cannot edit this registration.');
+		const assignments: MatrixTeamAssignment[] = [];
+		for (const key of data.keys()) {
+			if (!key.startsWith('team_')) continue;
+			const studentId = key.slice('team_'.length);
+			const teamRaw = text(data, key);
+			const gradeRaw = text(data, `grade_${studentId}`);
+			assignments.push({ studentId, team: teamRaw ? Number(teamRaw) : null, competingGrade: gradeRaw ? Number(gradeRaw) : null });
+		}
+		try { const result = await saveTeamContestAssignments(db, { contestId: contest.id, schoolId: school.id, assignments }); return { success: `Team Contest saved: ${result.teams} team${result.teams === 1 ? '' : 's'}, ${result.students} student${result.students === 1 ? '' : 's'}.` }; } catch (cause) { return formError(cause); }
+	},
+	saveTopical: async ({ locals, platform, params, request }) => {
+		if (!locals.principal) throw error(401, 'Sign in required.'); if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+		const data = await request.formData(); const db = getDb(platform.env.DB); const { contest, school } = await scope(db, params.contestId, params.schoolId);
+		if (!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)) throw error(403, 'You cannot edit this registration.');
+		const assignments: MatrixTopicalAssignment[] = [];
+		for (const key of data.keys()) {
+			if (!key.startsWith('mode_')) continue;
+			const studentId = key.slice('mode_'.length);
+			const mode = text(data, key);
+			if (mode !== 'team' && mode !== 'individual' && mode !== 'unassigned') return fail(400, { error: 'Topical assignment must be unassigned, team, or individual.' });
+			const teamRaw = text(data, `team_${studentId}`);
+			const gradeRaw = text(data, `grade_${studentId}`);
+			assignments.push({ studentId, mode, team: teamRaw ? Number(teamRaw) : null, competingGrade: gradeRaw ? Number(gradeRaw) : null });
+		}
+		try { const result = await saveTopicalAssignments(db, { contestId: contest.id, schoolId: school.id, assignments }); return { success: `Topical saved: ${result.teams} team${result.teams === 1 ? '' : 's'} (${result.teamStudents}), ${result.individuals} individual${result.individuals === 1 ? '' : 's'}.` }; } catch (cause) { return formError(cause); }
+	},
+	createProjectTeam: async ({ locals, platform, params, request }) => {
+		if (!locals.principal) throw error(401, 'Sign in required.'); if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+		const data = await request.formData(); const db = getDb(platform.env.DB); const { contest, school } = await scope(db, params.contestId, params.schoolId);
+		if (!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)) throw error(403, 'You cannot edit this registration.');
+		const memberIds = data.getAll('memberIds').map(String);
+		const members = memberIds.map((studentId) => { const gradeRaw = text(data, `grade_${studentId}`); return { studentId, competingGrade: gradeRaw ? Number(gradeRaw) : null }; });
+		try { const result = await createProjectTeam(db, { contestId: contest.id, schoolId: school.id, members }); return { success: `Project team ${result.entryNumber} created with ${members.length} student${members.length === 1 ? '' : 's'}.` }; } catch (cause) { return formError(cause); }
 	},
 	removeMember: async ({ locals, platform, params, request }) => {
 		if (!locals.principal) throw error(401, 'Sign in required.'); if (!platform?.env.DB) throw error(503, 'Database unavailable.');

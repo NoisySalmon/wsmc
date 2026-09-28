@@ -90,7 +90,7 @@ Directory data includes at least:
 - General contact information where useful.
 - Active/inactive status.
 
-Division is annual contest-participation data rather than an immutable directory property.
+Division is a school-directory attribute (1 or 2, set by a coordinator from school size). Each contest participation stores a snapshot of the division so history is preserved if the school later changes division; invitations default to the school record unless explicitly overridden for one contest.
 
 ### 5.2 Season and contests
 

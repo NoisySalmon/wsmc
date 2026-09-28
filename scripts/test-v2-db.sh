@@ -8,10 +8,11 @@ trap 'rm -f "$database_path" "$database_path-wal" "$database_path-shm" "$restore
 sqlite3 "$database_path" < drizzle/0000_woozy_bruce_banner.sql
 sqlite3 "$database_path" < drizzle/0001_v2_baseline.sql
 sqlite3 "$database_path" < drizzle/0002_knowdown_outcomes.sql
+sqlite3 "$database_path" < drizzle/0003_school_division.sql
 sqlite3 "$database_path" < scripts/seed.sql
 
 counts="$(sqlite3 -noheader -separator '|' "$database_path" "SELECT (SELECT COUNT(*) FROM seasons), (SELECT COUNT(*) FROM regions), (SELECT COUNT(*) FROM contests), (SELECT COUNT(*) FROM schools), (SELECT COUNT(*) FROM annual_students), (SELECT COUNT(*) FROM entries), (SELECT COUNT(*) FROM entry_members);")"
-[[ "$counts" == "1|2|3|3|9|19|28" ]] || { echo "unexpected seed counts: $counts" >&2; exit 1; }
+[[ "$counts" == "1|3|4|3|9|19|28" ]] || { echo "unexpected seed counts: $counts" >&2; exit 1; }
 
 # Exercise the documented backup/restore path against a fresh SQLite copy.
 sqlite3 "$database_path" .dump | sqlite3 "$restore_path"

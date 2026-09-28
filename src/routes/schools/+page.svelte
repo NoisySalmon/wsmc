@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	let { data, form } = $props();
 	type Duplicate = { id: string; name: string; city: string; active: boolean };
 	let duplicateForm = $derived(form as unknown as { duplicates?: Duplicate[]; name?: string; city?: string } | undefined);
@@ -19,14 +20,14 @@
 
 	<section>
 		<h2>Add school</h2>
-		<form method="POST" action="?/create">
+		<form method="POST" action="?/create" use:enhance>
 			<label>Name <input name="name" required /></label><label>Short name <input name="shortName" /></label>
 			<label>Address <input name="address" /></label><div class="row"><label>City <input name="city" required /></label><label>State <input name="state" value="WA" maxlength="2" /></label><label>ZIP <input name="postalCode" /></label></div>
-			<label>Contact email <input type="email" name="contactEmail" /></label><button type="submit">Add school</button>
+			<div class="row"><label>Division <select name="division"><option value="1">Division 1</option><option value="2">Division 2</option></select></label><label>Contact email <input type="email" name="contactEmail" /></label></div><button type="submit">Add school</button>
 		</form>
 	</section>
 
-	<section><h2>Schools</h2><ul>{#each data.schools as school}<li><div><strong>{school.name}</strong><span>{school.city}, {school.state} {#if school.shortName}· {school.shortName}{/if}</span><span class:inactive={!school.active} class="status">{school.active ? 'active' : 'inactive'}</span></div><form method="POST" action="?/setActive"><input type="hidden" name="schoolId" value={school.id} /><input type="hidden" name="active" value={school.active ? 'no' : 'yes'} /><button type="submit">{school.active ? 'Mark inactive' : 'Reactivate'}</button></form></li>{/each}</ul></section>
+	<section><h2>Schools</h2><ul>{#each data.schools as school}<li><div><strong>{school.name}</strong><span>{school.city}, {school.state} {#if school.shortName}· {school.shortName}{/if}</span><span>Division {school.division ?? 1}</span><span class:inactive={!school.active} class="status">{school.active ? 'active' : 'inactive'}</span></div><div class="school-actions"><form method="POST" action="?/updateDivision" use:enhance><input type="hidden" name="schoolId" value={school.id} /><label>Division <select name="division"><option value="1" selected={(school.division ?? 1) === 1}>Division 1</option><option value="2" selected={(school.division ?? 1) === 2}>Division 2</option></select></label><button type="submit">Save division</button></form><form method="POST" action="?/setActive" use:enhance><input type="hidden" name="schoolId" value={school.id} /><input type="hidden" name="active" value={school.active ? 'no' : 'yes'} /><button type="submit">{school.active ? 'Mark inactive' : 'Reactivate'}</button></form></div></li>{/each}</ul></section>
 </main>
 
 <style>
@@ -34,7 +35,9 @@
 	section { margin-top: 2rem; border-top: 1px solid #ddd; padding-top: 1rem; }
 	form { display: flex; flex-direction: column; gap: 0.65rem; max-width: 34rem; }
 	label { display: flex; flex-direction: column; gap: 0.2rem; font-weight: 600; }
-	input { padding: 0.5rem; border: 1px solid #bbb; border-radius: 4px; font: inherit; }
+	input, select { padding: 0.5rem; border: 1px solid #bbb; border-radius: 4px; font: inherit; }
+	.school-actions { display: flex; gap: 0.6rem; align-items: end; flex-wrap: wrap; }
+	.school-actions form { flex-direction: row; align-items: end; }
 	.row { display: grid; grid-template-columns: 2fr 0.7fr 1fr; gap: 0.7rem; }
 	button { background: #1a1a2e; color: white; border: 0; border-radius: 4px; padding: 0.5rem 0.8rem; cursor: pointer; align-self: flex-start; }
 	ul { list-style: none; padding: 0; } li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; border-bottom: 1px solid #eee; padding: 0.8rem 0; } li div { display: flex; flex-wrap: wrap; gap: 0.7rem; align-items: baseline; } li span { color: #666; } .status { background: #e2f5e8; color: #176b35; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.8rem; } .status.inactive { background: #eee; color: #666; }

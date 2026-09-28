@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	let { data, form } = $props();
 	const lifecycleOptions = ['setup', 'registration_open', 'roster_locked', 'scoring'];
 	function readinessFor(seasonId: string) { return data.readiness.find((item: { seasonId: string }) => item.seasonId === seasonId); }
@@ -23,23 +24,23 @@
 
 <main>
 	<h1>Program setup</h1>
-	<p>Set up the current season: add regions (each region gets its one regional contest automatically), then ensure the single state contest.</p>
+	<p>Set up the current season: add regions (each region gets its one regional contest automatically), then ensure the single state contest. Treat Virtual as one regular region named “Virtual” — it catches schools outside a cluster or unable to attend their home contest; move schools via Participation.</p>
 	{#if form?.error}<p class="error">{form.error}</p>{/if}
 	{#if form?.success}<p class="success">{form.success}</p>{/if}
 
 	<section class="forms">
-		<div><h2>New season</h2><p class="muted">New seasons copy season coordinators from the most recent season. Regional coordinators are assigned per contest below.</p><form method="POST" action="?/createSeason">
+		<div><h2>New season</h2><p class="muted">New seasons copy season coordinators from the most recent season. Regional coordinators are assigned per contest below.</p><form use:enhance method="POST" action="?/createSeason">
 			<label>Year <input type="number" name="year" min="2000" max="2200" required /></label>
 			<label>Name <input name="name" placeholder="2027 WSMC" required /></label>
 			<button type="submit">Create season</button>
 		</form></div>
-		<div><h2>Add region</h2><p class="muted">Number + name only. Date and coordinator come later. This also creates the region's contest.</p><form method="POST" action="?/createRegion">
+		<div><h2>Add region</h2><p class="muted">Number + name only. Date and coordinator come later. This also creates the region's contest.</p><form use:enhance method="POST" action="?/createRegion">
 			<label>Season <select name="seasonId" required>{#each sortedSeasons as season}<option value={season.id}>{season.year} — {season.name} ({season.status})</option>{/each}</select></label>
 			<label>Number <input type="number" name="number" min="1" required /></label>
 			<label>Name <input name="name" placeholder="Northwest" /></label>
 			<button type="submit">Add region + contest</button>
 		</form></div>
-		<div><h2>State contest</h2><p class="muted">One per season. Created once; date and details edited below.</p><form method="POST" action="?/ensureStateContest">
+		<div><h2>State contest</h2><p class="muted">One per season. Created once; date and details edited below.</p><form use:enhance method="POST" action="?/ensureStateContest">
 			<label>Season <select name="seasonId" required>{#each sortedSeasons as season}<option value={season.id}>{season.year} — {season.name} ({season.status})</option>{/each}</select></label>
 			<label>Name <small>(optional)</small> <input name="name" placeholder="2027 State Contest" /></label>
 			<button type="submit">Ensure state contest</button>
@@ -51,7 +52,7 @@
 			<div class="card-head"><h3>{season.year} — {season.name}</h3><span class="status">{season.status}</span>
 				<a href="/qualifications/{season.id}">Open qualifications</a><a href="/reports/season/{season.id}">Open statewide reports</a>
 			</div>
-			<form method="POST" action="?/setSeasonStatus"><input type="hidden" name="seasonId" value={season.id} /><select name="status"><option value="setup" selected={season.status === 'setup'}>setup</option><option value="active" selected={season.status === 'active'}>active</option><option value="archived" selected={season.status === 'archived'}>archived</option></select><button type="submit">Update status</button></form>
+			<form use:enhance method="POST" action="?/setSeasonStatus"><input type="hidden" name="seasonId" value={season.id} /><select name="status"><option value="setup" selected={season.status === 'setup'}>setup</option><option value="active" selected={season.status === 'active'}>active</option><option value="archived" selected={season.status === 'archived'}>archived</option></select><button type="submit">Update status</button></form>
 			<div class="readiness"><strong>{readinessFor(season.id)?.regionsReady && readinessFor(season.id)?.stateContestReady ? 'Setup ready' : 'Setup incomplete'}</strong><span>{readinessFor(season.id)?.contestCount ?? 0} contests · {readinessFor(season.id)?.outstandingInvitationCount ?? 0} outstanding invitations</span>{#if readinessFor(season.id)?.missingRegionalContestRegions.length}<span>Missing contests: {readinessFor(season.id)?.missingRegionalContestRegions.join(', ')}</span>{/if}</div>
 
 			<h4>Regions + regional contests</h4>
@@ -63,13 +64,13 @@
 						{#if regionalContestFor(region.id)}<span>{regionalContestFor(region.id)?.name} · {regionalContestFor(region.id)?.lifecycle}</span>{:else}<span class="error-inline">No contest yet — re-add this region.</span>{/if}
 						</div>
 						<details><summary>Correct region / contest details</summary>
-							<form method="POST" action="?/updateRegion"><input type="hidden" name="regionId" value={region.id} />
+							<form use:enhance method="POST" action="?/updateRegion"><input type="hidden" name="regionId" value={region.id} />
 								<label>Number <input type="number" name="number" value={region.number} min="1" /></label>
 								<label>Name <input name="name" value={region.name ?? ''} /></label>
 								<button type="submit">Save region</button>
 							</form>
 							{#if regionalContestFor(region.id)}
-							<form method="POST" action="?/updateContestMeta"><input type="hidden" name="contestId" value={regionalContestFor(region.id)?.id} />
+							<form use:enhance method="POST" action="?/updateContestMeta"><input type="hidden" name="contestId" value={regionalContestFor(region.id)?.id} />
 								<label>Contest name <input name="name" value={regionalContestFor(region.id)?.name} required /></label>
 								<button type="submit">Save contest name</button>
 							</form>
@@ -99,7 +100,7 @@
 
 			{#if contestsFor(season.id).length}
 			<details class="lifecycle"><summary>Contest lifecycle (advances in Chunk 3)</summary>
-				<ul class="contests">{#each contestsFor(season.id) as contest}<li><div><strong>{contest.name}</strong><span>{contest.kind} · {contest.lifecycle}</span></div>{#if contest.lifecycle === 'finalized'}<p>Finalized. Publish or reopen from Scoring.</p>{:else}<form method="POST" action="?/setLifecycle"><input type="hidden" name="contestId" value={contest.id} /><input type="hidden" name="seasonId" value={contest.seasonId} /><select name="lifecycle">{#each lifecycleOptions as lifecycle}<option value={lifecycle} selected={lifecycle === contest.lifecycle}>{lifecycle}</option>{/each}</select><button type="submit">Update</button></form>{/if}</li>{/each}</ul>
+				<ul class="contests">{#each contestsFor(season.id) as contest}<li><div><strong>{contest.name}</strong><span>{contest.kind} · {contest.lifecycle}</span></div>{#if contest.lifecycle === 'finalized'}<p>Finalized. Publish or reopen from Scoring.</p>{:else}<form use:enhance method="POST" action="?/setLifecycle"><input type="hidden" name="contestId" value={contest.id} /><input type="hidden" name="seasonId" value={contest.seasonId} /><select name="lifecycle">{#each lifecycleOptions as lifecycle}<option value={lifecycle} selected={lifecycle === contest.lifecycle}>{lifecycle}</option>{/each}</select><button type="submit">Update</button></form>{/if}</li>{/each}</ul>
 			</details>
 			{/if}
 		</section>

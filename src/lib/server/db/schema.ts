@@ -75,6 +75,7 @@ export const contests = sqliteTable('contests', {
 export const schools = sqliteTable('schools', {
 	id: text('id').primaryKey(),
 	name: text('name').notNull(),
+	division: integer('division').notNull().default(1),
 	shortName: text('short_name').notNull().default(''),
 	address: text('address').notNull().default(''),
 	city: text('city').notNull().default(''),
@@ -84,7 +85,7 @@ export const schools = sqliteTable('schools', {
 	active: integer('active', { mode: 'boolean' }).notNull().default(true),
 	createdAt: integer('created_at').notNull().default(timestamp()),
 	updatedAt: integer('updated_at').notNull().default(timestamp()),
-}, (table) => [index('schools_name_idx').on(table.name), index('schools_active_idx').on(table.active)]);
+}, (table) => [index('schools_name_idx').on(table.name), index('schools_active_idx').on(table.active), check('schools_division_check', sql`${table.division} IN (1, 2)`)]);
 
 // ── Authorization assignments ───────────────────────────
 export const statewideAssignments = sqliteTable('statewide_assignments', {

@@ -51,8 +51,9 @@ export const actions: Actions = {
 		const [contest] = await db.select({ id: schema.contests.id, seasonId: schema.contests.seasonId }).from(schema.contests).where(eq(schema.contests.id, contestId));
 		if (!contest || !canManageContest(locals, contest)) throw error(403, 'You cannot manage this contest.');
 		try {
-			await inviteSchool(db, { contestId, schoolId: text(data, 'schoolId'), division: Number(text(data, 'division')) });
-			return { success: 'School invited.' };
+			const divisionRaw = text(data, 'division');
+			await inviteSchool(db, { contestId, schoolId: text(data, 'schoolId'), division: divisionRaw ? Number(divisionRaw) : null });
+			return { success: 'School invited with its school-record division.' };
 		} catch (cause) {
 			return fail(400, { error: cause instanceof ParticipationError ? cause.message : 'School could not be invited.' });
 		}

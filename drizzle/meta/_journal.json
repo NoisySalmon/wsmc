@@ -22,6 +22,13 @@
       "when": 1790530000000,
       "tag": "0002_knowdown_outcomes",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790620000000,
+      "tag": "0003_school_division",
+      "breakpoints": true
     }
   ]
 }

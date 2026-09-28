@@ -12,7 +12,7 @@ The v2 baseline is implemented in
 | Identity | `users` → `sign_in_tokens` | One user has zero or many hashed, expiring tokens; token replay is prevented by application state. |
 | Program | `seasons` → `regions` | One season has many numbered regions; region numbers are unique within a season. |
 | Program | `seasons` → `contests` | A season has one state contest and at most one regional contest per region; lifecycle is contest-specific. |
-| Organizations | `schools` → `school_participations` | Schools persist across seasons; participation carries contest invitation status and annual division. |
+| Organizations | `schools` → `school_participations` | Schools persist across seasons and carry the coordinator-set division (1/2); participation snapshots that division at invitation plus contest invitation status. |
 | Authorization | `users` → assignment tables | Assignments are many-to-many and scoped by season, contest, or school; a user can hold overlapping capabilities. |
 | People | `seasons` + `schools` → `annual_students` | Students are fresh per season and belong to one school; actual grade is stored here. |
 | Registration | `school_participations` → `contest_roster_members` | A roster row belongs to one contest participation and one annual student; a student can be rostered once per contest. The participation/contest composite foreign key rejects mismatched IDs. |

@@ -11,15 +11,20 @@ export class ParticipationError extends Error {
 	}
 }
 
-export async function inviteSchool(db: Database, input: { contestId: string; schoolId: string; division: number; now?: number }) {
-	if (!Number.isInteger(input.division) || ![1, 2].includes(input.division)) throw new ParticipationError('invalid_division', 'Division must be 1 or 2.');
+export async function inviteSchool(db: Database, input: { contestId: string; schoolId: string; division?: number | null; now?: number }) {
+	if (input.division !== undefined && input.division !== null && (!Number.isInteger(input.division) || ![1, 2].includes(input.division))) throw new ParticipationError('invalid_division', 'Division must be 1 or 2.');
 	const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, input.contestId));
 	if (!contest) throw new ParticipationError('not_found', 'Contest not found.');
 	if (!['setup', 'registration_open'].includes(contest.lifecycle)) throw new ParticipationError('locked', 'Schools can only be invited before rosters are locked.');
 	const [school] = await db.select().from(schema.schools).where(eq(schema.schools.id, input.schoolId));
 	if (!school || !school.active) throw new ParticipationError('inactive_school', 'Only active schools can be invited.');
+	// Division lives on the school record; the participation stores a snapshot so
+	// history is preserved if the school later changes division. An explicit
+	// division may still be passed to override for a single contest.
+	const division = input.division ?? school.division;
+	if (!Number.isInteger(division) || ![1, 2].includes(division)) throw new ParticipationError('invalid_division', 'Division must be 1 or 2.');
 	const now = input.now ?? Date.now();
-	const [participation] = await db.insert(schema.schoolParticipations).values({ id: crypto.randomUUID(), contestId: input.contestId, schoolId: input.schoolId, division: input.division, invitationStatus: 'invited', createdAt: now, updatedAt: now }).returning();
+	const [participation] = await db.insert(schema.schoolParticipations).values({ id: crypto.randomUUID(), contestId: input.contestId, schoolId: input.schoolId, division, invitationStatus: 'invited', createdAt: now, updatedAt: now }).returning();
 	return participation;
 }
 
