@@ -24,7 +24,7 @@ email provider is configured.
 |---|---|
 | `/participation` | Invite existing schools, invite or assign coaches, and open a school's registration. |
 | `/contests/<contest-id>` | Review all invited schools, rosters, entries, result coverage, and move from registration to roster lock and scoring. |
-| `/contests/<contest-id>/staff` | Invite or remove scorekeepers for this contest. |
+| `/contests/<contest-id>/staff` | Invite or remove scorekeepers for this contest. Season coordinators also assign regional coordinators here. |
 | `/registration/<contest-id>/<school-id>` | Edit any participating school's regional roster and entries. |
 | `/scoring/<contest-id>` | Enter scores, finalize, publish, or reopen the assigned contest. |
 | `/results/<contest-id>` | Review finalized regional rankings. |
@@ -52,10 +52,12 @@ the existing account.
 Select **Open registration** beside a participation to administer an uncoached
 school or help a coach.
 
-**Current implementation notes:**
+**Notes:**
 
-- Regional coordinators cannot create or reactivate schools. Ask a state
-  coordinator to maintain the School directory.
+- Regional coordinators can add schools in **Schools** and then invite them
+  to their contest. To move a school to another region, use **Remove** on
+  its participation and re-invite it to the correct contest (only possible
+  before rosters are locked and rosters/entries are empty).
 - The page's Accept and Decline buttons let you record a response for an
   uncoached school in your assigned contest. Assigned coaches can also respond
   from **My schools**.

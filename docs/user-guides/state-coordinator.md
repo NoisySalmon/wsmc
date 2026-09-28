@@ -46,20 +46,25 @@ raw sign-in link in source control or a test report.
 Open **Program**.
 
 1. Under **New season**, enter a year and name, then select **Create season**.
-   Only a system-wide coordinator can do this.
-2. Under **New region**, select the season, enter the positive region number
-   and optional name, then select **Add region**.
-3. Under **New contest**, create one regional contest for each region. Choose
-   **Regional**, select the season and region, then supply a name and optional
-   start date.
-4. Create one state contest. Choose **State** and make
-   an explicit Yes/No choice for both state policies:
+   Only a system-wide coordinator can do this. A new season copies season
+   coordinators from the most recent season; regional coordinators are
+   assigned per contest below.
+2. Under **Add region**, select the season, enter the positive region number
+   and optional name, then select **Add region + contest**. Each region gets
+   its one regional contest automatically — there is no separate contest form.
+   Date and coordinator come later.
+3. Under **State contest**, select the season and select **Ensure state
+   contest**. There is one state contest per season.
+4. On the season card, correct a region number/name or contest name inline,
+   and make an explicit Yes/No choice for both state policies:
    - whether every state-rostered student may enter Topical Individual;
    - whether cross-school Topical Teams are allowed.
 5. Review the season card. It reports whether every configured region has a
    regional contest, whether a state contest exists, and how many invitations
    are outstanding.
-6. Change the season status from `setup` to `active` when appropriate.
+6. Assign each regional contest's coordinator from its **Manage staff** page
+   (linked on the season card), then change the season status from `setup`
+   to `active` when appropriate.
 
 Season status values are `setup`, `active`, and `archived`. Archiving is
 one-way in the current implementation and makes the season read-only.

@@ -21,8 +21,8 @@ email provider is configured.
 Select **My schools** in the top navigation to see your assigned schools,
 invitation responses, and registration links. You can accept or decline a
 school's participation while its contest is in setup or registration open.
-The navigation also shows assigned Registration links and published regional
-Results links. Keep these direct links for other views:
+Keep these direct links for other views (My schools links to registration
+for each assigned school):
 
 - regional registration:
   `/registration/<regional-contest-id>/<school-id>`;
@@ -143,11 +143,8 @@ The page contains:
 Regional result pages show Project, Team Contest, and Topical Team rankings by
 division; Topical Individual overall and actual-grade rankings by division;
 and Knowdown places with fourth place labeled as the state alternate. Entrants
-who were eliminated are listed separately.
-
-**Current implementation note:** A finalized regional result page is currently
-available to any coach assigned in that season even when its publication flag
-has not been set. Treat unpublished data as provisional during verification.
+who were eliminated are listed separately. Coaches see a regional result page
+only after its coordinator publishes it.
 
 ## 7. Record state attendance
 

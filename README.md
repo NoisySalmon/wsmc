@@ -69,6 +69,7 @@ npm test -- --run
 npm run check
 npm run build
 npm run test:db
+npm run rehearsal
 npm run test:e2e:preview
 ```
 

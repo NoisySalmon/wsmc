@@ -8,11 +8,13 @@ live season after the production email provider and D1 binding are configured.
 ## 1. Set up a season
 
 1. Sign in with the coordinator invitation.
-2. Open **Program** and create the season.
-3. Add every numbered region.
-4. Create one regional contest for each region, with its date.
-5. Create one state contest and choose its Topical Individual and cross-school
-   Topical Team policies explicitly.
+2. Open **Program** and create the season (system-wide coordinator only;
+   season coordinators carry over from the prior season).
+3. Add every numbered region with **Add region + contest**. Each region gets
+   its one regional contest automatically; correct names inline.
+4. Use **Ensure state contest** for the single state contest, then choose its
+   Topical Individual and cross-school Topical Team policies explicitly.
+5. Assign each regional contest's coordinator from its **Manage staff** page.
 6. Use the readiness cards to resolve missing regional contests and outstanding
    invitations.
 

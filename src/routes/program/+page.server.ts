@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { error, fail } from '@sveltejs/kit';
 import { canAdministerUsers, canCoordinateState } from '$lib/server/auth/capabilities';
-import { createRegionWithContest, createSeason, ensureStateContest, ProgramError, setContestLifecycle, setSeasonStatus, updateContestMeta, updateRegion, type ContestLifecycle } from '$lib/server/program/service';
+import { createRegionWithContest, createSeason, ensureStateContest, ProgramError, setContestLifecycle, setSeasonStatus, updateContestMeta, updateRegion, updateStateSettings, type ContestLifecycle } from '$lib/server/program/service';
 import { computeSeasonReadiness } from '$lib/server/program/readiness';
 import { getDb, schema } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
@@ -98,6 +98,23 @@ export const actions: Actions = {
 			return { success: 'Region corrected.' };
 		} catch (cause) {
 			return fail(400, { error: cause instanceof ProgramError ? cause.message : 'Region could not be updated.' });
+		}
+	},
+	updateStateSettings: async ({ locals, platform, request }) => {
+		requireCoordinator(locals);
+		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+		const data = await request.formData();
+		const db = getDb(platform.env.DB);
+		const [contest] = await db.select({ id: schema.contests.id, seasonId: schema.contests.seasonId }).from(schema.contests).where(eq(schema.contests.id, textValue(data, 'contestId')));
+		if (!contest || !canManageSeason(locals, contest.seasonId)) throw error(403, 'You cannot manage this contest.');
+		const topical = textValue(data, 'topicalIndividualAllowed');
+		const crossSchool = textValue(data, 'crossSchoolTopicalTeamsAllowed');
+		if (!['yes', 'no'].includes(topical) || !['yes', 'no'].includes(crossSchool)) return fail(400, { error: 'Choose Yes or No for both state policies.' });
+		try {
+			await updateStateSettings(db, { contestId: contest.id, topicalIndividualAllowed: topical === 'yes', crossSchoolTopicalTeamsAllowed: crossSchool === 'yes' });
+			return { success: 'State policies saved.' };
+		} catch (cause) {
+			return fail(400, { error: cause instanceof ProgramError ? cause.message : 'State policies could not be updated.' });
 		}
 	},
 	updateContestMeta: async ({ locals, platform, request }) => {

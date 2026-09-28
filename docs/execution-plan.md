@@ -1,6 +1,6 @@
 # WSMC Contest Administration — Execution Plan
 
-**Status:** Ready for implementation planning  
+**Status:** Phases 0–9 complete; Phase 10 pending production rollout. New work proceeds in chunks (Chunk 1: System/Season/Region/Schools/Users; Chunk 2: Contest operation; Chunk 3: Contest and season lifecycle) — see [implementation progress](implementation-progress.md) for the current checkpoint.  
 **Requirements:** `docs/product-requirements.md`  
 **Target stack:** SvelteKit 5, TypeScript, Drizzle ORM, Cloudflare D1/Pages
 

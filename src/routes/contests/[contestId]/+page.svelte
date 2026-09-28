@@ -8,7 +8,7 @@
 	<h1>{data.contest.name}</h1>
 	<p class="subheading">Regional contest · {data.contest.lifecycle}{#if data.contest.resultsPublishedAt} · results published{/if}</p>
 	{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
-	<nav aria-label="Contest tools"><a href="/participation">Participation</a>{#if ['roster_locked', 'scoring', 'finalized'].includes(data.contest.lifecycle)}<a href="/scoring/{data.contest.id}">Scoring</a>{/if}{#if data.contest.lifecycle === 'finalized'}<a href="/results/{data.contest.id}">Results</a>{/if}{#if data.canManageStaff}<a href="/contests/{data.contest.id}/staff">Manage scorekeepers</a>{/if}</nav>
+	<nav aria-label="Contest tools"><a href="/participation">Participation</a>{#if ['roster_locked', 'scoring', 'finalized'].includes(data.contest.lifecycle)}<a href="/scoring/{data.contest.id}">Scoring</a>{/if}{#if data.contest.lifecycle === 'finalized'}<a href="/results/{data.contest.id}">Results</a>{/if}{#if data.canManageStaff}<a href="/contests/{data.contest.id}/staff">Manage staff</a>{/if}</nav>
 	{#if data.canAdvanceLifecycle && ['registration_open', 'roster_locked'].includes(data.contest.lifecycle)}
 		<section class="stage"><h2>Contest stage</h2><p>{data.contest.lifecycle === 'registration_open' ? 'Registration is open. Lock rosters when schools are ready for scoring.' : 'Rosters are locked. Start scoring when the contest is ready.'}</p>
 			<form method="POST" action="?/advanceLifecycle"><input type="hidden" name="lifecycle" value={data.contest.lifecycle === 'registration_open' ? 'roster_locked' : 'scoring'} /><button type="submit">{data.contest.lifecycle === 'registration_open' ? 'Lock rosters' : 'Start scoring'}</button></form>

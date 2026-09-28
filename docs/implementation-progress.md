@@ -1,12 +1,10 @@
 # WSMC statewide implementation progress
 
 This is the implementation tracker for [the execution plan](execution-plan.md).
-The older root [PROGRESS.md](../PROGRESS.md) records the historical prototype
-and is not used as the v2 status source.
 
 ## Current checkpoint
 
-- **Active phase:** Phase 10 — Hardening and production rollout
+- **Active phase:** Chunk 1 follow-up — System, Season, Region, Schools, Users (post-Phase 10 iteration)
 - **Completed:** Initial execution-plan commit; baseline verification; v2
   architecture decisions; prototype D1 confirmed disposable; pure-domain
   Team Contest terminology and qualification rules/tests; v2 schema reset,
@@ -24,9 +22,19 @@ and is not used as the v2 status source.
   services and audited manual include/exclude decisions; state attendance,
   roster, entry, publication, and report workflows; coach-scoped state
   dashboard data; and safe structured request diagnostics
+- **Chunk 1 completed:** Region creation now atomically creates its one
+  regional contest (number + name only; date/coordinator later); state contest
+  is ensured idempotently, one per season, with explicit editable setup
+  policies; new seasons bootstrap season coordinators from the prior season;
+  role-differentiated navigation with a homepage season picker; season
+  coordinators assign regional coordinators per contest from contest staff;
+  regional coordinators can create schools and move schools between regions
+  (withdraw + re-invite, guarded against existing roster/entries); generic
+  "New contest" creation removed from Program.
 - **Next:** Obtain explicit approval to reset the configured legacy remote D1,
   configure the missing production email values, deploy the v2 worker, and
   run the post-deploy smoke test. The remote target has not been modified.
+  Then Chunk 2 (contest operation) and Chunk 3 (contest and season lifecycle).
 
 ## Phase 2 checkpoint
 
@@ -49,18 +57,24 @@ and is not used as the v2 status source.
 ## Phase 3 checkpoint
 
 - **Implemented:** v2 program setup service and `/program` coordinator surface
-  for season creation/status, numbered regions, contest creation, season-region
-  ownership validation, contest dates, and monotonic lifecycle transitions.
+  for season creation/status, numbered regions with atomic regional-contest
+  creation, idempotent state-contest setup with editable setup policies,
+  region/contest correction forms, season-region ownership validation, and
+  monotonic lifecycle transitions. Generic standalone contest creation was
+  removed: one regional contest per season-region, one state contest per
+  season.
 - **Implemented:** `/schools` directory with normalized same-city duplicate
   suggestions, explicit duplicate confirmation, and reversible active/inactive
-  status.
+  status. Regional coordinators can create schools; season coordinators see all.
 - **Implemented:** `/participation` contest invitation and response flow with
-  division validation, lifecycle locking, and contest-scoped authorization;
-  system-coordinator coach assignment/removal for active users and schools.
+  division validation, lifecycle locking, contest-scoped authorization, and
+  guarded school withdraw for region moves; system-coordinator coach
+  assignment/removal for active users and schools.
 - **Implemented:** Setup-readiness summaries with missing regional-contest and
-  outstanding-invitation counts; explicit state contest policy configuration;
+  outstanding-invitation counts; explicit editable state contest policies;
   complete assignment removal across statewide, regional, coach, and
-  scorekeeper assignments.
+  scorekeeper assignments; per-contest regional-coordinator assignment from
+  contest staff.
 - **Status:** Phase 3 acceptance is met for coordinator-created season
   structure, regional school/coach invitations, existing-email assignment
   reuse, uncoached-school administration, and setup completeness.
@@ -267,8 +281,9 @@ and is not used as the v2 status source.
   prototype schema with the v2 baseline unapplied, and found no production
   Pages secrets. Production deployment remains intentionally pending those
   operator-controlled preconditions.
-- **Verified:** 124 unit tests now include access-scope, exact public-route,
-  safe-diagnostic, and journey coverage. `npm test`, `npm run check`,
+- **Verified:** 145 unit tests now include access-scope, exact public-route,
+  safe-diagnostic, journey, region-with-contest setup, and state-policy
+  coverage. `npm test`, `npm run check`,
   `npm run build`, `npm run test:db`, `npm run rehearsal`, and
   `npm run test:e2e:preview` all pass.
 - **Verified:** Live preview smoke check at 390px found no horizontal overflow
@@ -304,6 +319,9 @@ and is not used as the v2 status source.
 - [x] Phase 8 — State attendance, substitutions, and entries
 - [x] Phase 9 — State scoring, visibility, and exports
 - [ ] Phase 10 — Hardening and production rollout
+- [x] Chunk 1 — System, Season, Region, Schools, Users (post-Phase 10 iteration)
+- [ ] Chunk 2 — Contest operation
+- [ ] Chunk 3 — Contest and season lifecycle
 
 ## Verification gates
 

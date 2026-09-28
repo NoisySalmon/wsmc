@@ -38,7 +38,8 @@ unsupported transition worked automatically.
 
 ### 1. Establish the season
 
-**Show:** `/program`, **New season**, then a populated season and its contests.
+**Show:** `/program`, **New season**, then a populated season with its regions
+and state contest.
 
 **Say:**
 
@@ -47,10 +48,10 @@ unsupported transition worked automatically.
 > participation and divisions are recorded for the particular contest.
 >
 > You create the season here. I've already prepared the regions and contests
-> so we can look at the whole structure. The new contest form now shows the
-> regions for the season you select.”
+> so we can look at the whole structure. Adding a region creates its regional
+> contest automatically, and there is one state contest per season.”
 
-**Show:** State contest policy fields; use a prepared contest with cross-school
+**Show:** State policy selectors on the season card; use a prepared contest with cross-school
 Topical Teams disabled.
 
 > “There is also a state policy for whether all state-rostered students can

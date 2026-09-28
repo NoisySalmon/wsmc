@@ -120,6 +120,21 @@ export async function updateRegion(db: Database, input: { regionId: string; numb
 	}
 }
 
+/** State setup policies must be chosen explicitly, never inferred. Both flags are required. */
+export async function updateStateSettings(db: Database, input: { contestId: string; topicalIndividualAllowed: boolean; crossSchoolTopicalTeamsAllowed: boolean }) {
+	const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, input.contestId));
+	if (!contest) throw new ProgramError('not_found', 'Contest not found.');
+	if (contest.kind !== 'state') throw new ProgramError('invalid_request', 'Only the state contest has setup policies.');
+	if (typeof input.topicalIndividualAllowed !== 'boolean' || typeof input.crossSchoolTopicalTeamsAllowed !== 'boolean') {
+		throw new ProgramError('invalid_settings', 'State contest policies must be chosen explicitly.');
+	}
+	const [updated] = await db.update(schema.contests).set({
+		settingsJson: JSON.stringify({ topicalIndividualAllowed: input.topicalIndividualAllowed, crossSchoolTopicalTeamsAllowed: input.crossSchoolTopicalTeamsAllowed }),
+		updatedAt: Date.now(),
+	}).where(eq(schema.contests.id, input.contestId)).returning();
+	return updated;
+}
+
 export async function updateContestMeta(db: Database, input: { contestId: string; name?: string; startsAt?: number | null }) {
 	const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, input.contestId));
 	if (!contest) throw new ProgramError('not_found', 'Contest not found.');

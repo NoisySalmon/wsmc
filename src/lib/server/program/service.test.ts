@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ProgramError, createContest, createRegionWithContest, createSeason, ensureStateContest, setContestLifecycle, updateRegion } from './service';
+import { ProgramError, createContest, createRegionWithContest, createSeason, ensureStateContest, setContestLifecycle, updateRegion, updateStateSettings } from './service';
 
 describe('program setup rules', () => {
 	it('rejects invalid season input before writing', async () => {
@@ -62,6 +62,14 @@ describe('program setup rules', () => {
 		const db = { select: () => ({ from: () => ({ where: async () => [{ id: 'contest-state', kind: 'state' }] }) }) };
 		const contest = await ensureStateContest(db as never, { seasonId: 'season-1' });
 		expect(contest).toMatchObject({ id: 'contest-state' });
+	});
+
+	it('rejects state policy updates for non-state contests', async () => {
+		const db = {
+			select: () => ({ from: () => ({ where: async () => [{ id: 'contest-1', kind: 'regional' }] }) }),
+		};
+		await expect(updateStateSettings(db as never, { contestId: 'contest-1', topicalIndividualAllowed: true, crossSchoolTopicalTeamsAllowed: false }))
+			.rejects.toMatchObject({ code: 'invalid_request' });
 	});
 
 	it('rejects region updates that would duplicate a number only at the database layer', async () => {

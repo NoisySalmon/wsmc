@@ -4,6 +4,12 @@ Reviewed September 27, 2026, against commit `6c822f9`, with local follow-up
 changes on September 27. See
 [the recording scripts](demo-scripts.md).
 
+> Note (Chunk 1, commit `050ec0f`): Program no longer has a standalone
+> contest form — regions create their contest automatically and the state
+> contest is ensured once per season. Staff pages now assign regional
+> coordinators per contest. The findings below predate that change; the
+> user guides describe the current UI.
+
 ## Recommendation
 
 Engage the overall contest admin now. There is enough working structure to

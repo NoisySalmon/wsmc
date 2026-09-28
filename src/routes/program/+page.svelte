@@ -6,6 +6,12 @@
 	function contestsFor(seasonId: string) { return data.contests.filter((c: { seasonId: string }) => c.seasonId === seasonId); }
 	function regionalContestFor(regionId: string) { return data.contests.find((c: { regionId: string | null; kind: string }) => c.regionId === regionId && c.kind === 'regional'); }
 	function stateContestFor(seasonId: string) { return data.contests.find((c: { seasonId: string; kind: string }) => c.seasonId === seasonId && c.kind === 'state'); }
+	function stateSettings(contest: { settingsJson?: string } | undefined) {
+		try {
+			const parsed = JSON.parse(contest?.settingsJson ?? '{}');
+			return { topicalIndividualAllowed: parsed.topicalIndividualAllowed !== false, crossSchoolTopicalTeamsAllowed: parsed.crossSchoolTopicalTeamsAllowed === true };
+		} catch { return { topicalIndividualAllowed: true, crossSchoolTopicalTeamsAllowed: false }; }
+	}
 	// Active seasons first, then setup, then archived; newest year first within each group.
 	let sortedSeasons = $derived([...data.seasons].sort((a, b) => {
 		const order = (s: string) => (s === 'active' ? 0 : s === 'setup' ? 1 : 2);
@@ -83,6 +89,11 @@
 				<form class="inline" method="POST" action="?/updateContestMeta"><input type="hidden" name="contestId" value={stateContestFor(season.id)?.id} />
 					<label>Contest name <input name="name" value={stateContestFor(season.id)?.name} required /></label>
 					<button type="submit">Save</button>
+				</form>
+				<form class="inline" method="POST" action="?/updateStateSettings"><input type="hidden" name="contestId" value={stateContestFor(season.id)?.id} />
+					<label>Allow all state students in Topical Individual <select name="topicalIndividualAllowed"><option value="yes" selected={stateSettings(stateContestFor(season.id)).topicalIndividualAllowed}>Yes</option><option value="no" selected={!stateSettings(stateContestFor(season.id)).topicalIndividualAllowed}>No</option></select></label>
+					<label>Allow cross-school Topical Teams <select name="crossSchoolTopicalTeamsAllowed"><option value="yes" selected={stateSettings(stateContestFor(season.id)).crossSchoolTopicalTeamsAllowed}>Yes</option><option value="no" selected={!stateSettings(stateContestFor(season.id)).crossSchoolTopicalTeamsAllowed}>No</option></select></label>
+					<button type="submit">Save policies</button>
 				</form>
 			{:else}<p class="muted">No state contest yet — use “Ensure state contest” above.</p>{/if}
 
