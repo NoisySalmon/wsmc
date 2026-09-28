@@ -33,7 +33,7 @@ d1 --file=scripts/seed.sql
 
 # Exercise scoring in the open state while retaining the seeded regional and
 # qualification records needed by the end-to-end handoff.
-d1 --command="UPDATE contests SET lifecycle = 'scoring' WHERE id = 'contest-region-1'; INSERT INTO sessions (id, user_id, expires_at, created_at, last_seen_at) VALUES ('e2e-coordinator-session', 'user-coordinator', 4102444800000, 1700000000000, 1700000000000), ('e2e-scorekeeper-session', 'user-scorekeeper', 4102444800000, 1700000000000, 1700000000000), ('e2e-coach-session', 'user-coach-alpha-1', 4102444800000, 1700000000000, 1700000000000), ('e2e-gamma-coach-session', 'user-coach-gamma', 4102444800000, 1700000000000, 1700000000000), ('e2e-regional-session', 'user-regional-coordinator-2', 4102444800000, 1700000000000, 1700000000000);"
+d1 --command="UPDATE contests SET lifecycle = 'scoring' WHERE id = 'contest-region-1'; INSERT INTO users (id, email, display_name, status) VALUES ('user-scorekeeper-2', 'scorekeeper2@wsmc.example', 'Region 2 Scorekeeper', 'active'); INSERT INTO scorekeeper_assignments (user_id, contest_id) VALUES ('user-scorekeeper-2', 'contest-region-2'); INSERT INTO sessions (id, user_id, expires_at, created_at, last_seen_at) VALUES ('e2e-coordinator-session', 'user-coordinator', 4102444800000, 1700000000000, 1700000000000), ('e2e-scorekeeper-session', 'user-scorekeeper', 4102444800000, 1700000000000, 1700000000000), ('e2e-scorekeeper-2-session', 'user-scorekeeper-2', 4102444800000, 1700000000000, 1700000000000), ('e2e-coach-session', 'user-coach-alpha-1', 4102444800000, 1700000000000, 1700000000000), ('e2e-gamma-coach-session', 'user-coach-gamma', 4102444800000, 1700000000000, 1700000000000), ('e2e-regional-session', 'user-regional-coordinator-2', 4102444800000, 1700000000000, 1700000000000);"
 
 npx wrangler pages dev .svelte-kit/cloudflare --d1 DB=5c5a8cb8-f2b9-489a-8a2d-b32a87c70cce --local --persist-to "$persist_dir" --port "$port" >"$persist_dir/server.log" 2>&1 &
 server_pid=$!
@@ -125,6 +125,7 @@ assert_page_contains() {
 
 coordinator="e2e-coordinator-session"
 scorekeeper="e2e-scorekeeper-session"
+scorekeeper2="e2e-scorekeeper-2-session"
 coach="e2e-coach-session"
 gamma_coach="e2e-gamma-coach-session"
 regional="e2e-regional-session"
@@ -181,10 +182,12 @@ assert_status POST '/contests/contest-region-2?/advanceLifecycle' 200 "$regional
 assert_status POST '/contests/contest-region-2?/advanceLifecycle' 200 "$regional" --data 'lifecycle=scoring'
 assert_status GET /scoring/contest-region-2 200 "$regional"
 assert_action_failure POST '/scoring/contest-region-2?/finalize' 400 "$regional" --data ''
-assert_status GET /contests/contest-region-1/staff 200 "$regional"
-assert_status GET /contests/contest-region-1/staff 403 "$scorekeeper"
-assert_status POST '/contests/contest-region-1/staff?/remove' 200 "$regional" --data 'userId=user-scorekeeper'
-assert_status GET /scoring/contest-region-1 403 "$scorekeeper"
+assert_status GET /contests/contest-region-2/staff 200 "$regional"
+assert_status GET /contests/contest-region-1/staff 403 "$regional"
+assert_status GET /contests/contest-region-2/staff 403 "$scorekeeper2"
+assert_status POST '/contests/contest-region-2/staff?/remove' 200 "$regional" --data 'userId=user-scorekeeper-2'
+assert_status GET /scoring/contest-region-2 403 "$scorekeeper2"
+assert_status GET /scoring/contest-region-1 200 "$scorekeeper"
 
 # Cross-scope scorekeeper access is denied at the route boundary.
 assert_status GET /state/contest-state-2026 403 "$scorekeeper"
