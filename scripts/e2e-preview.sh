@@ -29,6 +29,7 @@ d1() {
 d1 --file=drizzle/0000_woozy_bruce_banner.sql
 d1 --file=drizzle/0001_v2_baseline.sql
 d1 --file=drizzle/0002_knowdown_outcomes.sql
+d1 --file=drizzle/0003_school_division.sql
 d1 --file=scripts/seed.sql
 
 # Exercise scoring in the open state while retaining the seeded regional and
