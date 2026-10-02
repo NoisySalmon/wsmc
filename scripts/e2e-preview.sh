@@ -211,4 +211,11 @@ assert_status GET /state/contest-state-2026 403 "$scorekeeper"
 attendance_check="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT intent FROM state_attendances WHERE contest_id = 'contest-state-2026' AND school_id = 'school-alpha';")"
 [[ "$attendance_check" == *attending* ]] || { echo "attendance mutation was not persisted: $attendance_check" >&2; exit 1; }
 
+# New seasons bootstrap all eleven editable regions and their setup contests in D1.
+assert_status POST '/program?/createSeason' 200 "$coordinator" --data 'year=2027&name=2027+WSMC'
+grep --fixed-strings --quiet 'Season created.' "$response_file" || { cat "$response_file" >&2; exit 1; }
+bootstrap_check="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT COUNT(*) AS bootstrapped_regions FROM regions r JOIN seasons s ON s.id = r.season_id JOIN contests c ON c.region_id = r.id AND c.season_id = s.id WHERE s.year = 2027 AND c.kind = 'regional' AND c.lifecycle = 'setup' AND c.starts_at IS NULL;")"
+[[ "$bootstrap_check" =~ \"bootstrapped_regions\"[[:space:]]*:[[:space:]]*11 ]] || { echo "season bootstrap did not persist eleven regions and contests: $bootstrap_check" >&2; exit 1; }
+assert_page_contains GET /program "$coordinator" 'Region 11 — Virtual'
+
 echo "authenticated Pages end-to-end preview passed"

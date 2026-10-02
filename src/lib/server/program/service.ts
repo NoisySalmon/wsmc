@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
+import { defaultRegions } from './default-regions';
 
 export type ContestLifecycle = 'setup' | 'registration_open' | 'roster_locked' | 'scoring' | 'finalized';
 export type StateContestSettings = { topicalIndividualAllowed: boolean; crossSchoolTopicalTeamsAllowed: boolean };
@@ -25,9 +26,21 @@ export async function createSeason(db: Database, input: { year: number; name: st
 	}
 	const name = requiredName(input.name, 'Season name');
 	const now = input.now ?? Date.now();
-	const [season] = await db.insert(schema.seasons).values({
-		id: crypto.randomUUID(), year: input.year, name, createdAt: now, updatedAt: now,
-	}).returning();
+	const seasonId = crypto.randomUUID();
+	const regions = defaultRegions.map((region) => ({ ...region, id: crypto.randomUUID(), seasonId }));
+	// D1 batches are atomic: a failed default cannot leave a partially created season.
+	const [[season]] = await db.batch([
+		db.insert(schema.seasons).values({
+			id: seasonId, year: input.year, name, createdAt: now, updatedAt: now,
+		}).returning(),
+		db.insert(schema.regions).values(regions),
+		// Keep individual statements below D1's bound-parameter limit.
+		...regions.map((region) => db.insert(schema.contests).values({
+			id: crypto.randomUUID(), seasonId, regionId: region.id, kind: 'regional' as const,
+			name: `Region ${region.number} — ${region.name}`, startsAt: null,
+			settingsJson: '{}', lifecycle: 'setup' as const, createdAt: now, updatedAt: now,
+		})),
+	]);
 	// Bootstrap: new seasons start with the same season coordinators as the previous season.
 	// Regional/scorekeeper/coach assignments are contest/school scoped and are not cloned.
 	try {

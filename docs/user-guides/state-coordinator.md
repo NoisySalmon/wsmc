@@ -46,10 +46,12 @@ raw sign-in link in source control or a test report.
 Open **Program**.
 
 1. Under **New season**, enter a year and name, then select **Create season**.
-   Only a system-wide coordinator can do this. A new season copies season
+   Only a system-wide coordinator can do this. A new season starts with the
+   [WSMC contest regions](https://www.wsmc.net/hs-contest-locations) 1–10 and
+   Virtual (region 11), with one setup contest per region. It copies season
    coordinators from the most recent season; regional coordinators are
-   assigned per contest below.
-2. Under **Add region**, select the season, enter the positive region number
+   assigned per contest below. Dates and sites are configured separately.
+2. If you need additional regions, under **Add region**, select the season, enter the positive region number
    and optional name, then select **Add region + contest**. Each region gets
    its one regional contest automatically — there is no separate contest form.
    Date and coordinator come later.

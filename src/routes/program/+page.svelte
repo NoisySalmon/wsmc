@@ -24,12 +24,12 @@
 
 <main>
 	<h1>Program setup</h1>
-	<p>Set up the current season: add regions (each region gets its one regional contest automatically), then ensure the single state contest. Treat Virtual as one regular region named “Virtual” — it catches schools outside a cluster or unable to attend their home contest; move schools via Participation.</p>
+	<p>New seasons start with the WSMC contest regions 1–10 and Virtual (region 11), each with its regional contest. Edit regions or add more as needed, then ensure the single state contest. Virtual catches schools outside a cluster or unable to attend their home contest; move schools via Participation.</p>
 	{#if form?.error}<p class="error">{form.error}</p>{/if}
 	{#if form?.success}<p class="success">{form.success}</p>{/if}
 
 	<section class="forms">
-		<div><h2>New season</h2><p class="muted">New seasons copy season coordinators from the most recent season. Regional coordinators are assigned per contest below.</p><form use:enhance method="POST" action="?/createSeason">
+		<div><h2>New season</h2><p class="muted">Creates the default regions and contests, and copies season coordinators from the most recent season. Regional coordinators are assigned per contest below.</p><form use:enhance method="POST" action="?/createSeason">
 			<label>Year <input type="number" name="year" min="2000" max="2200" required /></label>
 			<label>Name <input name="name" placeholder="2027 WSMC" required /></label>
 			<button type="submit">Create season</button>

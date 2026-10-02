@@ -12,7 +12,7 @@ sqlite3 "$database_path" < drizzle/0003_school_division.sql
 sqlite3 "$database_path" < scripts/seed.sql
 
 counts="$(sqlite3 -noheader -separator '|' "$database_path" "SELECT (SELECT COUNT(*) FROM seasons), (SELECT COUNT(*) FROM regions), (SELECT COUNT(*) FROM contests), (SELECT COUNT(*) FROM schools), (SELECT COUNT(*) FROM annual_students), (SELECT COUNT(*) FROM entries), (SELECT COUNT(*) FROM entry_members);")"
-[[ "$counts" == "1|3|4|3|9|19|28" ]] || { echo "unexpected seed counts: $counts" >&2; exit 1; }
+[[ "$counts" == "1|11|12|3|9|19|28" ]] || { echo "unexpected seed counts: $counts" >&2; exit 1; }
 
 # Exercise the documented backup/restore path against a fresh SQLite copy.
 sqlite3 "$database_path" .dump | sqlite3 "$restore_path"

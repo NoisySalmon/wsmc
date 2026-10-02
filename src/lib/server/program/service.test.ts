@@ -1,10 +1,62 @@
 import { describe, expect, it } from 'vitest';
 import { ProgramError, createContest, createRegionWithContest, createSeason, ensureStateContest, setContestLifecycle, updateRegion, updateStateSettings } from './service';
+import { schema } from '$lib/server/db';
 
 describe('program setup rules', () => {
 	it('rejects invalid season input before writing', async () => {
 		await expect(createSeason({} as never, { year: 1999, name: 'Old' })).rejects.toMatchObject({ code: 'invalid_year' });
 		await expect(createSeason({} as never, { year: 2026, name: '   ' })).rejects.toMatchObject({ code: 'invalid_request' });
+	});
+
+	it('atomically creates a season with all known regions and a setup contest for each', async () => {
+		const operations: { table: unknown; values: any }[] = [];
+		const assignments: any[] = [];
+		const db = {
+			insert: (table: unknown) => ({ values: (values: unknown) => {
+				const operation = { table, values };
+				return {
+					...operation,
+					returning: () => operation,
+					onConflictDoNothing: async () => { assignments.push(values); },
+				};
+			} }),
+			batch: async (batch: typeof operations) => {
+				operations.push(...batch);
+				return [[batch[0].values], [], []];
+			},
+			select: () => ({ from: () => ({ where: async () => [{ userId: 'coordinator-1' }] }) }),
+		};
+		const season = await createSeason(db as never, {
+			year: 2027, name: '  2027 WSMC  ', now: 1234, cloneAssignmentsFromSeasonId: 'prior-season',
+		});
+		expect(operations.map((operation) => operation.table)).toEqual([schema.seasons, schema.regions, ...Array(11).fill(schema.contests)]);
+		expect(season).toMatchObject({ year: 2027, name: '2027 WSMC', createdAt: 1234 });
+		const regions = operations[1].values;
+		expect(regions.map(({ number, name }: { number: number; name: string }) => [number, name])).toEqual([
+			[1, 'Spokane area'], [2, 'Tri Cities'], [3, 'North Central'], [4, 'Yakima area'],
+			[5, 'Northwest'], [6, 'Seattle area'], [7, 'Tacoma area'], [8, 'Southwest'],
+			[9, 'Olympia Area'], [10, 'Peninsula'], [11, 'Virtual'],
+		]);
+		expect(new Set(regions.map((region: { id: string }) => region.id)).size).toBe(11);
+		const contests = operations.slice(2).map((operation) => operation.values);
+		expect(contests).toHaveLength(11);
+		for (const region of regions) {
+			expect(region.seasonId).toBe(season.id);
+			expect(contests).toContainEqual(expect.objectContaining({
+				seasonId: season.id, regionId: region.id, kind: 'regional', lifecycle: 'setup',
+				name: `Region ${region.number} — ${region.name}`, startsAt: null, createdAt: 1234,
+			}));
+		}
+		expect(assignments).toEqual([expect.objectContaining({ userId: 'coordinator-1', seasonId: season.id })]);
+	});
+
+	it('reports a failed season bootstrap instead of returning a partially configured season', async () => {
+		const db = {
+			insert: () => ({ values: () => ({ returning: () => ({}) }) }),
+			batch: async () => { throw new Error('bootstrap failed'); },
+			select: () => { throw new Error('Assignments must only be cloned after bootstrap succeeds.'); },
+		};
+		await expect(createSeason(db as never, { year: 2027, name: '2027 WSMC' })).rejects.toThrow('bootstrap failed');
 	});
 
 	it('requires a region only for regional contests', async () => {
