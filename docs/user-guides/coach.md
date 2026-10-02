@@ -31,75 +31,44 @@ for each assigned school):
 - state attendance and entries, if the school qualified:
   `/state/<state-contest-id>`.
 
-## 1. Build the annual student list
+## 1. Add your team
 
-Open the regional registration link. Editing is available only while the
-contest heading says `registration_open`.
+Open your school's regional registration. The season's regional and state
+contest links appear at the top. The student list is shared across the season;
+state participation still requires qualification.
 
-Under **Annual students**:
+Under **Add a student**, enter a full name and actual grade, then select
+**+ Add student**. The student is immediately included in the current regional
+contest. **Edit student details** lets you correct names and actual grades.
+Save pending contest changes before adding or editing students.
 
-1. Enter a student's full name and actual grade, 9 through 12.
-2. Select **Add annual student**.
-3. Use **Save student** to correct a name or actual grade.
-4. Use **Delete** only when the student should be removed from the annual list.
+## 2. Configure the contest
 
-The annual list belongs to your school for the whole season. Adding a student
-does not automatically put them on the regional contest roster or in an event.
-Deletion may be rejected when the student is already referenced by contest
-records; remove those memberships first.
+The **Who’s doing what?** worksheet shows every student in one row:
 
-## 2. Choose the regional contest roster
+- **Attendance**: Attending or Not attending. Marking someone Not attending
+  removes all their assignments for this contest when saved, while keeping
+  their season record and other contest participation.
+- **Team Contest**: choose a team and competing grade.
+- **Topical**: choose a team or Individual. These choices are mutually exclusive.
+- **Project**: optionally choose a project team and competing grade.
+- **Knowdown**: nominate up to three attending students.
 
-Under **Contest roster**, select **Add to roster** for every student attending
-this regional contest.
+Select **Save contest** to save attendance and all event assignments together.
+If any assignment is invalid, nothing changes in the database. Your draft stays
+on screen so you can correct it. Existing students excluded under the previous
+workflow appear as Not attending; change their attendance to include them.
 
-Use **Remove from roster** to remove someone. A student who is still in a
-category entry cannot be removed until you remove those entry memberships.
+## 3. Team and grade rules
 
-The readiness summary distinguishes:
+Each team has at most three students with distinct competing grades. A student
+may compete at their actual grade or above, never below. Team Contest, Topical,
+and Project teams are independent. Students may have one assignment in each
+category and cannot enter both Topical Team and Topical Individual.
 
-- annual students known for the season;
-- students explicitly rostered for this contest;
-- category entries;
-- how many of the five categories are in use.
-
-## 3. Assign category entries from the student side
-
-Students are not entered in an event automatically. Start from each rostered
-student and decide how they participate:
-
-- Under **Team Contest teams**, pick a team (Team 1, Team 2, …) for each
-  student and an optional competing grade. The grade defaults to the
-  student's actual grade. Select **Save Team Contest** once for all teams.
-- Under **Topical assignments**, choose per student: unassigned, Team (plus
-  which team and optional competing grade), or Individual. A student can be
-  in a Topical Team or Topical Individual, never both. Select **Save
-  Topical** once.
-- Under **Knowdown nominations**, tick up to 3 rostered students and save.
-- Under **Project teams**, tick up to 3 rostered students to form a new team
-  and select **Create project team**. Repeat for additional project teams.
-- The **Advanced entry editor** at the bottom still supports
-  entry-by-entry corrections (create/delete entry, add/remove member).
-
-Competing grade belongs to this particular team membership. A student may play
-at their actual grade or play up, but never down. Team Contest and Topical
-teams are independent groupings: teammates may differ between categories.
-
-The application rejects:
-
-- a fourth member on a team;
-- duplicate competing grades on one team;
-- a competing grade below the student's actual grade;
-- more than one entry in the same category for a student;
-- placing the same student in Topical Team and Topical Individual;
-- more than three Knowdown students for one school;
-- adding a student who is not on this contest roster;
-- bulk-saving a category after scores have been entered (edit entries
-  individually instead).
-
-Use the **×** button to remove a member and **Delete entry** to remove an entire
-entry. These actions do not show a separate confirmation dialog in the current
-UI, so check the entry before selecting them.
+The worksheet refuses replacement of entries that already have scores. Contact
+your coordinator for those corrections. Registration is read-only after locking
+or archiving the season.
 
 ## 4. Use the registration CSV option
 
@@ -238,7 +207,8 @@ scores.
 - [ ] The coach can sign in but sees no coordinator navigation.
 - [ ] Direct registration access works only for an assigned school and season.
 - [ ] An out-of-scope school's registration returns forbidden.
-- [ ] Annual students remain separate from the contest roster.
+- [ ] Adding a student includes them in the current regional contest.
+- [ ] Not attending clears only that contest’s event assignments on save.
 - [ ] Roster membership remains separate from category entries.
 - [ ] Team size, grade, duplicate-category, Topical, and Knowdown rules reject invalid changes.
 - [ ] CSV preview saves nothing and import rejects the whole file when errors remain.

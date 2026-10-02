@@ -146,6 +146,22 @@ assert_status GET /my-schools 403 "$scorekeeper"
 assert_status POST '/my-schools?/respond' 403 "$gamma_coach" --data 'participationId=participation-r1-alpha&contestId=contest-region-1&status=declined'
 assert_status POST '/my-schools?/respond' 200 "$gamma_coach" --data 'participationId=participation-r2-gamma&contestId=contest-region-2&status=declined'
 assert_status POST '/my-schools?/respond' 200 "$gamma_coach" --data 'participationId=participation-r2-gamma&contestId=contest-region-2&status=accepted'
+# The coach worksheet validates the whole form before writing, then saves
+# attendance and all events together. An absent student's assignments disappear.
+worksheet='/registration/contest-region-2/school-gamma?/saveWorksheet'
+worksheet_students='studentId=student-gamma-10&studentId=student-gamma-11&studentId=student-gamma-12'
+assert_status POST "$worksheet" 403 "$coach" --data "$worksheet_students"
+assert_action_failure POST "$worksheet" 400 "$gamma_coach" --data "$worksheet_students&attending_student-gamma-10=yes&team_student-gamma-10=1&teamGrade_student-gamma-10=12&attending_student-gamma-12=yes&team_student-gamma-12=1"
+assert_action_failure POST "$worksheet" 400 "$gamma_coach" --data 'studentId=student-gamma-10&attending_student-gamma-10=yes'
+worksheet_before="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT COUNT(*) AS count FROM entries WHERE contest_id = 'contest-region-2' AND owner_school_id = 'school-gamma';")"
+node -e 'const rows=JSON.parse(require("fs").readFileSync(0,"utf8")); if(rows[0].results[0].count!==5) throw new Error("Rejected worksheet changed saved entries");' <<< "$worksheet_before"
+assert_status POST "$worksheet" 200 "$gamma_coach" --data "$worksheet_students&attending_student-gamma-10=yes&team_student-gamma-10=2&topical_student-gamma-10=individual&attending_student-gamma-11=yes&topical_student-gamma-11=1&attending_student-gamma-12=no&team_student-gamma-12=2&knowdown_student-gamma-12=on"
+worksheet_after="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT (SELECT COUNT(*) FROM contest_roster_members WHERE participation_id = 'participation-r2-gamma') AS attending, (SELECT COUNT(*) FROM entry_members JOIN entries ON entries.id = entry_members.entry_id WHERE entries.contest_id = 'contest-region-2' AND annual_student_id = 'student-gamma-12') AS absent_assignments, (SELECT entry_number FROM entries WHERE contest_id = 'contest-region-2' AND owner_school_id = 'school-gamma' AND category = 'team_contest') AS team;")"
+node -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"))[0].results[0]; if(r.attending!==2 || r.absent_assignments!==0 || r.team!==2) throw new Error("Worksheet did not reconcile attendance and events");' <<< "$worksheet_after"
+assert_status POST '/registration/contest-region-2/school-gamma?/addStudent' 200 "$gamma_coach" --data 'name=New Student&actualGrade=9'
+worksheet_new="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT COUNT(*) AS count FROM annual_students JOIN contest_roster_members ON annual_students.id = annual_student_id WHERE name = 'New Student' AND contest_id = 'contest-region-2';")"
+node -e 'if(JSON.parse(require("fs").readFileSync(0,"utf8"))[0].results[0].count!==1) throw new Error("New student was not included automatically");' <<< "$worksheet_new"
+
 assert_status GET /scoring/contest-region-2 409 "$coordinator"
 assert_status GET /scoring/contest-region-1 200 "$coordinator"
 assert_status GET /qualifications/season-2026 200 "$coordinator"

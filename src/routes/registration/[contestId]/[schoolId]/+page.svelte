@@ -1,223 +1,913 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	let { data, form } = $props();
+	let dirty = $state(false);
+	let saving = $state(false);
+	let editing = $state(false);
 	const grades = [9, 10, 11, 12];
-	const categories = [
-		['project', 'Project'],
-		['team_contest', 'Team Contest'],
-		['topical_team', 'Topical Team'],
-		['topical_individual', 'Topical Individual'],
-		['knowdown', 'Knowdown'],
-	] as const;
-
-	function label(category: string): string {
-		return categories.find(([value]) => value === category)?.[1] ?? category;
+	type Row = {
+		id: string;
+		name: string;
+		actualGrade: number;
+		attending: string;
+		team: string;
+		teamGrade: string;
+		topical: string;
+		topicalGrade: string;
+		project: string;
+		projectGrade: string;
+		knowdown: boolean;
+	};
+	function assignment(studentId: string, category: string) {
+		const member = data.members.find(
+			(m) =>
+				m.annualStudentId === studentId &&
+				data.entries.some((e) => e.id === m.entryId && e.category === category),
+		);
+		const entry = data.entries.find((e) => e.id === member?.entryId);
+		return {
+			team: entry ? String(entry.entryNumber ?? 1) : '',
+			grade: String(member?.competingGrade ?? ''),
+		};
 	}
-
-	function rostered(studentId: string): boolean {
-		return data.rosterIds.includes(studentId);
+	function makeRows(): Row[] {
+		return data.students
+			.map((student) => {
+				const team = assignment(student.id, 'team_contest');
+				const topical = assignment(student.id, 'topical_team');
+				const project = assignment(student.id, 'project');
+				return {
+					...student,
+					attending: data.rosterIds.includes(student.id) ? 'yes' : 'no',
+					team: team.team,
+					teamGrade: team.grade,
+					topical:
+						topical.team ||
+						(data.members.some(
+							(m) =>
+								m.annualStudentId === student.id &&
+								data.entries.some(
+									(e) =>
+										e.id === m.entryId && e.category === 'topical_individual',
+								),
+						)
+							? 'individual'
+							: ''),
+					topicalGrade: topical.grade,
+					project: project.team,
+					projectGrade: project.grade,
+					knowdown: data.members.some(
+						(m) =>
+							m.annualStudentId === student.id &&
+							data.entries.some(
+								(e) => e.id === m.entryId && e.category === 'knowdown',
+							),
+					),
+				};
+			})
+			.sort((a, b) => a.name.localeCompare(b.name));
 	}
-
-	function membersFor(entryId: string) {
-		return data.members.filter((member: { entryId: string }) => member.entryId === entryId);
-	}
-
-	function studentName(studentId: string): string {
-		return data.students.find((student: { id: string }) => student.id === studentId)?.name ?? studentId;
-	}
-
-	let knowdownIds = $derived(
-		new Set(
-			data.members
-				.filter((member: { entryId: string }) =>
-					data.entries.some((entry: { id: string; category: string }) => entry.id === member.entryId && entry.category === 'knowdown'),
-				)
-				.map((member: { annualStudentId: string }) => member.annualStudentId),
+	let rows = $state<Row[]>(makeRows());
+	$effect(() => {
+		rows = makeRows();
+		dirty = false;
+	});
+	const attending = $derived(rows.filter((r) => r.attending === 'yes'));
+	const teamCount = $derived(
+		new Set(attending.map((r) => r.team).filter(Boolean)).size,
+	);
+	const nominees = $derived(attending.filter((r) => r.knowdown).length);
+	const teamNumbers = $derived(
+		Array.from(
+			{
+				length:
+					Math.max(
+						3,
+						rows.length,
+						...data.entries.map((e) => e.entryNumber ?? 0),
+					) + 1,
+			},
+			(_, i) => String(i + 1),
 		),
 	);
-
-	type MatrixEntry = { id: string; category: string; entryNumber: number | null };
-	type MatrixMember = { entryId: string; annualStudentId: string; competingGrade: number | null };
-
-	function sortedEntries(category: string): MatrixEntry[] {
-		return (data.entries as MatrixEntry[]).filter((entry) => entry.category === category).sort((a, b) => (a.entryNumber ?? 999) - (b.entryNumber ?? 999));
+	function guardNavigation(event: MouseEvent) {
+		if (
+			dirty &&
+			!window.confirm('You have unsaved contest changes. Leave this page?')
+		)
+			event.preventDefault();
 	}
-
-	function memberGrade(entryId: string, studentId: string): number | null {
-		return (data.members as MatrixMember[]).find((member) => member.entryId === entryId && member.annualStudentId === studentId)?.competingGrade ?? null;
-	}
-
-	function actualGradeOf(studentId: string): number {
-		return data.students.find((student: { id: string }) => student.id === studentId)?.actualGrade ?? 9;
-	}
-
-	let rosteredStudents = $derived(data.students.filter((student: { id: string }) => rostered(student.id)));
-	let teamContestEntries = $derived(sortedEntries('team_contest'));
-	let topicalTeamEntries = $derived(sortedEntries('topical_team'));
-	let topicalIndividualIds = $derived(
-		new Set(
-			(data.members as MatrixMember[]).filter((member) => sortedEntries('topical_individual').some((entry) => entry.id === member.entryId)).map((member) => member.annualStudentId),
-		),
-	);
-	let projectEntries = $derived(sortedEntries('project'));
-	let projectIds = $derived(
-		new Set((data.members as MatrixMember[]).filter((member) => projectEntries.some((entry) => entry.id === member.entryId)).map((member) => member.annualStudentId)),
-	);
-	let teamContestByStudent = $derived(
-		new Map(
-			(data.members as MatrixMember[]).flatMap((member) => {
-				const entry = teamContestEntries.find((candidate) => candidate.id === member.entryId);
-				return entry ? [[member.annualStudentId, { team: entry.entryNumber ?? 1, grade: member.competingGrade }] as const] : [];
-			}),
-		),
-	);
-	let topicalTeamByStudent = $derived(
-		new Map(
-			(data.members as MatrixMember[]).flatMap((member) => {
-				const entry = topicalTeamEntries.find((candidate) => candidate.id === member.entryId);
-				return entry ? [[member.annualStudentId, { team: entry.entryNumber ?? 1, grade: member.competingGrade }] as const] : [];
-			}),
-		),
-	);
-	let maxTeamContestTeam = $derived(Math.max(0, ...teamContestEntries.map((entry) => entry.entryNumber ?? 0)));
-	let maxTopicalTeam = $derived(Math.max(0, ...topicalTeamEntries.map((entry) => entry.entryNumber ?? 0)));
 </script>
 
-<svelte:head><title>{data.school.name} registration — WSMC</title></svelte:head>
-
+<svelte:head><title>{data.school.name} · My team — WSMC</title></svelte:head>
+<svelte:window
+	onbeforeunload={(event) => {
+		if (dirty) {
+			event.preventDefault();
+			event.returnValue = '';
+		}
+	}}
+/>
 <main>
-	<p><a href="/participation">← Participation</a></p>
-	<h1>{data.school.name}</h1>
-	<p class="subheading">{data.contest.name} · Division {data.participation.division} · {data.contest.lifecycle}</p>
-	{#if data.readOnly}<p class="locked">This roster is read-only while the contest is {data.contest.lifecycle}.</p>{/if}
-	{#if form?.error}<p class="error">{form.error}</p>{/if}
-	{#if form?.success}<p class="success">{form.success}</p>{/if}
-
-	<section class="readiness" aria-label="Registration readiness">
-		<strong>Registration readiness</strong>
-		<span>{data.readiness.annualStudentCount} annual students · {data.readiness.rosterCount} rostered · {data.readiness.entryCount} entries · {data.readiness.categories}/5 categories used</span>
-	</section>
-
-	<section>
-		<h2>Annual students</h2>
-		<p class="help">Keep the annual list separate from contest participation. Students are not automatically entered in any category.</p>
-		<div class="student-list">
-			{#each data.students as student}
-				<article class="student-card">
-					<form use:enhance method="POST" action="?/updateStudent">
-						<input type="hidden" name="studentId" value={student.id} />
-						<label>Name <input name="name" value={student.name} required /></label>
-						<label>Actual grade <select name="actualGrade">{#each grades as grade}<option value={grade} selected={grade === student.actualGrade}>{grade}</option>{/each}</select></label>
-						<button disabled={data.readOnly} type="submit">Save student</button>
-					</form>
-					<form use:enhance method="POST" action="?/deleteStudent"><input type="hidden" name="studentId" value={student.id} /><button class="quiet danger" disabled={data.readOnly} type="submit">Delete</button></form>
-				</article>
-			{/each}
+	<a class="back" href="/my-schools" onclick={guardNavigation}>← My schools</a>
+	<header class="page-heading">
+		<div>
+			<p class="eyebrow">MY TEAM / {data.season?.name ?? 'Season'}</p>
+			<h1>{data.school.name}</h1>
+			<p class="intro">
+				Add your students. Set their events. Keep the whole team in one place.
+			</p>
 		</div>
-		<form class="add-student" use:enhance method="POST" action="?/addStudent">
-			<label>Name <input name="name" placeholder="Student name" required /></label><label>Actual grade <select name="actualGrade">{#each grades as grade}<option value={grade}>{grade}</option>{/each}</select></label><button disabled={data.readOnly} type="submit">Add annual student</button>
+		<span class="division">Division {data.participation.division}</span>
+	</header>
+	<nav class="contests" aria-label="Season contests">
+		<a
+			class="active"
+			aria-current="page"
+			href={`/registration/${data.contest.id}/${data.school.id}`}
+			onclick={guardNavigation}
+			><span class="contest-number">01</span><span
+				><strong>Regional contest</strong><small>{data.contest.name}</small
+				></span
+			><span class="status"
+				>{data.readOnly ? 'Read only' : 'Registration open'}</span
+			></a
+		>{#if data.stateContest}<a
+				href={`/state/${data.stateContest.id}`}
+				onclick={guardNavigation}
+				><span class="contest-number">02</span><span
+					><strong>State contest ↗</strong><small
+						>Configure after qualification</small
+					></span
+				></a
+			>{:else}<div class="future">
+				<span class="contest-number">02</span><span
+					><strong>State contest</strong><small
+						>Available after qualification</small
+					></span
+				>
+			</div>{/if}
+	</nav>
+	{#if data.readOnly}<p class="notice">
+			This contest is read-only ({data.contest.lifecycle.replaceAll('_', ' ')}).
+			Contact your coordinator for corrections.
+		</p>{/if}
+	{#if form?.error}<p class="error" role="alert">
+			{form.error} Your changes have not been saved.
+		</p>{/if}
+	{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
+	<section class="worksheet" aria-label="Contest assignments">
+		<div class="section-heading">
+			<div>
+				<p class="eyebrow">REGIONAL CONTEST</p>
+				<h2>Who’s doing what?</h2>
+				<p>
+					Everyone you add is included. Mark anyone sitting this contest out as
+					“Not attending”.
+				</p>
+			</div>
+			<button
+				class="secondary"
+				type="button"
+				onclick={() => (editing = !editing)}
+				>{editing ? 'Close student details' : 'Edit student details'}</button
+			>
+		</div>
+		<div class="counts">
+			<span><strong>{rows.length}</strong> students</span><span
+				><strong>{attending.length}</strong> attending</span
+			><span
+				><strong>{teamCount}</strong> Team Contest {teamCount === 1
+					? 'team'
+					: 'teams'}</span
+			><span class:over={nominees > 3}
+				><strong>{nominees}/3</strong> Knowdown nominees</span
+			>
+		</div>
+		<form
+			method="POST"
+			action="?/saveWorksheet"
+			oninput={() => (dirty = true)}
+			onchange={() => (dirty = true)}
+			use:enhance={() => {
+				saving = true;
+				return async ({ update }) => {
+					await update({ reset: false });
+					saving = false;
+				};
+			}}
+		>
+			<div class="table-scroll">
+				<table>
+					<thead
+						><tr
+							><th class="student-col">Student</th><th>Attendance</th><th
+								>Team Contest<small>Team · competing grade</small></th
+							><th>Topical<small>Team or individual · grade</small></th><th
+								>Project<small>Optional team · grade</small></th
+							><th class="knowdown-col"
+								>Knowdown<small>Up to 3 students</small></th
+							></tr
+						></thead
+					><tbody>
+						{#each rows as row (row.id)}<tr
+								class:absent={row.attending === 'no'}
+							>
+								<td class="student-col"
+									><input
+										type="hidden"
+										name="studentId"
+										value={row.id}
+									/><strong>{row.name}</strong><small
+										>Grade {row.actualGrade}</small
+									></td
+								>
+								<td data-label="Attendance"
+									><select
+										name={`attending_${row.id}`}
+										aria-label={`Attendance for ${row.name}`}
+										bind:value={row.attending}
+										disabled={data.readOnly}
+										><option value="yes">Attending</option><option value="no"
+											>Not attending</option
+										></select
+									></td
+								>
+								<td data-label="Team Contest"
+									><div class="assignment">
+										<select
+											name={`team_${row.id}`}
+											aria-label={`Team Contest team for ${row.name}`}
+											bind:value={row.team}
+											disabled={data.readOnly || row.attending === 'no'}
+											><option value="">No event</option
+											>{#each teamNumbers as team}<option value={team}
+													>Team {team}</option
+												>{/each}</select
+										><select
+											name={`teamGrade_${row.id}`}
+											aria-label={`Team Contest grade for ${row.name}`}
+											bind:value={row.teamGrade}
+											disabled={data.readOnly ||
+												row.attending === 'no' ||
+												!row.team}
+											><option value="">{row.actualGrade}</option
+											>{#each grades.filter((g) => g >= row.actualGrade) as grade}<option
+													value={String(grade)}>{grade}</option
+												>{/each}</select
+										>
+									</div></td
+								>
+								<td data-label="Topical"
+									><div class="assignment">
+										<select
+											name={`topical_${row.id}`}
+											aria-label={`Topical event for ${row.name}`}
+											bind:value={row.topical}
+											disabled={data.readOnly || row.attending === 'no'}
+											><option value="">No event</option><option
+												value="individual">Individual</option
+											>{#each teamNumbers as team}<option value={team}
+													>Team {team}</option
+												>{/each}</select
+										><select
+											name={`topicalGrade_${row.id}`}
+											aria-label={`Topical grade for ${row.name}`}
+											bind:value={row.topicalGrade}
+											disabled={data.readOnly ||
+												row.attending === 'no' ||
+												!row.topical ||
+												row.topical === 'individual'}
+											><option value="">{row.actualGrade}</option
+											>{#each grades.filter((g) => g >= row.actualGrade) as grade}<option
+													value={String(grade)}>{grade}</option
+												>{/each}</select
+										>
+									</div></td
+								>
+								<td data-label="Project"
+									><div class="assignment">
+										<select
+											name={`project_${row.id}`}
+											aria-label={`Project team for ${row.name}`}
+											bind:value={row.project}
+											disabled={data.readOnly || row.attending === 'no'}
+											><option value="">No event</option
+											>{#each teamNumbers as team}<option value={team}
+													>Team {team}</option
+												>{/each}</select
+										><select
+											name={`projectGrade_${row.id}`}
+											aria-label={`Project grade for ${row.name}`}
+											bind:value={row.projectGrade}
+											disabled={data.readOnly ||
+												row.attending === 'no' ||
+												!row.project}
+											><option value="">{row.actualGrade}</option
+											>{#each grades.filter((g) => g >= row.actualGrade) as grade}<option
+													value={String(grade)}>{grade}</option
+												>{/each}</select
+										>
+									</div></td
+								>
+								<td class="knowdown-col" data-label="Knowdown"
+									><input
+										type="checkbox"
+										name={`knowdown_${row.id}`}
+										aria-label={`Nominate ${row.name} for Knowdown`}
+										bind:checked={row.knowdown}
+										disabled={data.readOnly || row.attending === 'no'}
+									/></td
+								>
+							</tr>{:else}<tr
+								><td colspan="6" class="empty"
+									>Your team starts here. Add your first student below.</td
+								></tr
+							>{/each}
+					</tbody>
+				</table>
+			</div>
+			<div class="save-bar">
+				<p>
+					{#if dirty}<span class="dot"></span> Unsaved changes{:else}All
+						assignments shown are saved{/if}<small
+						>Not attending clears this contest’s assignments when you save.</small
+					>
+				</p>
+				<button type="submit" disabled={data.readOnly || saving || nominees > 3}
+					>{saving ? 'Saving…' : 'Save contest'}</button
+				>
+			</div>
 		</form>
-	</section>
-
-	<section>
-		<h2>Contest roster</h2>
-		<p class="help">Select students explicitly for this regional contest. This selection does not create category entries.</p>
-		<form use:enhance method="POST" action="?/saveRoster">
-			<div class="roster-list">{#each data.students as student}<label class="roster-row"><input type="checkbox" name="studentIds" value={student.id} checked={rostered(student.id)} disabled={data.readOnly} /><span><strong>{student.name}</strong> · actual grade {student.actualGrade}</span></label>{/each}</div>
-			<div class="bulk-actions"><button disabled={data.readOnly} type="submit">Save roster</button><span class="help">Most students participate in most contests — tick everyone attending, then save once.</span></div>
+		<form class="add-student" method="POST" action="?/addStudent" use:enhance>
+			<div>
+				<strong>Add a student</strong><small
+					>Included in this contest · available all season</small
+				>
+			</div>
+			<label class="sr-only" for="student-name">Student name</label><input
+				id="student-name"
+				name="name"
+				placeholder="Full name"
+				required
+				disabled={data.readOnly || dirty}
+			/><label class="sr-only" for="student-grade">Actual grade</label><select
+				id="student-grade"
+				name="actualGrade"
+				disabled={data.readOnly || dirty}
+				>{#each grades as grade}<option value={grade}>Grade {grade}</option
+					>{/each}</select
+			><button class="secondary" disabled={data.readOnly || dirty}
+				>+ Add student</button
+			>
 		</form>
+		{#if dirty}<p class="add-hint">
+				Save your contest changes before adding or editing students.
+			</p>{/if}
 	</section>
-
-	<section>
-		<h2>Knowdown nominations</h2>
-		<p class="help">Nominate up to 3 rostered students. Saving replaces this school's Knowdown entries.</p>
-		<form use:enhance method="POST" action="?/saveKnowdown">
-			<div class="roster-list">{#each data.students.filter((student: { id: string }) => rostered(student.id)) as student}<label class="roster-row"><input type="checkbox" name="studentIds" value={student.id} checked={knowdownIds.has(student.id)} disabled={data.readOnly} /><span><strong>{student.name}</strong> · actual grade {student.actualGrade}</span></label>{/each}</div>
-			<div class="bulk-actions"><button disabled={data.readOnly} type="submit">Save Knowdown ({knowdownIds.size} of 3)</button></div>
-		</form>
-	</section>
-
-	<section>
-		<h2>Team Contest teams</h2>
-		<p class="help">Start from each rostered student: pick a team and an optional competing grade (defaults to their actual grade). Saving replaces this school's Team Contest entries.</p>
-		{#if rosteredStudents.length === 0}<p class="help">Add students to the contest roster first.</p>{:else}
-		<form use:enhance method="POST" action="?/saveTeamContest">
-			<div class="matrix-list">{#each rosteredStudents as student}<div class="matrix-row"><span class="matrix-name"><strong>{student.name}</strong> · actual {student.actualGrade}</span><label>Team <select name={`team_${student.id}`}><option value="">—</option>{#each Array.from({ length: maxTeamContestTeam + 1 }, (_, i) => i + 1) as team}<option value={team} selected={teamContestByStudent.get(student.id)?.team === team}>Team {team}</option>{/each}</select></label><label>Competing grade <select name={`grade_${student.id}`}><option value="">Actual ({student.actualGrade})</option>{#each grades as grade}<option value={grade} selected={teamContestByStudent.get(student.id)?.grade === grade}>{grade}</option>{/each}</select></label></div>{/each}</div>
-			<div class="bulk-actions"><button disabled={data.readOnly} type="submit">Save Team Contest ({teamContestEntries.length} team{teamContestEntries.length === 1 ? '' : 's'})</button></div>
-		</form>{/if}
-	</section>
-
-	<section>
-		<h2>Topical assignments</h2>
-		<p class="help">Each rostered student competes in either a Topical Team or Topical Individual — never both. Saving replaces this school's Topical entries.</p>
-		{#if rosteredStudents.length === 0}<p class="help">Add students to the contest roster first.</p>{:else}
-		<form use:enhance method="POST" action="?/saveTopical">
-			<div class="matrix-list">{#each rosteredStudents as student}<div class="matrix-row"><span class="matrix-name"><strong>{student.name}</strong> · actual {student.actualGrade}</span><label>Participation <select name={`mode_${student.id}`}><option value="unassigned" selected={!topicalTeamByStudent.has(student.id) && !topicalIndividualIds.has(student.id)}>—</option><option value="team" selected={topicalTeamByStudent.has(student.id)}>Team</option><option value="individual" selected={!topicalTeamByStudent.has(student.id) && topicalIndividualIds.has(student.id)}>Individual</option></select></label><label>Team <select name={`team_${student.id}`}><option value="">—</option>{#each Array.from({ length: maxTopicalTeam + 1 }, (_, i) => i + 1) as team}<option value={team} selected={topicalTeamByStudent.get(student.id)?.team === team}>Team {team}</option>{/each}</select></label><label>Competing grade <select name={`grade_${student.id}`}><option value="">Actual ({student.actualGrade})</option>{#each grades as grade}<option value={grade} selected={topicalTeamByStudent.get(student.id)?.grade === grade}>{grade}</option>{/each}</select></label></div>{/each}</div>
-			<div class="bulk-actions"><button disabled={data.readOnly} type="submit">Save Topical ({topicalTeamEntries.length} team{topicalTeamEntries.length === 1 ? '' : 's'})</button></div>
-		</form>{/if}
-	</section>
-
-	<section>
-		<h2>Project teams</h2>
-		<p class="help">Few schools enter project teams. Tick up to 3 rostered students to form a new team; competing grades default to actual grades.</p>
-		{#if rosteredStudents.filter((student) => !projectIds.has(student.id)).length === 0}<p class="help">Every rostered student is already on a project team, or the roster is empty.</p>{:else}
-		<form use:enhance method="POST" action="?/createProjectTeam">
-			<div class="roster-list">{#each rosteredStudents.filter((student) => !projectIds.has(student.id)) as student}<label class="roster-row"><input type="checkbox" name="memberIds" value={student.id} disabled={data.readOnly} /><span><strong>{student.name}</strong> · actual grade {student.actualGrade}</span><select name={`grade_${student.id}`} aria-label={`Competing grade for ${student.name}`}><option value="">Actual ({student.actualGrade})</option>{#each grades as grade}<option value={grade}>{grade}</option>{/each}</select></label>{/each}</div>
-			<div class="bulk-actions"><button disabled={data.readOnly} type="submit">Create project team</button></div>
-		</form>{/if}
-		{#if projectEntries.length > 0}<div class="entry-list">{#each projectEntries as entry}<article class="entry-card"><header><div><h3>Project</h3><span>{entry.entryNumber ? `Team ${entry.entryNumber}` : 'Unnumbered'} · team</span></div><form use:enhance method="POST" action="?/deleteEntry"><input type="hidden" name="entryId" value={entry.id} /><button class="quiet danger" disabled={data.readOnly} type="submit">Delete team</button></form></header>
-			<ul>{#each membersFor(entry.id) as member}<li>{studentName(member.annualStudentId)}{#if member.competingGrade}<span> · competing grade {member.competingGrade}</span>{/if}<form use:enhance method="POST" action="?/removeMember"><input type="hidden" name="entryId" value={entry.id} /><input type="hidden" name="studentId" value={member.annualStudentId} /><button class="remove" disabled={data.readOnly} type="submit" aria-label="Remove {studentName(member.annualStudentId)}">×</button></form></li>{/each}</ul>
-		</article>{/each}</div>{/if}
-	</section>
-
-	<details class="advanced">
-		<summary>Advanced entry editor</summary>
-		<p class="help">Entry-by-entry corrections. Most coaches should use the Team Contest, Topical, Project, and Knowdown panels above.</p>
-		<form class="new-entry" use:enhance method="POST" action="?/createEntry">
-			<label>Category <select name="category">{#each categories as category}<option value={category[0]}>{category[1]}</option>{/each}</select></label><label>Entry number <input type="number" min="1" name="entryNumber" placeholder="Optional" /></label><button disabled={data.readOnly} type="submit">Create entry</button>
-		</form>
-		<div class="entry-list">{#each data.entries as entry}<article class="entry-card"><header><div><h3>{label(entry.category)}</h3><span>{entry.entryNumber ? `Entry ${entry.entryNumber}` : 'Unnumbered'} · {entry.entryKind}</span></div><form use:enhance method="POST" action="?/deleteEntry"><input type="hidden" name="entryId" value={entry.id} /><button class="quiet danger" disabled={data.readOnly} type="submit">Delete entry</button></form></header>
-			<ul>{#each membersFor(entry.id) as member}<li>{studentName(member.annualStudentId)}{#if member.competingGrade}<span> · competing grade {member.competingGrade}</span>{/if}<form use:enhance method="POST" action="?/removeMember"><input type="hidden" name="entryId" value={entry.id} /><input type="hidden" name="studentId" value={member.annualStudentId} /><button class="remove" disabled={data.readOnly} type="submit" aria-label="Remove {studentName(member.annualStudentId)}">×</button></form></li>{/each}</ul>
-			<form class="member-form" use:enhance method="POST" action="?/addMember"><input type="hidden" name="entryId" value={entry.id} /><label>Rostered student <select name="studentId" required>{#each data.students.filter((student) => rostered(student.id)) as student}<option value={student.id}>{student.name}</option>{/each}</select></label>{#if entry.entryKind === 'team'}<label>Competing grade <select name="competingGrade">{#each grades as grade}<option value={grade}>{grade}</option>{/each}</select></label>{:else}<input type="hidden" name="competingGrade" value="" />{/if}<button disabled={data.readOnly} type="submit">Add member</button></form>
-		</article>{/each}</div>
-	</details>
-
-	<section class="csv">
-		<h2>CSV round trip</h2>
-		<p class="help">Download a versioned template, edit it in a spreadsheet, preview the complete file, then upload it to apply all changes atomically.</p>
-		<p><a href={`/registration/${data.contest.id}/${data.school.id}/csv`}>Download registration CSV</a></p>
+	<p class="rules">
+		<strong>Team rules</strong> Up to 3 students per team, with different competing
+		grades. Students can compete at their actual grade or above. Team Contest, Topical,
+		and Project teams are independent.
+	</p>
+	{#if editing}<section class="details-panel">
+			<h2>Student details</h2>
+			<p class="intro">Names and actual grades are shared across the season.</p>
+			{#each data.students as student}<form
+					class="edit-row"
+					method="POST"
+					action="?/updateStudent"
+					use:enhance
+				>
+					<input type="hidden" name="studentId" value={student.id} /><input
+						aria-label={`Name for ${student.name}`}
+						name="name"
+						value={student.name}
+						required
+					/><select
+						aria-label={`Actual grade for ${student.name}`}
+						name="actualGrade"
+						>{#each grades as grade}<option
+								value={grade}
+								selected={grade === student.actualGrade}>Grade {grade}</option
+							>{/each}</select
+					><button disabled={data.readOnly || dirty}>Save student</button>
+				</form>{/each}
+		</section>{/if}
+	<details class="tools">
+		<summary>Spreadsheet import & export</summary>
+		<p>
+			Download your registration, edit it in a spreadsheet, and preview before
+			importing. Save worksheet changes first.
+		</p>
+		<a href={`/registration/${data.contest.id}/${data.school.id}/csv`}
+			>Download registration CSV</a
+		>
 		<div class="csv-forms">
-			<form use:enhance method="POST" action="?/previewCsv" enctype="multipart/form-data">
-				<label>CSV file to preview <input type="file" name="file" accept=".csv,text/csv" required /></label>
-				<button disabled={data.readOnly} type="submit">Preview CSV</button>
-			</form>
-			<form use:enhance method="POST" action="?/importCsv" enctype="multipart/form-data">
-				<label>CSV file to import <input type="file" name="file" accept=".csv,text/csv" required /></label>
-				<button disabled={data.readOnly} type="submit">Import CSV</button>
-			</form>
+			{#each ['previewCsv', 'importCsv'] as action}<form
+					method="POST"
+					action={`?/${action}`}
+					enctype="multipart/form-data"
+					use:enhance
+				>
+					<label
+						>{action === 'previewCsv' ? 'Preview a CSV' : 'Import a CSV'}<input
+							type="file"
+							name="file"
+							accept=".csv,text/csv"
+							required
+						/></label
+					><button disabled={data.readOnly || dirty}
+						>{action === 'previewCsv' ? 'Preview CSV' : 'Import CSV'}</button
+					>
+				</form>{/each}
 		</div>
-		{#if form?.csvSummary}<p class="success">{form.csvSummary.rows.length} rows · {form.csvSummary.newStudents} new students · {form.csvSummary.categorySelections} category selections.</p>{/if}
-		{#if form?.csvErrors?.length}<ul class="csv-errors">{#each form.csvErrors as csvError}<li>Row {csvError.rowNumber}, {csvError.field}: {csvError.message}</li>{/each}</ul>{/if}
-	</section>
-
-	{#if data.canReopen && data.contest.lifecycle === 'roster_locked'}<section class="reopen"><h2>Reopen roster</h2><p>Reopening returns this contest to Registration open and records a reason in the audit history.</p><form use:enhance method="POST" action="?/reopen"><label>Reason <textarea name="reason" required></textarea></label><button type="submit">Reopen for correction</button></form></section>{/if}
+		{#if form?.csvSummary}<p>
+				{form.csvSummary.rows.length} rows · {form.csvSummary.newStudents} new students
+			</p>{/if}{#if form?.csvErrors?.length}<ul>
+				{#each form.csvErrors as error}<li>
+						Row {error.rowNumber}, {error.field}: {error.message}
+					</li>{/each}
+			</ul>{/if}
+	</details>
+	{#if data.canReopen && data.contest.lifecycle === 'roster_locked'}<section
+			class="details-panel"
+		>
+			<h2>Reopen for corrections</h2>
+			<form method="POST" action="?/reopen" use:enhance>
+				<label>Reason <textarea name="reason" required></textarea></label
+				><button>Reopen registration</button>
+			</form>
+		</section>{/if}
 </main>
 
 <style>
-	main { max-width: 760px; margin: 0 auto; padding: 1rem; overflow-wrap: anywhere; }
-	h1 { margin-bottom: 0.25rem; } h2 { margin-bottom: 0.35rem; } h3 { margin: 0; font-size: 1rem; } .subheading, .help { color: #666; } .help { margin-top: 0; }
-	section { margin-top: 1.5rem; border-top: 1px solid #ddd; padding-top: 1rem; }
-	.readiness { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 1rem; padding: 0.8rem; border-radius: 6px; background: #eef3ff; } .readiness span { color: #445; }
-	.locked { padding: 0.7rem; background: #fff5d6; color: #715500; border-radius: 5px; }
-	.student-list, .entry-list { display: grid; gap: 0.7rem; } .student-card, .entry-card { padding: 0.8rem; border: 1px solid #ddd; border-radius: 6px; }
-	.student-card > form:first-child { display: grid; grid-template-columns: 1fr 7rem auto; align-items: end; gap: 0.6rem; } .student-card > form:last-child { margin-top: 0.5rem; }
-	.add-student, .new-entry, .member-form { display: grid; grid-template-columns: 1fr 8rem auto; align-items: end; gap: 0.6rem; margin-top: 0.8rem; }
-	.matrix-list { display: grid; gap: 0.6rem; } .matrix-row { display: grid; grid-template-columns: 1fr 10rem 10rem; gap: 0.6rem; align-items: end; padding: 0.6rem; border: 1px solid #eee; border-radius: 6px; } .matrix-name { align-self: center; } details.advanced { margin-top: 1.5rem; border-top: 1px solid #ddd; padding-top: 1rem; } details.advanced summary { cursor: pointer; font-weight: 700; min-height: 2.75rem; }
-	.member-form { grid-template-columns: 1fr 9rem auto; } .roster-list { display: grid; gap: 0.4rem; } .roster-row { display: flex; align-items: center; justify-content: flex-start; gap: 0.6rem; padding: 0.6rem 0; border-bottom: 1px solid #eee; cursor: pointer; } .roster-row input[type="checkbox"] { width: 1.25rem; height: 1.25rem; min-height: 0; accent-color: #1a1a2e; } .bulk-actions { display: flex; align-items: center; gap: 0.8rem; margin-top: 0.8rem; flex-wrap: wrap; }
-	.entry-card header, .entry-card li { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; } .entry-card header span, .entry-card li span { color: #666; font-size: 0.85rem; } .entry-card ul { list-style: none; margin: 0.7rem 0; padding: 0; } .entry-card li { padding: 0.35rem 0; border-bottom: 1px solid #eee; } .entry-card li form { margin-left: auto; }
-	label { display: flex; flex-direction: column; gap: 0.2rem; font-weight: 600; font-size: 0.9rem; } input, select, textarea { box-sizing: border-box; width: 100%; min-height: 2.75rem; padding: 0.55rem; font: inherit; border: 1px solid #aaa; border-radius: 4px; } textarea { min-height: 5rem; }
-	button { min-height: 2.75rem; padding: 0.55rem 0.75rem; border: 0; border-radius: 4px; background: #1a1a2e; color: #fff; cursor: pointer; white-space: nowrap; } button:disabled { opacity: 0.5; cursor: not-allowed; } button.quiet { background: #555; } button.danger { background: #8d2d2d; } button.remove { min-height: 2rem; padding: 0.15rem 0.5rem; background: transparent; color: #8d2d2d; font-size: 1.2rem; }
-	.error, .success { padding: 0.7rem; border-radius: 5px; } .error { background: #fbe3e3; color: #9a2020; } .success { background: #e2f5e8; color: #176b35; }
-	.csv-forms { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; } .csv-forms form { display: grid; gap: 0.6rem; padding: 0.8rem; border: 1px solid #ddd; border-radius: 6px; } .csv-errors { padding-left: 1.2rem; color: #9a2020; }
-	@media (max-width: 620px) { .student-card > form:first-child, .add-student, .new-entry, .member-form, .matrix-row, .csv-forms { grid-template-columns: 1fr; align-items: stretch; } .roster-row, .entry-card header, .entry-card li { align-items: flex-start; flex-direction: column; } .entry-card li form { margin-left: 0; } }
+	:global(body) {
+		background: #f5f6fa;
+	}
+	main {
+		max-width: 1400px;
+		margin: auto;
+		padding: 32px 36px 60px;
+		color: #20283d;
+	}
+	.back {
+		color: #58647b;
+		text-decoration: none;
+		font-size: 14px;
+	}
+	.page-heading {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin: 26px 0;
+	}
+	.eyebrow {
+		font-size: 11px;
+		font-weight: 750;
+		letter-spacing: 0.12em;
+		color: #64718a;
+		margin: 0 0 10px;
+	}
+	h1 {
+		font-size: 32px;
+		letter-spacing: -0.03em;
+		margin: 0 0 9px;
+	}
+	h2 {
+		font-size: 23px;
+		letter-spacing: -0.025em;
+		margin: 0 0 8px;
+	}
+	.intro,
+	.section-heading p:not(.eyebrow) {
+		color: #667187;
+		font-size: 14px;
+		margin: 0;
+		line-height: 1.6;
+	}
+	.division {
+		padding: 9px 14px;
+		border: 1px solid #d9dfea;
+		border-radius: 24px;
+		font-size: 13px;
+		background: white;
+	}
+	.contests {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 12px;
+		margin-bottom: 26px;
+	}
+	.contests a,
+	.future {
+		display: flex;
+		gap: 14px;
+		align-items: center;
+		padding: 18px 22px;
+		background: white;
+		border: 1px solid #dee3ec;
+		border-radius: 10px;
+		color: #667187;
+		text-decoration: none;
+	}
+	.contests .active {
+		border-color: #7584b1;
+		background: #eff2fc;
+		color: #293d79;
+		box-shadow: inset 0 0 0 1px #7584b1;
+	}
+	.contest-number {
+		font-size: 12px;
+		font-weight: 750;
+		padding: 9px;
+		border-radius: 7px;
+		background: #e6eaf5;
+	}
+	.contests strong {
+		font-size: 14px;
+	}
+	small {
+		display: block;
+		color: #7b8496;
+		font-size: 11px;
+		font-weight: 400;
+		margin-top: 5px;
+	}
+	.status {
+		margin-left: auto;
+		font-size: 11px;
+		padding: 6px 9px;
+		border-radius: 20px;
+		background: #dcece5;
+		color: #356650;
+		white-space: nowrap;
+	}
+	.worksheet {
+		background: white;
+		border: 1px solid #dde2ec;
+		border-radius: 12px;
+		overflow: hidden;
+		box-shadow: 0 4px 20px #24345c04;
+	}
+	.section-heading {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 20px;
+		padding: 26px 26px 20px;
+	}
+	.counts {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 25px;
+		padding: 0 26px 23px;
+		font-size: 12px;
+		color: #68738a;
+	}
+	.counts strong {
+		color: #283750;
+		font-size: 16px;
+		margin-right: 4px;
+	}
+	.counts .over,
+	.counts .over strong {
+		color: #a12929;
+	}
+	.table-scroll {
+		overflow-x: auto;
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		text-align: left;
+	}
+	th {
+		background: #f7f8fc;
+		border-top: 1px solid #e6eaf1;
+		border-bottom: 1px solid #e6eaf1;
+		font-size: 12px;
+		font-weight: 650;
+		padding: 15px 12px;
+		white-space: nowrap;
+	}
+	td {
+		padding: 16px 12px;
+		border-bottom: 1px solid #edf0f5;
+	}
+	.student-col {
+		padding-left: 26px;
+		min-width: 145px;
+	}
+	td.student-col strong {
+		font-size: 13px;
+	}
+	.assignment {
+		display: flex;
+		gap: 5px;
+	}
+	.assignment select:first-child {
+		min-width: 105px;
+		flex: 1;
+	}
+	.assignment select:last-child {
+		width: 54px;
+	}
+	.knowdown-col {
+		text-align: center;
+		padding-right: 22px;
+	}
+	.absent {
+		background: #fafafa;
+	}
+	.absent .student-col strong {
+		color: #808898;
+	}
+	.empty {
+		padding: 40px;
+		text-align: center;
+		color: #7b8496;
+	}
+	input,
+	select,
+	textarea {
+		box-sizing: border-box;
+		font: inherit;
+		font-size: 13px;
+		min-height: 40px;
+		border: 1px solid #d7ddea;
+		border-radius: 6px;
+		background: white;
+		padding: 8px 9px;
+		color: #35435c;
+	}
+	select {
+		cursor: pointer;
+	}
+	input[type='checkbox'] {
+		width: 19px;
+		height: 19px;
+		min-height: 0;
+		accent-color: #344d91;
+		cursor: pointer;
+	}
+	select:disabled {
+		background: #f5f6f9;
+		color: #a3a9b5;
+	}
+	button {
+		min-height: 40px;
+		background: #30477f;
+		color: white;
+		border: 1px solid #30477f;
+		border-radius: 7px;
+		padding: 10px 18px;
+		font: inherit;
+		font-size: 13px;
+		font-weight: 650;
+		cursor: pointer;
+		white-space: nowrap;
+	}
+	.secondary {
+		background: white;
+		border-color: #d4dce9;
+		color: #344563;
+	}
+	button:disabled,
+	input:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+	.save-bar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 20px;
+		padding: 18px 26px;
+	}
+	.save-bar p {
+		margin: 0;
+		color: #5e6d85;
+		font-size: 12px;
+	}
+	.dot {
+		display: inline-block;
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		background: #ce9136;
+		margin-right: 5px;
+	}
+	.add-student {
+		display: grid;
+		grid-template-columns: 1fr 1fr 115px auto;
+		gap: 12px;
+		align-items: center;
+		padding: 22px 26px;
+		border-top: 1px solid #e6eaf1;
+		background: #fafbfe;
+	}
+	.add-student strong {
+		font-size: 13px;
+	}
+	.add-hint {
+		margin: 0;
+		padding: 0 26px 16px;
+		font-size: 12px;
+		color: #667187;
+		background: #fafbfe;
+	}
+	.rules {
+		font-size: 12px;
+		color: #788399;
+		line-height: 1.8;
+		margin: 18px 2px 26px;
+	}
+	.rules strong {
+		color: #53617a;
+		margin-right: 8px;
+	}
+	.tools,
+	.details-panel {
+		padding: 20px 26px;
+		border: 1px solid #dde2ec;
+		border-radius: 10px;
+		background: white;
+		margin-top: 20px;
+	}
+	summary {
+		font-size: 13px;
+		font-weight: 650;
+		cursor: pointer;
+	}
+	.tools p,
+	.tools a {
+		font-size: 13px;
+	}
+	.edit-row {
+		display: grid;
+		grid-template-columns: 1fr 120px auto;
+		gap: 12px;
+		margin-top: 12px;
+	}
+	.csv-forms {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 24px;
+		margin-top: 20px;
+	}
+	.csv-forms form,
+	label {
+		display: grid;
+		gap: 10px;
+	}
+	.notice,
+	.success,
+	.error {
+		padding: 14px 20px;
+		border-radius: 8px;
+		font-size: 14px;
+	}
+	.notice {
+		background: #fff1d5;
+	}
+	.success {
+		background: #e0f1e7;
+		color: #285e42;
+	}
+	.error {
+		background: #fbe7e7;
+		color: #972929;
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+	@media (max-width: 850px) {
+		main {
+			padding: 24px 16px;
+		}
+		.contests {
+			grid-template-columns: 1fr;
+		}
+		.section-heading {
+			align-items: flex-start;
+		}
+		.status {
+			display: none;
+		}
+		.add-student {
+			grid-template-columns: 1fr 120px;
+		}
+		.add-student > div {
+			grid-column: 1 / -1;
+		}
+		.add-student input {
+			grid-column: 1;
+			min-width: 0;
+			width: 100%;
+		}
+		.section-heading,
+		.save-bar {
+			flex-wrap: wrap;
+		}
+		.edit-row {
+			grid-template-columns: 1fr;
+		}
+		.page-heading {
+			gap: 15px;
+		}
+		h1 {
+			font-size: 27px;
+		}
+		.division {
+			white-space: nowrap;
+		}
+	}
+	@media (max-width: 650px) {
+		.page-heading {
+			align-items: flex-start;
+		}
+		.division {
+			padding: 7px 10px;
+			font-size: 11px;
+		}
+		.section-heading {
+			padding: 20px;
+		}
+		.counts {
+			padding: 0 20px 20px;
+			gap: 14px;
+		}
+		.table-scroll {
+			overflow: visible;
+		}
+		table,
+		tbody {
+			display: block;
+		}
+		thead {
+			display: none;
+		}
+		tr {
+			display: block;
+			padding: 14px 20px;
+			border-top: 1px solid #e6eaf1;
+		}
+		td {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			border: 0;
+			padding: 6px 0;
+		}
+		td::before {
+			content: attr(data-label);
+			font-size: 12px;
+			color: #68738a;
+		}
+		td.student-col {
+			display: block;
+			padding: 0 0 12px;
+		}
+		td.student-col::before {
+			display: none;
+		}
+		td.student-col strong {
+			font-size: 15px;
+		}
+		.assignment {
+			width: 190px;
+		}
+		td > select {
+			width: 190px;
+		}
+		.knowdown-col {
+			text-align: left;
+		}
+		.save-bar {
+			padding: 20px;
+		}
+		.save-bar button {
+			width: 100%;
+		}
+		.add-student {
+			padding: 20px;
+		}
+		.contests a,
+		.future {
+			padding: 15px;
+		}
+		.tools {
+			padding: 20px;
+		}
+	}
 </style>

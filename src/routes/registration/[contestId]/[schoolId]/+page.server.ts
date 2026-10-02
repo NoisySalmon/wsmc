@@ -3,7 +3,7 @@ import { error, fail } from '@sveltejs/kit';
 import { canEditRoster, canFinalizeContest } from '$lib/server/auth/capabilities';
 import { getDb, schema } from '$lib/server/db';
 import { importRegistrationCsv, previewRegistrationCsv, RegistrationCsvValidationError } from '$lib/server/registration/csv-service';
-import { addCategoryMember, addRosterStudent, createAnnualStudent, createCategoryEntry, createProjectTeam, deleteAnnualStudent, deleteCategoryEntry, RegistrationError, removeCategoryMember, removeRosterStudent, reopenRoster, saveTeamContestAssignments, saveTopicalAssignments, setContestRoster, setKnowdownNominees, updateAnnualStudent, type MatrixTeamAssignment, type MatrixTopicalAssignment } from '$lib/server/registration/service';
+import { addWorksheetStudent, saveContestWorksheet, addCategoryMember, addRosterStudent, createCategoryEntry, createProjectTeam, deleteAnnualStudent, deleteCategoryEntry, RegistrationError, removeCategoryMember, removeRosterStudent, reopenRoster, saveTeamContestAssignments, saveTopicalAssignments, setContestRoster, setKnowdownNominees, updateAnnualStudent, type MatrixTeamAssignment, type MatrixTopicalAssignment } from '$lib/server/registration/service';
 import type { Actions, PageServerLoad } from './$types';
 
 async function scope(db: ReturnType<typeof getDb>, contestId: string, schoolId: string) {
@@ -55,15 +55,59 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	const entryIds = entries.map((entry) => entry.id);
 	const members = entryIds.length ? await db.select().from(schema.entryMembers).where(inArray(schema.entryMembers.entryId, entryIds)) : [];
 	const rosterIds = new Set(rosterRows.map((row) => row.annualStudentId));
-	const readOnly = contest.lifecycle !== 'registration_open';
+	const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, contest.seasonId));
+	const [stateContest] = await db.select().from(schema.contests).where(and(eq(schema.contests.seasonId, contest.seasonId), eq(schema.contests.kind, 'state')));
+	const readOnly = contest.lifecycle !== 'registration_open' || season?.status === 'archived';
 	return {
-		contest, school, participation, students, rosterIds: [...rosterIds], entries, members,
+		contest, school, participation, season, stateContest, students, rosterIds: [...rosterIds], entries, members,
 		readOnly, canReopen: canFinalizeContest(locals.principal, contest.id, contest.seasonId),
 		readiness: { annualStudentCount: students.length, rosterCount: rosterRows.length, entryCount: entries.length, categories: new Set(entries.map((entry) => entry.category)).size },
 	};
 };
 
 export const actions: Actions = {
+	saveWorksheet: async ({ locals, platform, params, request }) => {
+		if (!locals.principal) throw error(401, 'Sign in required.');
+		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+		const db = getDb(platform.env.DB);
+		const { contest, school } = await scope(
+			db,
+			params.contestId,
+			params.schoolId,
+		);
+		if (
+			!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)
+		)
+			throw error(403, 'You cannot edit this registration.');
+		const data = await request.formData();
+		const number = (name: string) =>
+			text(data, name) ? Number(text(data, name)) : null;
+		try {
+			const result = await saveContestWorksheet(db, {
+				contestId: contest.id,
+				schoolId: school.id,
+				students: data
+					.getAll('studentId')
+					.map(String)
+					.map((studentId) => ({
+						studentId,
+						attending: text(data, `attending_${studentId}`) === 'yes',
+						team: number(`team_${studentId}`),
+						teamGrade: number(`teamGrade_${studentId}`),
+						topical: text(data, `topical_${studentId}`),
+						topicalGrade: number(`topicalGrade_${studentId}`),
+						project: number(`project_${studentId}`),
+						projectGrade: number(`projectGrade_${studentId}`),
+						knowdown: data.has(`knowdown_${studentId}`),
+					})),
+			});
+			return {
+				success: `Contest saved. ${result.attending} students attending.`,
+			};
+		} catch (cause) {
+			return formError(cause);
+		}
+	},
 	addStudent: async ({ locals, platform, params, request }) => {
 		if (!locals.principal) throw error(401, 'Sign in required.');
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
@@ -72,7 +116,7 @@ export const actions: Actions = {
 		if (!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)) throw error(403, 'You cannot edit this registration.');
 		requireEditable(contest);
 		const data = await request.formData();
-		try { await createAnnualStudent(db, { seasonId: contest.seasonId, schoolId: school.id, name: text(data, 'name'), actualGrade: Number(text(data, 'actualGrade')) }); return { success: 'Annual student added.' }; } catch (cause) { return formError(cause); }
+		try { await addWorksheetStudent(db, { contestId: contest.id, schoolId: school.id, name: text(data, 'name'), actualGrade: Number(text(data, 'actualGrade')) }); return { success: 'Student added to your team and included in this contest.' }; } catch (cause) { return formError(cause); }
 	},
 	updateStudent: async ({ locals, platform, params, request }) => {
 		if (!locals.principal) throw error(401, 'Sign in required.');

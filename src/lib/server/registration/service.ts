@@ -375,3 +375,221 @@ export async function reopenRoster(db: Database, input: { contestId: string; act
 	await db.update(schema.contests).set({ lifecycle: 'registration_open', updatedAt: now }).where(and(eq(schema.contests.id, input.contestId), eq(schema.contests.lifecycle, 'roster_locked')));
 	await db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: input.contestId, entityType: 'contest', entityId: input.contestId, action: 'roster_reopened', detailsJson: JSON.stringify({ reason, previousLifecycle: 'roster_locked' }), createdAt: now });
 }
+
+/** Save the coach's complete worksheet in one transaction after validating every category. */
+export async function saveContestWorksheet(
+	db: Database,
+	input: {
+		contestId: string;
+		schoolId: string;
+		students: {
+			studentId: string;
+			attending: boolean;
+			team: number | null;
+			teamGrade: number | null;
+			topical: string;
+			topicalGrade: number | null;
+			project: number | null;
+			projectGrade: number | null;
+			knowdown: boolean;
+		}[];
+	},
+) {
+	const contest = await requireOpenContest(db, input.contestId);
+	const participation = await requireParticipation(
+		db,
+		input.contestId,
+		input.schoolId,
+	);
+	const grades = await loadStudentGrades(db, contest.seasonId, input.schoolId);
+	if (
+		input.students.length !== grades.size ||
+		new Set(input.students.map((s) => s.studentId)).size !== grades.size ||
+		input.students.some((s) => !grades.has(s.studentId))
+	) {
+		throw new RegistrationError(
+			'stale_students',
+			'The student list changed. Refresh the page before saving.',
+		);
+	}
+	const attending = input.students.filter((s) => s.attending);
+	const teams = resolveTeamGroups(
+		grades,
+		attending.map((s) => ({
+			studentId: s.studentId,
+			team: s.team,
+			competingGrade: s.teamGrade,
+		})),
+	);
+	const projects = resolveTeamGroups(
+		grades,
+		attending.map((s) => ({
+			studentId: s.studentId,
+			team: s.project,
+			competingGrade: s.projectGrade,
+		})),
+	);
+	const topical = planTopicalAssignments(
+		grades,
+		attending.map((s) => ({
+			studentId: s.studentId,
+			mode:
+				s.topical === 'individual'
+					? 'individual'
+					: s.topical === ''
+						? 'unassigned'
+						: 'team',
+			team:
+				s.topical === 'individual' || s.topical === ''
+					? null
+					: Number(s.topical),
+			competingGrade: s.topicalGrade,
+		})),
+	);
+	const knowdown = attending.filter((s) => s.knowdown).map((s) => s.studentId);
+	if (knowdown.length > 3)
+		throw new RegistrationError(
+			'knowdown_limit',
+			'Choose at most 3 Knowdown competitors.',
+		);
+	await guardNoScores(
+		db,
+		input.contestId,
+		input.schoolId,
+		registrationCategories,
+	);
+	const existing = await db
+		.select()
+		.from(schema.entries)
+		.where(
+			and(
+				eq(schema.entries.contestId, input.contestId),
+				eq(schema.entries.ownerSchoolId, input.schoolId),
+			),
+		);
+	const operations: any[] = existing.map((entry) =>
+		db.delete(schema.entries).where(eq(schema.entries.id, entry.id)),
+	);
+	operations.push(
+		db
+			.delete(schema.contestRosterMembers)
+			.where(
+				and(
+					eq(schema.contestRosterMembers.contestId, input.contestId),
+					eq(schema.contestRosterMembers.participationId, participation.id),
+				),
+			),
+	);
+	for (const student of attending)
+		operations.push(
+			db
+				.insert(schema.contestRosterMembers)
+				.values({
+					contestId: input.contestId,
+					participationId: participation.id,
+					annualStudentId: student.studentId,
+					createdAt: Date.now(),
+				}),
+		);
+	function entry(
+		category: RegistrationCategory,
+		number: number,
+		members: { studentId: string; competingGrade: number | null }[],
+		kind: 'team' | 'individual',
+	) {
+		const id = crypto.randomUUID();
+		operations.push(
+			db
+				.insert(schema.entries)
+				.values({
+					id,
+					contestId: input.contestId,
+					ownerSchoolId: input.schoolId,
+					category,
+					entryKind: kind,
+					entryNumber: number,
+					division: participation.division,
+				}),
+		);
+		for (const member of members)
+			operations.push(
+				db
+					.insert(schema.entryMembers)
+					.values({
+						entryId: id,
+						annualStudentId: member.studentId,
+						competingGrade: member.competingGrade,
+					}),
+			);
+	}
+	for (const [category, groups] of [
+		['team_contest', teams],
+		['topical_team', topical.teams],
+		['project', projects],
+	] as const) {
+		for (const [number, members] of groups)
+			entry(category, number, members, 'team');
+	}
+	topical.individuals.forEach((studentId, i) =>
+		entry(
+			'topical_individual',
+			i + 1,
+			[{ studentId, competingGrade: null }],
+			'individual',
+		),
+	);
+	knowdown.forEach((studentId, i) =>
+		entry(
+			'knowdown',
+			i + 1,
+			[{ studentId, competingGrade: null }],
+			'individual',
+		),
+	);
+	await db.batch(operations as [any, ...any[]]);
+	return { attending: attending.length };
+}
+
+export async function addWorksheetStudent(
+	db: Database,
+	input: {
+		contestId: string;
+		schoolId: string;
+		name: string;
+		actualGrade: number;
+	},
+) {
+	const contest = await requireOpenContest(db, input.contestId);
+	const participation = await requireParticipation(
+		db,
+		input.contestId,
+		input.schoolId,
+	);
+	const name = input.name.trim();
+	if (!name)
+		throw new RegistrationError('invalid_name', 'Student name is required.');
+	requireGrade(input.actualGrade);
+	const id = crypto.randomUUID();
+	const now = Date.now();
+	await db.batch([
+		db
+			.insert(schema.annualStudents)
+			.values({
+				id,
+				seasonId: contest.seasonId,
+				schoolId: input.schoolId,
+				name,
+				actualGrade: input.actualGrade,
+				createdAt: now,
+				updatedAt: now,
+			}),
+		db
+			.insert(schema.contestRosterMembers)
+			.values({
+				contestId: input.contestId,
+				participationId: participation.id,
+				annualStudentId: id,
+				createdAt: now,
+			}),
+	]);
+}
