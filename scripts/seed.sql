@@ -1,5 +1,7 @@
 -- Representative v2 seed for local development and persistence checks.
 -- IDs are stable so fixtures and screenshots can refer to them.
+-- Region defaults mirror src/lib/server/program/default-regions.ts.
+-- Source: https://www.wsmc.net/hs-contest-locations (reviewed 2026-10-02).
 
 PRAGMA foreign_keys = ON;
 
@@ -7,13 +9,29 @@ INSERT INTO seasons (id, year, name, status) VALUES
   ('season-2026', 2026, '2026 WSMC', 'active');
 
 INSERT INTO regions (id, season_id, number, name) VALUES
-  ('region-1-2026', 'season-2026', 1, 'Northwest'),
-  ('region-2-2026', 'season-2026', 2, 'Southwest'),
-  ('region-virtual-2026', 'season-2026', 3, 'Virtual');
+  ('region-1-2026', 'season-2026', 1, 'Spokane area'),
+  ('region-2-2026', 'season-2026', 2, 'Tri Cities'),
+  ('region-3-2026', 'season-2026', 3, 'North Central'),
+  ('region-4-2026', 'season-2026', 4, 'Yakima area'),
+  ('region-5-2026', 'season-2026', 5, 'Northwest'),
+  ('region-6-2026', 'season-2026', 6, 'Seattle area'),
+  ('region-7-2026', 'season-2026', 7, 'Tacoma area'),
+  ('region-8-2026', 'season-2026', 8, 'Southwest'),
+  ('region-9-2026', 'season-2026', 9, 'Olympia Area'),
+  ('region-10-2026', 'season-2026', 10, 'Peninsula'),
+  ('region-virtual-2026', 'season-2026', 11, 'Virtual');
 
 INSERT INTO contests (id, season_id, region_id, kind, name, starts_at, lifecycle, settings_json) VALUES
   ('contest-region-1', 'season-2026', 'region-1-2026', 'regional', 'Region 1 Regional Contest', 1760000000000, 'finalized', '{}'),
   ('contest-region-2', 'season-2026', 'region-2-2026', 'regional', 'Region 2 Regional Contest', 1760086400000, 'registration_open', '{}'),
+  ('contest-region-3', 'season-2026', 'region-3-2026', 'regional', 'Region 3 — North Central', NULL, 'setup', '{}'),
+  ('contest-region-4', 'season-2026', 'region-4-2026', 'regional', 'Region 4 — Yakima area', NULL, 'setup', '{}'),
+  ('contest-region-5', 'season-2026', 'region-5-2026', 'regional', 'Region 5 — Northwest', NULL, 'setup', '{}'),
+  ('contest-region-6', 'season-2026', 'region-6-2026', 'regional', 'Region 6 — Seattle area', NULL, 'setup', '{}'),
+  ('contest-region-7', 'season-2026', 'region-7-2026', 'regional', 'Region 7 — Tacoma area', NULL, 'setup', '{}'),
+  ('contest-region-8', 'season-2026', 'region-8-2026', 'regional', 'Region 8 — Southwest', NULL, 'setup', '{}'),
+  ('contest-region-9', 'season-2026', 'region-9-2026', 'regional', 'Region 9 — Olympia Area', NULL, 'setup', '{}'),
+  ('contest-region-10', 'season-2026', 'region-10-2026', 'regional', 'Region 10 — Peninsula', NULL, 'setup', '{}'),
   ('contest-virtual-2026', 'season-2026', 'region-virtual-2026', 'regional', 'Virtual Regional Contest', 1760086400000, 'registration_open', '{}'),
   ('contest-state-2026', 'season-2026', NULL, 'state', '2026 State Contest', 1765000000000, 'registration_open', '{"topicalIndividualAllowed":true,"crossSchoolTopicalTeamsAllowed":false}');
 

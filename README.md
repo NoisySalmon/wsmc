@@ -12,7 +12,7 @@ and [implementation progress](docs/implementation-progress.md).
 
 ## Features
 
-- **Program administration:** Seasons, numbered regions, contests, school directory, participation, and assignments.
+- **Program administration:** Seasons bootstrapped with the WSMC contest regions 1–10 and Virtual (11), editable regions and contests, school directory, participation, and assignments.
 - **Secure registration:** Passwordless sign-in, annual students, explicit contest rosters, category entries, and mobile workflows.
 - **CSV interoperability:** Versioned, formula-safe registration, score, state-roster, and administrative report exports/imports.
 - **Contest operations:** Category-aware scoring, optimistic concurrency, finalization, publication, qualification snapshots, state attendance, and substitutions.
