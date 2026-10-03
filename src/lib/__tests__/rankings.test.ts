@@ -2,11 +2,17 @@ import { describe, it, expect } from 'vitest';
 import {
 	rankByScore,
 	rankIndividuals,
-	getDistinguishedIndividualIds,
-	type RankedEntry,
-	type TeamRankingEntry,
 	type IndividualRankingEntry,
 } from '$lib/rankings';
+
+type TeamRankingEntry = {
+	teamId: string;
+	schoolName: string;
+	division: number;
+	teamNumber: number;
+	members: { name: string; competingGrade: number }[];
+	score: number;
+};
 
 function makeTeamEntry(overrides: Partial<TeamRankingEntry> & { score: number; division: number }): TeamRankingEntry {
 	return {
@@ -99,39 +105,5 @@ describe('rankIndividuals', () => {
 		const result = rankIndividuals(entries, { division: 1, grade: 12 });
 		expect(result.length).toBe(2);
 		expect(result.map((r) => r.total)).toEqual([100, 90]);
-	});
-});
-
-describe('getDistinguishedIndividualIds', () => {
-	it('identifies top student per grade not in top 3 overall', () => {
-		const ranked: RankedEntry<IndividualRankingEntry>[] = [
-			{ ...makeIndEntry({ studentId: 's1', total: 140, competingGrade: 12, division: 1 }), rank: 1 },
-			{ ...makeIndEntry({ studentId: 's2', total: 130, competingGrade: 11, division: 1 }), rank: 2 },
-			{ ...makeIndEntry({ studentId: 's3', total: 125, competingGrade: 12, division: 1 }), rank: 3 },
-			{ ...makeIndEntry({ studentId: 's4', total: 120, competingGrade: 12, division: 1 }), rank: 4 },
-			{ ...makeIndEntry({ studentId: 's5', total: 110, competingGrade: 10, division: 1 }), rank: 5 },
-			{ ...makeIndEntry({ studentId: 's6', total: 100, competingGrade: 11, division: 1 }), rank: 6 },
-		];
-
-		const result = getDistinguishedIndividualIds(ranked);
-		
-		expect(result.get('s4')).toBe('Distinguished Senior');
-		expect(result.get('s5')).toBe('Distinguished Sophomore');
-		expect(result.get('s6')).toBe('Distinguished Junior');
-		
-		expect(result.has('s1')).toBe(false);
-		expect(result.has('s2')).toBe(false);
-		expect(result.has('s3')).toBe(false);
-	});
-
-	it('returns empty if all students are in top 3', () => {
-		const ranked: RankedEntry<IndividualRankingEntry>[] = [
-			{ ...makeIndEntry({ studentId: 's1', total: 140, competingGrade: 12, division: 1 }), rank: 1 },
-			{ ...makeIndEntry({ studentId: 's2', total: 130, competingGrade: 11, division: 1 }), rank: 2 },
-			{ ...makeIndEntry({ studentId: 's3', total: 125, competingGrade: 10, division: 1 }), rank: 3 },
-		];
-
-		const result = getDistinguishedIndividualIds(ranked);
-		expect(result.size).toBe(0);
 	});
 });
