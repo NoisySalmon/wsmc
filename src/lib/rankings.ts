@@ -1,16 +1,7 @@
 /**
- * Pure ranking/award computation functions.
+ * Pure ranking computation functions.
  * No DB dependencies — takes data arrays and returns ranked results.
  */
-
-export type TeamRankingEntry = {
-	teamId: string;
-	schoolName: string;
-	division: number;
-	teamNumber: number;
-	members: { name: string; competingGrade: number }[];
-	score: number;
-};
 
 export type IndividualRankingEntry = {
 	studentId: string;
@@ -21,13 +12,6 @@ export type IndividualRankingEntry = {
 	part1: number;
 	part2: number;
 	total: number;
-};
-
-export type KnowdownEntry = {
-	place: number;
-	studentName: string;
-	schoolName: string;
-	division: number;
 };
 
 export type RankedEntry<T> = T & { rank: number };
@@ -76,36 +60,4 @@ export function rankIndividuals(
 		}
 		return { ...entry, rank };
 	});
-}
-
-/**
- * Identifies "Distinguished" students for a consolidated individual list.
- * A student is distinguished if they are the highest scorer in their grade
- * (among those in the given division, if any) AND they are NOT in the top 3 overall.
- */
-export function getDistinguishedIndividualIds(
-	rankedEntries: RankedEntry<IndividualRankingEntry>[]
-): Map<string, string> {
-	const distinguishedMap = new Map<string, string>(); // studentId -> label
-	const top3Ids = new Set(rankedEntries.filter((e) => e.rank <= 3).map((e) => e.studentId));
-
-	const gradeNames: Record<number, string> = {
-		9: 'Freshman',
-		10: 'Sophomore',
-		11: 'Junior',
-		12: 'Senior',
-	};
-
-	// Group by grade and find the top student not in top 3
-	const grades = [9, 10, 11, 12];
-	for (const grade of grades) {
-		const gradeEntries = rankedEntries.filter((e) => e.competingGrade === grade && !top3Ids.has(e.studentId));
-		if (gradeEntries.length > 0) {
-			// They are already sorted by rank (score)
-			const top = gradeEntries[0];
-			distinguishedMap.set(top.studentId, `Distinguished ${gradeNames[grade]}`);
-		}
-	}
-
-	return distinguishedMap;
 }
