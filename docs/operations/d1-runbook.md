@@ -12,7 +12,15 @@ instructions. The database is removed when the server stops. See the
 [local development guide](local-development.md) for the role accounts and
 hands-on walkthrough.
 
-## Apply migrations and seed the default local database
+## Real-school showcase
+
+Use `npm run seed:showcase` to replace the default local development database
+with the sourced 2026 showcase, or `npm run demo:preview` for a temporary copy.
+See [showcase data and production bootstrap](showcase-data.md) for provenance,
+contest states, and the separate additive directory-only export. No production
+import has been performed.
+
+## Apply migrations and seed the automated-check fixture
 
 ```bash
 npx wrangler d1 migrations apply wsmc-db --local

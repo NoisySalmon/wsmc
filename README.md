@@ -39,22 +39,26 @@ npm ci
 npm run demo:preview
 ```
 
-Open `http://127.0.0.1:8797/login`. Request a sign-in link for
+Open `http://127.0.0.1:8797/login` and request a sign-in link for
 `coordinator@wsmc.example` (statewide administrator),
-`regional@wsmc.example` (Region 1 coordinator and Alpha coach),
-`regional2@wsmc.example` (Region 2 coordinator),
-`coach@gamma.example`, or `scorekeeper@wsmc.example`. The local email adapter prints each one-time link
-in the server terminal. Open it in your browser, and sign out before changing
-roles. These are fictional fixture users; `natpeterson@gmail.com` is not in
-this isolated database.
+`regional2@wsmc.example` (Tri Cities registration),
+`regional5@wsmc.example` (Northwest scoring), or
+`coach.hanford@wsmc.example` (Hanford coach). The local email adapter prints
+each one-time link in the server terminal. Sign out before changing roles.
 
-The command builds the app, applies all D1 migrations, loads `scripts/seed.sql`,
-adds Region 2 access for the regional coordinator and scorekeeper, and starts
-Wrangler Pages on port 8797. It uses a fresh temporary database and deletes it
-when the server stops. Set `WSMC_DEMO_PORT=8798` if that port is occupied.
-Nothing is read from or written to production D1. See the
-[local development guide](docs/operations/local-development.md) for the exact
-configuration, tour URLs, a persistent Vite development option, and tests.
+The showcase includes all 11 WSMC regions and 40 real schools with divisions
+from the 2026 regional results. Students, staff, scores, and regional contest
+dates are fictional demo data. No scorekeepers are configured. Regions cover
+setup, registration, locked rosters, partial scoring, finalized results, and
+published results. The state contest awaits setup.
+
+The command builds the app and replaces a fresh temporary local database with
+the showcase. It deletes that database when the server stops. Set
+`WSMC_DEMO_PORT=8798` if needed. To replace the persistent local development
+database instead, run `npm run seed:showcase` and `npm run dev`.
+Production is unchanged. See the [local development guide](docs/operations/local-development.md)
+for the tour and [directory provenance](docs/operations/showcase-data.md) for
+sources and the future production import process.
 
 The project enables npm's `ignore-scripts` setting because Wrangler's optional
 local image dependency does not provide a Node 26 prebuilt binary. The app and

@@ -1,0 +1,303 @@
+{
+  "sources": {
+    "regions": "https://www.wsmc.net/hs-contest-locations",
+    "schools": "https://www.wsmc.net/hs-contest-1",
+    "report": "State Math/2026/Statewide Regional Results 2026.pdf",
+    "reportSha256": "aecdb32ca7038623e76b58a3bb2f09e44587d7141a00d246278122a54ad8fcda",
+    "reviewed": "2026-10-26"
+  },
+  "notes": [
+    "Schools use the names printed in the 2026 Division I/II Team Problem and Topical Team tables; this is a participating-school subset, not a complete Washington directory.",
+    "Division I = WIAA 4A, 3A, 2A; Division II = 1A, 1B, 2B. Individual WIAA classifications are not inferred.",
+    "V is represented as region 11. Klahowya appears under 10, 11 and 9 in the report; use 10, its first Team Problem row and the Peninsula host region. Other schools use their first team-table region.",
+    "The public locations page now lists 2027 sites; only the region names are reused for 2026."
+  ],
+  "regions": [
+    {
+      "number": 1,
+      "name": "Spokane area"
+    },
+    {
+      "number": 2,
+      "name": "Tri Cities"
+    },
+    {
+      "number": 3,
+      "name": "North Central"
+    },
+    {
+      "number": 4,
+      "name": "Yakima area"
+    },
+    {
+      "number": 5,
+      "name": "Northwest"
+    },
+    {
+      "number": 6,
+      "name": "Seattle area"
+    },
+    {
+      "number": 7,
+      "name": "Tacoma area"
+    },
+    {
+      "number": 8,
+      "name": "Southwest"
+    },
+    {
+      "number": 9,
+      "name": "Olympia Area"
+    },
+    {
+      "number": 10,
+      "name": "Peninsula"
+    },
+    {
+      "number": 11,
+      "name": "Virtual"
+    }
+  ],
+  "schools": [
+    {
+      "id": "school-mt-spokane",
+      "name": "Mt Spokane",
+      "division": 1,
+      "region": 1
+    },
+    {
+      "id": "school-oakesdale",
+      "name": "Oakesdale",
+      "division": 2,
+      "region": 1
+    },
+    {
+      "id": "school-goldendale",
+      "name": "Goldendale",
+      "division": 2,
+      "region": 2
+    },
+    {
+      "id": "school-hanford",
+      "name": "Hanford",
+      "division": 1,
+      "region": 2
+    },
+    {
+      "id": "school-kamiakin",
+      "name": "Kamiakin",
+      "division": 1,
+      "region": 2
+    },
+    {
+      "id": "school-tri-cities-prep",
+      "name": "Tri-Cities Prep",
+      "division": 2,
+      "region": 2
+    },
+    {
+      "id": "school-almira-coulee-hartline",
+      "name": "Almira Coulee Hartline",
+      "division": 2,
+      "region": 3
+    },
+    {
+      "id": "school-ephrata",
+      "name": "Ephrata",
+      "division": 1,
+      "region": 3
+    },
+    {
+      "id": "school-warden",
+      "name": "Warden",
+      "division": 2,
+      "region": 3
+    },
+    {
+      "id": "school-wenatchee",
+      "name": "Wenatchee",
+      "division": 1,
+      "region": 3
+    },
+    {
+      "id": "school-granger",
+      "name": "Granger",
+      "division": 2,
+      "region": 4
+    },
+    {
+      "id": "school-prosser",
+      "name": "Prosser",
+      "division": 1,
+      "region": 4
+    },
+    {
+      "id": "school-sunnyside-christian",
+      "name": "Sunnyside Christian",
+      "division": 2,
+      "region": 4
+    },
+    {
+      "id": "school-anacortes",
+      "name": "Anacortes",
+      "division": 1,
+      "region": 5
+    },
+    {
+      "id": "school-cascade",
+      "name": "Cascade",
+      "division": 1,
+      "region": 5
+    },
+    {
+      "id": "school-henry-m-jackson",
+      "name": "Henry M Jackson",
+      "division": 1,
+      "region": 5
+    },
+    {
+      "id": "school-kamiak",
+      "name": "Kamiak",
+      "division": 1,
+      "region": 5
+    },
+    {
+      "id": "school-king-s",
+      "name": "King's",
+      "division": 2,
+      "region": 5
+    },
+    {
+      "id": "school-mariner",
+      "name": "Mariner",
+      "division": 1,
+      "region": 5
+    },
+    {
+      "id": "school-south-whidbey",
+      "name": "South Whidbey",
+      "division": 2,
+      "region": 5
+    },
+    {
+      "id": "school-bear-creek",
+      "name": "Bear Creek",
+      "division": 2,
+      "region": 6
+    },
+    {
+      "id": "school-bellevue-christian",
+      "name": "Bellevue Christian",
+      "division": 2,
+      "region": 6
+    },
+    {
+      "id": "school-bishop-blanchet",
+      "name": "Bishop Blanchet",
+      "division": 1,
+      "region": 6
+    },
+    {
+      "id": "school-hazen",
+      "name": "Hazen",
+      "division": 1,
+      "region": 6
+    },
+    {
+      "id": "school-lincoln",
+      "name": "Lincoln",
+      "division": 1,
+      "region": 6
+    },
+    {
+      "id": "school-seattle-prep",
+      "name": "Seattle Prep",
+      "division": 1,
+      "region": 6
+    },
+    {
+      "id": "school-emerald-ridge",
+      "name": "Emerald Ridge",
+      "division": 1,
+      "region": 7
+    },
+    {
+      "id": "school-puyallup",
+      "name": "Puyallup",
+      "division": 1,
+      "region": 7
+    },
+    {
+      "id": "school-steilacoom",
+      "name": "Steilacoom",
+      "division": 1,
+      "region": 7
+    },
+    {
+      "id": "school-discovery",
+      "name": "Discovery",
+      "division": 2,
+      "region": 8
+    },
+    {
+      "id": "school-skyview",
+      "name": "Skyview",
+      "division": 1,
+      "region": 8
+    },
+    {
+      "id": "school-union",
+      "name": "Union",
+      "division": 1,
+      "region": 8
+    },
+    {
+      "id": "school-raymond",
+      "name": "Raymond",
+      "division": 2,
+      "region": 9
+    },
+    {
+      "id": "school-klahowya",
+      "name": "Klahowya",
+      "division": 2,
+      "region": 10
+    },
+    {
+      "id": "school-sequim",
+      "name": "Sequim",
+      "division": 1,
+      "region": 10
+    },
+    {
+      "id": "school-curtis",
+      "name": "Curtis",
+      "division": 1,
+      "region": 11
+    },
+    {
+      "id": "school-liberty",
+      "name": "Liberty",
+      "division": 1,
+      "region": 11
+    },
+    {
+      "id": "school-stadium",
+      "name": "Stadium",
+      "division": 1,
+      "region": 11
+    },
+    {
+      "id": "school-stanwood",
+      "name": "Stanwood",
+      "division": 1,
+      "region": 11
+    },
+    {
+      "id": "school-thomas-jefferson",
+      "name": "Thomas Jefferson",
+      "division": 1,
+      "region": 11
+    }
+  ]
+}

@@ -9,64 +9,56 @@ npm ci
 npm run demo:preview
 ```
 
-Open `http://127.0.0.1:8797/login`. The script builds the Cloudflare Pages
-output, creates a new temporary D1, applies all migrations from `drizzle/`
-(including `0002_knowdown_outcomes.sql`), loads `scripts/seed.sql`, adds the
-regional coordinator and scorekeeper to Region 2, and starts `wrangler pages
-dev` with that D1 bound as `DB`. It prints the temporary directory. Ctrl+C
-stops the server and removes the directory. Running it again restores the
-original fixture. This preview does not use `.wrangler/state` or remote D1.
+Open `http://127.0.0.1:8797/login`. The command builds the app, applies
+migrations, and loads the real-school showcase into a temporary local D1.
+Ctrl+C removes that database. Restarting restores the showcase. Set
+`WSMC_DEMO_PORT=8798` to choose another port. The script rejects email/origin
+settings in `.dev.vars` and uses development email, which prints one-time
+sign-in links to the terminal. Sign out before switching accounts.
 
-If port 8797 is occupied, run `WSMC_DEMO_PORT=8798 npm run demo:preview` and
-use that port in the browser. The script rejects `.dev.vars` settings that
-could send real email or point sign-in links at another host. It forces a
-development origin for the chosen port.
+### Sign in and tour
 
-### Sign in as each role
-
-Enter one of these seeded addresses on `/login`. The local email adapter
-prints a `[development email]` line with a one-time link in the server
-terminal. Open the link in the same browser. Sign out to switch accounts. Do
-not copy the link into a report or commit it.
-
-| Role | Fixture email | Useful starting point |
+| Role | Email | Starting point |
 |---|---|---|
-| Statewide administrator | `coordinator@wsmc.example` | `/program` → Region 1 contest overview → Results |
-| Region 1 coordinator | `regional@wsmc.example` | `/contests/contest-region-1` (also Alpha's coach) |
-| Region 2 coordinator | `regional2@wsmc.example` | `/contests/contest-region-2` → Lock rosters → Start scoring |
-| Coach | `coach@gamma.example` | `/my-schools` → Gamma registration for Region 2 |
-| Scorekeeper | `scorekeeper@wsmc.example` | `/scoring/contest-region-2` after the coordinator starts scoring |
+| Statewide coordinator | `coordinator@wsmc.example` | `/program` |
+| Spokane coordinator | `regional1@wsmc.example` | `/results/contest-region-1`, finalized and published |
+| Tri Cities coordinator | `regional2@wsmc.example` | `/contests/contest-region-2`, registration |
+| Northwest coordinator | `regional5@wsmc.example` | `/scoring/contest-region-5`, partial scoring |
+| Hanford coach | `coach.hanford@wsmc.example` | `/my-schools`, registration |
 
-Use the coach account before locking Region 2 rosters if you want to edit
-registration. Region 1 is already finalized: its overview shows two schools,
-six rostered students, thirteen entries, and a six entrant Knowdown field.
-`/results/contest-region-1` shows four places (fourth is **Alt**) and two
-eliminated entrants. Coaches cannot see those results until a coordinator
-publishes them. Region 2 begins in `registration_open` with five entries and
-no scores. Opening its scoring URL before roster lock returns a stage message
-instead of a 500.
+Every region has `regionalN@wsmc.example` (1–11, with 11 Virtual). Every school
+has `coach.<school-id-without-school-prefix>@wsmc.example`; see
+`scripts/data/wsmc-directory-2026.json` for the IDs. All users are fictional.
+No scorekeeper accounts or assignments are created. Coordinators enter scores.
 
-The fixture addresses use `.example`; `natpeterson@gmail.com` is not a user in
-this temporary database. The local review used disposable authenticated
-sessions for automated role checks. Manual testing uses the normal one-time
-link flow described above.
+Regions 4 and 10 are in setup; 2, 6, 9 and Virtual have registration open;
+3 has locked rosters; 5 and 8 have partial scores; 7 is finalized awaiting
+publication; 1 is finalized and published. The state contest is in setup,
+without premature qualifications or state roster entries. Published regional
+results are visible to authorized school users; the state public results
+page remains unpublished.
 
-## Vite development server
+There are 40 real schools, 320 fictional annual students, and eight students
+on each participating school's roster outside setup regions. Each rostered
+school has a project, Team Contest, Topical Team, five Topical Individuals,
+and eight Knowdown entrants. Names and divisions come from the 2026 regional
+report; scores and regional contest dates are illustrative. See
+[showcase data](showcase-data.md) for provenance and source inconsistencies.
 
-For hot reload while editing source files, use the default local D1 state:
+## Persistent Vite development database
 
 ```bash
-npx wrangler d1 migrations apply wsmc-db --local
-npm run seed
+npm run seed:showcase
 npm run dev
 ```
 
-Run `npm run seed` only for a fresh local D1; repeating it on seeded data
-causes duplicate IDs. Vite uses the default `.wrangler/state`, which is
-separate from the temporary demo preview. It also prints local sign-in links
-to its terminal. `npm run dev` alone does not create the schema or fixture.
-Use `npm run demo:preview` when you want a clean, reproducible tour or to
-verify Pages behavior.
+`seed:showcase` **replaces all application data** in the default local D1 under
+`.wrangler/state`. It is local-only and applies migrations first. Rerunning
+restores the demo, including role accounts and contest states. It never uses
+remote D1. The isolated Pages demo uses its own temporary database instead.
+
+`scripts/seed.sql` and `npm run seed` remain the small Alpha/Beta/Gamma
+fixture used by automated checks; they are separate from the showcase.
 
 ## Checks
 
