@@ -4,7 +4,12 @@
     "schools": "https://www.wsmc.net/hs-contest-1",
     "report": "State Math/2026/Statewide Regional Results 2026.pdf",
     "reportSha256": "aecdb32ca7038623e76b58a3bb2f09e44587d7141a00d246278122a54ad8fcda",
-    "reviewed": "2026-10-26"
+    "reviewed": "2026-10-26",
+    "addresses": {
+      "file": "WashingtonStatePublicSchools.csv",
+      "sha256": "3805e528e74e68bf91d0403effc9b3f8b64d9261edb84f1ab29fd9818c7d9b6b",
+      "match": "Unique normalized name among schools serving grade 12; ambiguous names left unchanged."
+    }
   },
   "notes": [
     "Schools use the names printed in the 2026 Division I/II Team Problem and Topical Team tables; this is a participating-school subset, not a complete Washington directory.",
@@ -63,31 +68,56 @@
       "id": "school-mt-spokane",
       "name": "Mt Spokane",
       "division": 1,
-      "region": 1
+      "region": 1,
+      "address": "6015 E Mt Spokane Park Dr",
+      "city": "Mead",
+      "state": "WA",
+      "postalCode": "99021-9468",
+      "publicSchoolCode": "4491"
     },
     {
       "id": "school-oakesdale",
       "name": "Oakesdale",
       "division": 2,
-      "region": 1
+      "region": 1,
+      "address": "S 1st St & McCoy St",
+      "city": "Oakesdale",
+      "state": "WA",
+      "postalCode": "99158",
+      "publicSchoolCode": "2432"
     },
     {
       "id": "school-goldendale",
       "name": "Goldendale",
       "division": 2,
-      "region": 2
+      "region": 2,
+      "address": "525 Simcoe Dr",
+      "city": "Goldendale",
+      "state": "WA",
+      "postalCode": "98620",
+      "publicSchoolCode": "2856"
     },
     {
       "id": "school-hanford",
       "name": "Hanford",
       "division": 1,
-      "region": 2
+      "region": 2,
+      "address": "450 Sanford Ave",
+      "city": "Richland",
+      "state": "WA",
+      "postalCode": "99352",
+      "publicSchoolCode": "3833"
     },
     {
       "id": "school-kamiakin",
       "name": "Kamiakin",
       "division": 1,
-      "region": 2
+      "region": 2,
+      "address": "600 N Arthur St",
+      "city": "Kennewick",
+      "state": "WA",
+      "postalCode": "99336-2128",
+      "publicSchoolCode": "3731"
     },
     {
       "id": "school-tri-cities-prep",
@@ -99,37 +129,67 @@
       "id": "school-almira-coulee-hartline",
       "name": "Almira Coulee Hartline",
       "division": 2,
-      "region": 3
+      "region": 3,
+      "address": "413 N 4th St",
+      "city": "Coulee City",
+      "state": "WA",
+      "postalCode": "99115-5002",
+      "publicSchoolCode": "2968"
     },
     {
       "id": "school-ephrata",
       "name": "Ephrata",
       "division": 1,
-      "region": 3
+      "region": 3,
+      "address": "333 4th Ave NW",
+      "city": "Ephrata",
+      "state": "WA",
+      "postalCode": "98823-2400",
+      "publicSchoolCode": "2920"
     },
     {
       "id": "school-warden",
       "name": "Warden",
       "division": 2,
-      "region": 3
+      "region": 3,
+      "address": "101 W Beck Way",
+      "city": "Warden",
+      "state": "WA",
+      "postalCode": "98857-9401",
+      "publicSchoolCode": "3273"
     },
     {
       "id": "school-wenatchee",
       "name": "Wenatchee",
       "division": 1,
-      "region": 3
+      "region": 3,
+      "address": "1101 Millerdale Ave",
+      "city": "Wenatchee",
+      "state": "WA",
+      "postalCode": "98801-3269",
+      "publicSchoolCode": "2134"
     },
     {
       "id": "school-granger",
       "name": "Granger",
       "division": 2,
-      "region": 4
+      "region": 4,
+      "address": "315 Mentzer Ave",
+      "city": "Granger",
+      "state": "WA",
+      "postalCode": "98932-9322",
+      "publicSchoolCode": "3314"
     },
     {
       "id": "school-prosser",
       "name": "Prosser",
       "division": 1,
-      "region": 4
+      "region": 4,
+      "address": "1500 Paterson Rd",
+      "city": "Prosser",
+      "state": "WA",
+      "postalCode": "99350-1429",
+      "publicSchoolCode": "2508"
     },
     {
       "id": "school-sunnyside-christian",
@@ -141,25 +201,46 @@
       "id": "school-anacortes",
       "name": "Anacortes",
       "division": 1,
-      "region": 5
+      "region": 5,
+      "address": "1600 20th Street",
+      "city": "Anacortes",
+      "state": "WA",
+      "postalCode": "98221-3700",
+      "publicSchoolCode": "2467"
     },
     {
       "id": "school-cascade",
       "name": "Cascade",
       "division": 1,
-      "region": 5
+      "region": 5,
+      "address": "801 E Casino Rd",
+      "city": "Everett",
+      "state": "WA",
+      "postalCode": "98203-6534",
+      "publicSchoolCode": "3407",
+      "addressMatchNote": "User confirmed Cascade is in Everett."
     },
     {
       "id": "school-henry-m-jackson",
       "name": "Henry M Jackson",
       "division": 1,
-      "region": 5
+      "region": 5,
+      "address": "1508 136th St SE",
+      "city": "Mill Creek",
+      "state": "WA",
+      "postalCode": "98012-5310",
+      "publicSchoolCode": "4438"
     },
     {
       "id": "school-kamiak",
       "name": "Kamiak",
       "division": 1,
-      "region": 5
+      "region": 5,
+      "address": "10801 Harbour Pointe Blvd",
+      "city": "Mukilteo",
+      "state": "WA",
+      "postalCode": "98275-5139",
+      "publicSchoolCode": "4433"
     },
     {
       "id": "school-king-s",
@@ -171,13 +252,23 @@
       "id": "school-mariner",
       "name": "Mariner",
       "division": 1,
-      "region": 5
+      "region": 5,
+      "address": "200 120th St SW",
+      "city": "Everett",
+      "state": "WA",
+      "postalCode": "98204-5722",
+      "publicSchoolCode": "3688"
     },
     {
       "id": "school-south-whidbey",
       "name": "South Whidbey",
       "division": 2,
-      "region": 5
+      "region": 5,
+      "address": "5675 Maxwelton Rd",
+      "city": "Langley",
+      "state": "WA",
+      "postalCode": "98260-8686",
+      "publicSchoolCode": "4149"
     },
     {
       "id": "school-bear-creek",
@@ -201,7 +292,12 @@
       "id": "school-hazen",
       "name": "Hazen",
       "division": 1,
-      "region": 6
+      "region": 6,
+      "address": "1101 Hoquiam Ave NE",
+      "city": "Renton",
+      "state": "WA",
+      "postalCode": "98059-4314",
+      "publicSchoolCode": "3630"
     },
     {
       "id": "school-lincoln",
@@ -219,19 +315,34 @@
       "id": "school-emerald-ridge",
       "name": "Emerald Ridge",
       "division": 1,
-      "region": 7
+      "region": 7,
+      "address": "12405 184th St E",
+      "city": "Puyallup",
+      "state": "WA",
+      "postalCode": "98374-9135",
+      "publicSchoolCode": "4540"
     },
     {
       "id": "school-puyallup",
       "name": "Puyallup",
       "division": 1,
-      "region": 7
+      "region": 7,
+      "address": "105 7th St SW",
+      "city": "Puyallup",
+      "state": "WA",
+      "postalCode": "98371-5333",
+      "publicSchoolCode": "2125"
     },
     {
       "id": "school-steilacoom",
       "name": "Steilacoom",
       "division": 1,
-      "region": 7
+      "region": 7,
+      "address": "54 Sentinel Dr",
+      "city": "Steilacoom",
+      "state": "WA",
+      "postalCode": "98388-1663",
+      "publicSchoolCode": "4131"
     },
     {
       "id": "school-discovery",
@@ -243,37 +354,67 @@
       "id": "school-skyview",
       "name": "Skyview",
       "division": 1,
-      "region": 8
+      "region": 8,
+      "address": "1300 NW 139th St",
+      "city": "Vancouver",
+      "state": "WA",
+      "postalCode": "98685-1858",
+      "publicSchoolCode": "4504"
     },
     {
       "id": "school-union",
       "name": "Union",
       "division": 1,
-      "region": 8
+      "region": 8,
+      "address": "6201 NW Friberg-Strunk St",
+      "city": "Camas",
+      "state": "WA",
+      "postalCode": "98607-7697",
+      "publicSchoolCode": "5111"
     },
     {
       "id": "school-raymond",
       "name": "Raymond",
       "division": 2,
-      "region": 9
+      "region": 9,
+      "address": "1016 Commercial St",
+      "city": "Raymond",
+      "state": "WA",
+      "postalCode": "98577",
+      "publicSchoolCode": "2357"
     },
     {
       "id": "school-klahowya",
       "name": "Klahowya",
       "division": 2,
-      "region": 10
+      "region": 10,
+      "address": "7607 NW Newberry Hill Rd",
+      "city": "Silverdale",
+      "state": "WA",
+      "postalCode": "98383-7313",
+      "publicSchoolCode": "4509"
     },
     {
       "id": "school-sequim",
       "name": "Sequim",
       "division": 1,
-      "region": 10
+      "region": 10,
+      "address": "601 N Sequim Ave",
+      "city": "Sequim",
+      "state": "WA",
+      "postalCode": "98382-3168",
+      "publicSchoolCode": "2471"
     },
     {
       "id": "school-curtis",
       "name": "Curtis",
       "division": 1,
-      "region": 11
+      "region": 11,
+      "address": "8425 40th St W",
+      "city": "Fircrest",
+      "state": "WA",
+      "postalCode": "98466-2041",
+      "publicSchoolCode": "3600"
     },
     {
       "id": "school-liberty",
@@ -285,19 +426,34 @@
       "id": "school-stadium",
       "name": "Stadium",
       "division": 1,
-      "region": 11
+      "region": 11,
+      "address": "111 N E St",
+      "city": "Tacoma",
+      "state": "WA",
+      "postalCode": "98403-2630",
+      "publicSchoolCode": "2084"
     },
     {
       "id": "school-stanwood",
       "name": "Stanwood",
       "division": 1,
-      "region": 11
+      "region": 11,
+      "address": "7400 272nd St NW",
+      "city": "Stanwood",
+      "state": "WA",
+      "postalCode": "98292-7410",
+      "publicSchoolCode": "2581"
     },
     {
       "id": "school-thomas-jefferson",
       "name": "Thomas Jefferson",
       "division": 1,
-      "region": 11
+      "region": 11,
+      "address": "4248 S 288th St",
+      "city": "Auburn",
+      "state": "WA",
+      "postalCode": "98001-2820",
+      "publicSchoolCode": "3584"
     }
   ]
 }

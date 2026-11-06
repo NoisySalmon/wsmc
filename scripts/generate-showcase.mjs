@@ -13,8 +13,8 @@ if (process.argv[2] === '--directory') {
   const id = number === 11 ? 'region-virtual-2026' : `region-${number}-2026`;
   rows.push(`INSERT INTO regions (id, season_id, number, name) SELECT ${q(id)}, (SELECT id FROM seasons WHERE year = 2026), ${number}, ${q(name)} WHERE NOT EXISTS (SELECT 1 FROM regions r JOIN seasons s ON s.id = r.season_id WHERE s.year = 2026 AND r.number = ${number});`);
  }
- for (const { id, name, division } of directory.schools) {
-  rows.push(`INSERT INTO schools (id, name, short_name, division) SELECT ${q(id)}, ${q(name)}, ${q(name)}, ${division} WHERE NOT EXISTS (SELECT 1 FROM schools WHERE id = ${q(id)} OR lower(trim(name)) = lower(${q(name)}) OR lower(trim(short_name)) = lower(${q(name)}));`);
+ for (const { id, name, division, address = '', city = '', state = 'WA', postalCode = '' } of directory.schools) {
+  rows.push(`INSERT INTO schools (id, name, short_name, division, address, city, state, postal_code) SELECT ${q(id)}, ${q(name)}, ${q(name)}, ${division}, ${q(address)}, ${q(city)}, ${q(state)}, ${q(postalCode)} WHERE NOT EXISTS (SELECT 1 FROM schools WHERE id = ${q(id)} OR lower(trim(name)) = lower(${q(name)}) OR lower(trim(short_name)) = lower(${q(name)}));`);
  }
  writeFileSync(output, rows.join('\n') + '\n');
  console.log(`Generated directory only: ${output}`);
@@ -43,7 +43,7 @@ const knowdownCounts = new Map();
 for (const [index, school] of directory.schools.entries()) {
  const { id, name, division, region } = school;
  const cid = contestId(region), stage = stages[region - 1], slug = id.slice(7);
- add('schools', { id, name, short_name: name, division });
+ add('schools', { id, name, short_name: name, division, address: school.address ?? '', city: school.city ?? '', state: school.state ?? 'WA', postal_code: school.postalCode ?? '' });
  const uid = `user-coach-${slug}`, pid = `participation-${region}-${slug}`;
  add('users', { id: uid, email: `coach.${slug}@wsmc.example`, display_name: `${name} Coach (Demo)`, status: 'active' });
  add('coach_assignments', { user_id: uid, season_id: season, school_id: id });
