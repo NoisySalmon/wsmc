@@ -1,5 +1,9 @@
 <script lang="ts">
 	let { data } = $props();
+	function statusLabel(status: string): string {
+		const label = status.replaceAll('_', ' ');
+		return label.charAt(0).toUpperCase() + label.slice(1);
+	}
 	type ContestRow = { id: string; seasonId: string; regionId: string | null; name: string; kind: string; lifecycle: string };
 	type RegionRow = { id: string; seasonId: string; number: number; name: string };
 	type SeasonRow = { id: string; year: number; name: string; status: string };
@@ -30,17 +34,17 @@
 			{#each data.seasons as season (season.id)}
 				{@const stateContest = stateContestFor(season.id)}
 				<section class="card">
-					<div class="card-head"><h3>{season.year} — {season.name}</h3><span class="status">{season.status}</span></div>
+					<div class="card-head"><h3>{season.year} — {season.name}</h3><span class="status">{statusLabel(season.status)}</span></div>
 					{#if isSeasonCoordinator || isSystem}
 						<p><a href="/program">Set up regions + state contest</a> · <a href="/reports/season/{season.id}">Statewide reports</a> · <a href="/qualifications/{season.id}">Qualifications</a></p>
 					{/if}
 					<h4>Regions</h4>
 					<ul>
 					{#each regionalContestsFor(season.id) as contest (contest.id)}
-						<li><a href="/contests/{contest.id}">{contest.region ? `Region ${contest.region.number}${contest.region.name ? ` — ${contest.region.name}` : ''}` : contest.name}</a> <span>· {contest.lifecycle}</span></li>
+						<li><a href="/contests/{contest.id}">{contest.region ? `Region ${contest.region.number}${contest.region.name ? ` — ${contest.region.name}` : ''}` : contest.name}</a> <span>· {statusLabel(contest.lifecycle)}</span></li>
 					{/each}
 					</ul>
-					{#if stateContest}<p><a href="/state/{stateContest.id}">Open state contest</a> <span>· {stateContest.lifecycle}</span></p>{/if}
+					{#if stateContest}<p><a href="/state/{stateContest.id}">Open state contest</a> <span>· {statusLabel(stateContest.lifecycle)}</span></p>{/if}
 				</section>
 			{/each}
 		{:else if isCoach}

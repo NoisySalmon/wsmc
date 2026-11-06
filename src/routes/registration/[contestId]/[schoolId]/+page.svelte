@@ -40,7 +40,7 @@
 					...student,
 					attending: data.rosterIds.includes(student.id) ? 'yes' : 'no',
 					team: team.team,
-					teamGrade: team.grade,
+					teamGrade: team.grade || String(student.actualGrade),
 					topical:
 						topical.team ||
 						(data.members.some(
@@ -53,9 +53,9 @@
 						)
 							? 'individual'
 							: ''),
-					topicalGrade: topical.grade,
+					topicalGrade: topical.grade || String(student.actualGrade),
 					project: project.team,
-					projectGrade: project.grade,
+					projectGrade: project.grade || String(student.actualGrade),
 					knowdown: data.members.some(
 						(m) =>
 							m.annualStudentId === student.id &&
@@ -90,6 +90,10 @@
 			(_, i) => String(i + 1),
 		),
 	);
+	function cancelContestChanges() {
+		rows = makeRows();
+		dirty = false;
+	}
 	function guardNavigation(event: MouseEvent) {
 		if (
 			dirty &&
@@ -251,7 +255,6 @@
 											disabled={data.readOnly ||
 												row.attending === 'no' ||
 												!row.team}
-											><option value="">{row.actualGrade}</option
 											>{#each grades.filter((g) => g >= row.actualGrade) as grade}<option
 													value={String(grade)}>{grade}</option
 												>{/each}</select
@@ -278,7 +281,6 @@
 												row.attending === 'no' ||
 												!row.topical ||
 												row.topical === 'individual'}
-											><option value="">{row.actualGrade}</option
 											>{#each grades.filter((g) => g >= row.actualGrade) as grade}<option
 													value={String(grade)}>{grade}</option
 												>{/each}</select
@@ -303,7 +305,6 @@
 											disabled={data.readOnly ||
 												row.attending === 'no' ||
 												!row.project}
-											><option value="">{row.actualGrade}</option
 											>{#each grades.filter((g) => g >= row.actualGrade) as grade}<option
 													value={String(grade)}>{grade}</option
 												>{/each}</select
@@ -334,9 +335,12 @@
 						>Not attending clears this contest’s assignments when you save.</small
 					>
 				</p>
+				<div class="save-actions">
+					<button class="secondary" type="button" onclick={cancelContestChanges} disabled={!dirty || saving}>Cancel</button>
 				<button type="submit" disabled={data.readOnly || saving || nominees > 3}
 					>{saving ? 'Saving…' : 'Save contest'}</button
 				>
+				</div>
 			</div>
 		</form>
 		<form class="add-student" method="POST" action="?/addStudent" use:enhance>
@@ -362,7 +366,7 @@
 			>
 		</form>
 		{#if dirty}<p class="add-hint">
-				Save your contest changes before adding or editing students.
+				Save or cancel your contest changes before adding or editing students.
 			</p>{/if}
 	</section>
 	<p class="rules">
@@ -684,6 +688,10 @@
 		justify-content: space-between;
 		gap: 20px;
 		padding: 18px 26px;
+	}
+	.save-actions {
+		display: flex;
+		gap: 10px;
 	}
 	.save-bar p {
 		margin: 0;

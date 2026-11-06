@@ -122,11 +122,14 @@ export const actions: Actions = {
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const data = await request.formData();
 		const db = getDb(platform.env.DB);
-		const [contest] = await db.select({ id: schema.contests.id, seasonId: schema.contests.seasonId }).from(schema.contests).where(eq(schema.contests.id, textValue(data, 'contestId')));
+		const [contest] = await db.select({ id: schema.contests.id, seasonId: schema.contests.seasonId, startsAt: schema.contests.startsAt }).from(schema.contests).where(eq(schema.contests.id, textValue(data, 'contestId')));
 		if (!contest || !canManageSeason(locals, contest.seasonId)) throw error(403, 'You cannot manage this contest.');
 		try {
 			const startsRaw = textValue(data, 'startsAt');
-			await updateContestMeta(db, { contestId: contest.id, name: textValue(data, 'name') || undefined, startsAt: startsRaw ? Date.parse(startsRaw) : undefined });
+			if (startsRaw && (!/^\d{4}-\d{2}-\d{2}$/.test(startsRaw) || !Number.isFinite(Date.parse(startsRaw)) || new Date(startsRaw).toISOString().slice(0, 10) !== startsRaw)) return fail(400, { error: 'Enter a valid contest date.' });
+			// Keep the saved time of day when editing only the calendar date.
+			const timeOfDay = contest.startsAt == null ? 0 : ((contest.startsAt % 86_400_000) + 86_400_000) % 86_400_000;
+			await updateContestMeta(db, { contestId: contest.id, name: textValue(data, 'name') || undefined, startsAt: data.has('startsAt') ? (startsRaw ? Date.parse(startsRaw) + timeOfDay : null) : undefined });
 			return { success: 'Contest details saved.' };
 		} catch (cause) {
 			return fail(400, { error: cause instanceof ProgramError ? cause.message : 'Contest could not be updated.' });

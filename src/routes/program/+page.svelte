@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { contestDate, contestDateInput } from '$lib/contest-date';
 	let { data, form } = $props();
 	const lifecycleOptions = ['setup', 'registration_open', 'roster_locked', 'scoring'];
 	function readinessFor(seasonId: string) { return data.readiness.find((item: { seasonId: string }) => item.seasonId === seasonId); }
@@ -61,7 +62,7 @@
 				{#each regionsFor(season.id) as region (region.id)}
 					<li>
 						<div><strong>Region {region.number}{region.name ? ` — ${region.name}` : ''}</strong>
-						{#if regionalContestFor(region.id)}<span>{regionalContestFor(region.id)?.name} · {regionalContestFor(region.id)?.lifecycle}</span>{:else}<span class="error-inline">No contest yet — re-add this region.</span>{/if}
+						{#if regionalContestFor(region.id)}<span>{regionalContestFor(region.id)?.name} · {regionalContestFor(region.id)?.lifecycle}</span><span>Contest date: {contestDate(regionalContestFor(region.id)?.startsAt)}</span>{:else}<span class="error-inline">No contest yet — re-add this region.</span>{/if}
 						</div>
 						<details><summary>Correct region / contest details</summary>
 							<form use:enhance method="POST" action="?/updateRegion"><input type="hidden" name="regionId" value={region.id} />
@@ -72,7 +73,8 @@
 							{#if regionalContestFor(region.id)}
 							<form use:enhance method="POST" action="?/updateContestMeta"><input type="hidden" name="contestId" value={regionalContestFor(region.id)?.id} />
 								<label>Contest name <input name="name" value={regionalContestFor(region.id)?.name} required /></label>
-								<button type="submit">Save contest name</button>
+								<label>Contest date <input type="date" name="startsAt" value={contestDateInput(regionalContestFor(region.id)?.startsAt)} /></label>
+								<button type="submit">Save contest details</button>
 							</form>
 							<div class="links"><a href="/contests/{regionalContestFor(region.id)?.id}">Open contest overview</a>{#if ['roster_locked', 'scoring', 'finalized'].includes(regionalContestFor(region.id)?.lifecycle ?? '')}<a href="/scoring/{regionalContestFor(region.id)?.id}">Open scoring</a>{/if}{#if regionalContestFor(region.id)?.lifecycle === 'finalized'}<a href="/results/{regionalContestFor(region.id)?.id}">View results</a>{/if}<a href="/contests/{regionalContestFor(region.id)?.id}/staff">Manage staff</a></div>
 							{/if}
@@ -84,11 +86,12 @@
 
 			<h4>State contest</h4>
 			{#if stateContestFor(season.id)}
-				<div class="state-row"><strong>{stateContestFor(season.id)?.name}</strong><span>{stateContestFor(season.id)?.lifecycle}</span>
+				<div class="state-row"><strong>{stateContestFor(season.id)?.name}</strong><span>{stateContestFor(season.id)?.lifecycle}</span><span>Contest date: {contestDate(stateContestFor(season.id)?.startsAt)}</span>
 					<a href="/state/{stateContestFor(season.id)?.id}">Open state administration</a>{#if ['roster_locked', 'scoring', 'finalized'].includes(stateContestFor(season.id)?.lifecycle ?? '')}<a href="/scoring/{stateContestFor(season.id)?.id}">Open scoring</a>{/if}
 				</div>
 				<form class="inline" method="POST" action="?/updateContestMeta"><input type="hidden" name="contestId" value={stateContestFor(season.id)?.id} />
 					<label>Contest name <input name="name" value={stateContestFor(season.id)?.name} required /></label>
+					<label>Contest date <input type="date" name="startsAt" value={contestDateInput(stateContestFor(season.id)?.startsAt)} /></label>
 					<button type="submit">Save</button>
 				</form>
 				<form class="inline" method="POST" action="?/updateStateSettings"><input type="hidden" name="contestId" value={stateContestFor(season.id)?.id} />

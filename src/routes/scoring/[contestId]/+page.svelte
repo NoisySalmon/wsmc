@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	let { data, form } = $props();
 	let categoryFilter = $state('all');
 	let divisionFilter = $state('all');
@@ -46,10 +47,10 @@
 	</section>
 
 	<section class="score-list" aria-label="Score entry table">
-		{#each data.entries.filter(visible) as entry}
+		{#each data.entries.filter(visible) as entry (entry.id)}
 			<article class:missing={missing(entry)} class="score-card">
 				<header><div><strong>{label(entry.category)}</strong><span>{entry.schoolName} · Division {entry.division}{#if entry.entryNumber} · Entry {entry.entryNumber}{/if}</span><small>{entry.members.map((member) => member.name).join(', ') || 'No named members'}</small></div><span class="state">{missing(entry) ? 'Missing' : 'Entered'}</span></header>
-				<form method="POST" action="?/saveResult">
+				<form method="POST" action="?/saveResult" use:enhance={() => async ({ update }) => { await update({ reset: false }); }}>
 					<input type="hidden" name="entryId" value={entry.id} /><input type="hidden" name="expectedVersion" value={entry.version} />
 					{#if entry.category === 'topical_team' || entry.category === 'topical_individual'}
 						<label>Part 1 <input aria-label="{label(entry.category)} Part 1" name="part1" type="number" min="0" max="75" step="any" value={entry.part1 ?? ''} /></label><label>Part 2 <input aria-label="{label(entry.category)} Part 2" name="part2" type="number" min="0" max="75" step="any" value={entry.part2 ?? ''} /></label><output>Total {entry.score === null ? '—' : entry.score}</output>

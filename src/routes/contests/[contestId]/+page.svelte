@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { contestDate } from '$lib/contest-date';
 	let { data, form } = $props();
 </script>
 
@@ -7,6 +8,7 @@
 	<p><a href="/participation">← Participation</a></p>
 	<h1>{data.contest.name}</h1>
 	<p class="subheading">Regional contest · {data.contest.lifecycle}{#if data.contest.resultsPublishedAt} · results published{/if}</p>
+	<p>Contest date: {contestDate(data.contest.startsAt)}</p>
 	{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
 	<nav aria-label="Contest tools"><a href="/participation">Participation</a>{#if ['roster_locked', 'scoring', 'finalized'].includes(data.contest.lifecycle)}<a href="/scoring/{data.contest.id}">Scoring</a>{/if}{#if data.contest.lifecycle === 'finalized'}<a href="/results/{data.contest.id}">Results</a>{/if}{#if data.canManageStaff}<a href="/contests/{data.contest.id}/staff">Manage staff</a>{/if}</nav>
 	{#if data.canAdvanceLifecycle && ['registration_open', 'roster_locked'].includes(data.contest.lifecycle)}
@@ -39,9 +41,9 @@
 		</tbody></table></div></section>
 
 	<section><h2>Registered entries</h2>
-		{#if data.entries.length}<div class="table-wrap"><table><thead><tr><th>Category</th><th>Division</th><th>School</th><th>Entry</th><th>Participants</th><th>Result</th></tr></thead><tbody>
+		{#if data.entries.length}<div class="table-wrap"><table class="entries"><thead><tr><th>Category</th><th>Division</th><th>School</th><th>Entry</th><th>Participants</th><th>Result</th></tr></thead><tbody>
 		{#each data.entries as entry}
-			<tr><td>{entry.categoryLabel}</td><td>Division {entry.division}</td><td>{entry.schoolName}</td><td>{entry.entryNumber ?? '—'}</td><td>{entry.members.map((member) => `${member.studentName} (grade ${member.actualGrade}${member.competingGrade ? `, competing ${member.competingGrade}` : ''})`).join(', ') || 'No participants listed'}</td><td>{entry.complete ? 'Complete' : 'Missing'}</td></tr>
+			<tr><td>{entry.categoryLabel}</td><td>Division {entry.division}</td><td>{entry.schoolName}</td><td>{entry.entryNumber ?? '—'}</td><td>{entry.members.map((member) => `${member.studentName} (grade ${member.actualGrade}${member.competingGrade !== null && member.competingGrade !== member.actualGrade ? `, competing ${member.competingGrade}` : ''})`).join(', ') || 'No participants listed'}</td><td>{entry.complete ? 'Complete' : 'Missing'}</td></tr>
 		{/each}
 		</tbody></table></div>{:else}<p class="muted">No competition entries have been registered.</p>{/if}
 	</section>
@@ -54,6 +56,9 @@
 	.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: .7rem; }
 	.summary div { display: flex; flex-direction: column; padding: .8rem; background: #eef3ff; border-radius: 6px; }.summary strong { font-size: 1.35rem; }
 	.table-wrap { overflow-x: auto; } table { width: 100%; border-collapse: collapse; min-width: 680px; } th, td { text-align: left; vertical-align: top; padding: .6rem; border-bottom: 1px solid #e5e7eb; } th { background: #f5f7fb; }
+	.entries { overflow-wrap: normal; }
+	.entries th, .entries td { white-space: nowrap; }
+	.entries td:nth-child(5) { white-space: normal; min-width: 16rem; }
 	ul { margin: 0; padding-left: 1.2rem; }
 	.stage form { margin: .5rem 0; }.stage button { min-height: 2.75rem; padding: .55rem .8rem; border: 0; border-radius: 4px; background: #1a1a2e; color: #fff; cursor: pointer; }
 	.error, .success { padding: .6rem; border-radius: 4px; }.error { background: #fbe3e3; color: #9a2020; }.success { background: #e2f5e8; color: #176b35; }

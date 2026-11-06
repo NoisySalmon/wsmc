@@ -1,3 +1,4 @@
+import { canAdministerUsers } from '$lib/server/auth/capabilities';
 import { error, fail } from '@sveltejs/kit';
 import { createSchool, SchoolDirectoryError, setSchoolActive, updateSchoolDivision } from '$lib/server/program/schools';
 import { getDb, schema } from '$lib/server/db';
@@ -16,7 +17,7 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 	requireCoordinator(locals);
 	if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 	const schools = await getDb(platform.env.DB).select().from(schema.schools).orderBy(schema.schools.name);
-	return { schools };
+	return { schools, canAdministerUsers: canAdministerUsers(locals.principal!) };
 };
 
 export const actions: Actions = {
