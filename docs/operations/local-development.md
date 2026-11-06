@@ -1,6 +1,24 @@
 # Local development and demo preview
 
-## A fresh demo you can use in the browser
+## Recommended: persistent local development
+
+Run `npm run dev` and open `http://127.0.0.1:5173`. Existing showcase data
+and rehearsal edits persist across restarts. Only run `npm run seed:showcase`
+when you intentionally want to replace all local data with a fresh showcase.
+
+Reusable sign-in links switch directly between the three demo roles:
+
+- [State admin](http://127.0.0.1:5173/auth/demo/state)
+- [Northwest regional admin](http://127.0.0.1:5173/auth/demo/regional)
+- [Hanford coach](http://127.0.0.1:5173/auth/demo/coach)
+
+These shortcuts work only on a loopback Vite development server, use the
+existing fixture accounts, and are disabled in production builds. No emailed
+token or manual sign-out is needed.
+
+## Optional: disposable preview
+
+This separate environment is not needed for normal demo rehearsals.
 
 From the repository root, with Node.js 20+ installed:
 

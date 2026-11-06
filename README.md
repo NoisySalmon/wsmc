@@ -27,19 +27,25 @@ and [implementation progress](docs/implementation-progress.md).
 
 ## Getting Started
 
-### Run the isolated demo locally
+### Run locally with persistent demo data
 
-Install Node.js 20+ and the repository dependencies, then start a fresh Pages
-preview with its own local D1 database:
+Install Node.js 20+ and the repository dependencies, then start the development server:
 
 ```bash
 git clone https://github.com/NoisySalmon/wsmc.git
 cd wsmc
 npm ci
-npm run demo:preview
+npm run seed:showcase # First-time setup only; replaces all local app data
+npm run dev
 ```
 
-Open `http://127.0.0.1:8797/login` and request a sign-in link for
+Open `http://127.0.0.1:5173`. Use the reusable local demo links for
+[state admin](http://127.0.0.1:5173/auth/demo/state),
+[Northwest admin](http://127.0.0.1:5173/auth/demo/regional), or
+[Hanford coach](http://127.0.0.1:5173/auth/demo/coach). These shortcuts switch
+accounts directly and are disabled in production builds.
+
+Alternatively, open `/login` and request a sign-in link for
 `coordinator@wsmc.example` (statewide administrator),
 `regional2@wsmc.example` (Tri Cities registration),
 `regional5@wsmc.example` (Northwest scoring), or
@@ -52,7 +58,7 @@ dates are fictional demo data. No scorekeepers are configured. Regions cover
 setup, registration, locked rosters, partial scoring, finalized results, and
 published results. The state contest awaits setup.
 
-The command builds the app and replaces a fresh temporary local database with
+The optional `npm run demo:preview` command builds the app and loads a fresh temporary local database with
 the showcase. It deletes that database when the server stops. Set
 `WSMC_DEMO_PORT=8798` if needed. To replace the persistent local development
 database instead, run `npm run seed:showcase` and `npm run dev`.

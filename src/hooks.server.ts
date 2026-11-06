@@ -3,7 +3,7 @@ import { getDb } from '$lib/server/db';
 import { SESSION_COOKIE, loadPrincipal } from '$lib/server/auth/service';
 import type { Handle, HandleServerError } from '@sveltejs/kit';
 
-const publicPaths = ['/login', '/auth/callback', '/robots.txt'];
+const publicPaths = ['/login', '/auth/callback', '/auth/demo', '/robots.txt'];
 
 export const isPublishedStateResultsPath = (pathname: string) => /^\/state\/[^/]+\/results\/?$/.test(pathname);
 export const diagnosticPathname = (pathname: string) => /^\/auth\/callback\/[^/]+\/?$/.test(pathname) ? '/auth/callback/[redacted]' : pathname;
