@@ -1,322 +1,281 @@
-# Guided tour scripts — first admin conversation
+# Guided demo — regional contests in progress
 
-Draft for the current implementation, September 26, 2026. Read the
-[readiness assessment](demo-assessment.md) before recording. These are spoken
-scripts with screen directions, not a claim that the demo has been rehearsed.
+Updated November 5, 2026 for the real-region, real-school showcase and current
+coach worksheet. Allow 10–12 minutes, plus discussion. These are spoken scripts
+and screen directions checked against the showcase generator and UI source;
+rehearse the selected actions in the browser before presenting.
 
-## Recording approach
+## Prepare the three roles
 
-Make three short chapters that also work as separate clips. Aim for about
-3 minutes each, allowing time for the screen actions. Add the optional state
-handoff chapter when the admin wants more detail. For the first conversation,
-open with a prepared qualification review to establish the payoff, then show
-how the records get there. Do not spend the opening minute typing setup forms.
+Use the existing local showcase. The running Vite server is normally at
+`http://localhost:5173`; use `npm run dev` for rehearsals with persistent data. The reusable local
+sign-in links below switch accounts automatically; no email or sign-out step
+is needed. They work only on a loopback Vite development server and are
+disabled in production builds. Normal emailed sign-in remains available at `/login`.
 
-Use a disposable demo environment and fictional schools/students. Prepare
-valid, populated screens, with one simple edit to perform in each chapter.
-State visibly when switching roles or moving to a prepared later stage.
-Keep the prototype caveats in the narration; a cut must not imply an
-unsupported transition worked automatically.
+| Chapter | Account | Reusable local sign-in | Starting screen |
+|---|---|---|---|
+| State admin | `coordinator@wsmc.example` | [State admin](http://localhost:5173/auth/demo/state) | Home `/`, then `/program` |
+| Regional admin | `regional5@wsmc.example` | [Northwest admin](http://localhost:5173/auth/demo/regional) | `/contests/contest-region-5` — Northwest |
+| Coach | `coach.hanford@wsmc.example` | [Hanford coach](http://localhost:5173/auth/demo/coach) | `/my-schools`, then `/registration/contest-region-2/school-hanford` |
 
-### Shared opening — about 30 seconds
+The directory has 11 regions and 40 real schools. The 320 students, staff
+accounts, scores and regional dates are fictional. This is a staged picture of
+contests at different points, not a live report of the actual 2026 season.
+There are no scorekeeper accounts, qualification snapshots or state rosters.
 
-**Screen:** A prepared qualification review showing Category, School and Reasons.
+Use three existing examples, rather than advancing one contest through the
+entire lifecycle. Keep Northwest in scoring and Tri Cities open for registration
+so each chapter remains available for another rehearsal.
+
+## Opening — the statewide picture (30 seconds)
+
+**Screen:** Home, signed in as the statewide coordinator. Show the region list.
 
 **Say:**
 
-> “I've been building a way to carry school registrations through regional
-> scoring and into state qualification. Here is the outcome: a list you can
-> review, including why each entry qualified.
+> “This is a demonstration season using real Washington regions and schools,
+> with fictional students and results. I've put the regions at different stages
+> so we can look at the work each person does.
 >
-> I want to see whether this matches the work you actually do and where it
-> could save you time. There are still unfinished steps, which I'll point out.
-> I'll show annual setup, a regional contest, and the coach's part of the work.”
+> I'll start with managing the overall program, then switch to a regional
+> coordinator entering scores, and finish as a coach preparing a school team.
+> I'd like to see where this fits your process and where it needs to change.”
 
-## Script 1 — Setting up the year's contest cycle
+## Chapter 1 — State admin: oversee the program (3–4 minutes)
 
-**Account:** System-wide coordinator. **Screens:** Program → Schools → Users → Participation.
+### 1. See where the regions stand
 
-### 1. Establish the season
-
-**Show:** `/program`, **New season**, then a populated season with its regions
-and state contest.
+**Show:** On Home, point to Yakima (Setup), Tri Cities (Registration open),
+North Central (Roster locked), and Northwest (Scoring). Spokane and Tacoma are
+both Finalized; publication is a separate distinction, visible inside their
+contest/results screens. The state contest is still in Setup.
 
 **Say:**
 
-> “The year is organized as one season, with numbered regions, a contest for
-> each region, and a state contest. Schools live in a shared directory, while
-> participation and divisions are recorded for the particular contest.
+> “The season contains the regional contests and one state contest. Setup means
+> a contest is being prepared. Registration open lets coaches enter their teams.
+> Roster locked closes those edits, and scoring is when staff enter results.
+> Finalized means those results have been locked for review; publishing them
+> to school users is a separate action.
 >
-> You create the season here. I've already prepared the regions and contests
-> so we can look at the whole structure. Adding a region creates its regional
-> contest automatically, and there is one state contest per season.”
+> Here Northwest is scoring while Tri Cities is still accepting registrations.
+> The state contest hasn't opened yet.”
 
-**Show:** State policy selectors on the season card; use a prepared contest with cross-school
-Topical Teams disabled.
+### 2. Manage contest setup and responsibility
 
-> “There is also a state policy for whether all state-rostered students can
-> enter Topical Individual. I'd want you to confirm that choice. The
-> cross-school Topical Team option is visible, but its workflow is unfinished.”
-
-### 2. Give people responsibility
-
-**Show:** **Schools**, an existing fictional school; **Users**, Assignment selector.
-Demonstrate the choices without sending real invitations.
+**Show:** **Set up regions + state contest** → `/program`. Find Northwest's
+region row: region identity, contest date, coordinator assignment, and links
+to overview and staff. Then show the state contest's date and settings.
+Do not create another season or advance a contest during this overview.
 
 **Say:**
 
-> “The school directory is reused across seasons. Access is assigned separately:
-> you can have a statewide administrator, a coordinator for a particular
-> regional contest, school coaches, and scorekeepers assigned to a contest.
-> One person can have more than one responsibility.”
-
-### 3. Establish participation and open registration
-
-**Show:** **Participation** → **Invite a school**; record one fictional school's
-participation and division. Show **Invite a coach** separately.
-
-**Say:**
-
-> “Here you record which school is invited to which contest and its division.
-> Sending a coach a sign-in invitation is a separate step. Sign-in uses an
-> emailed link.
+> “The statewide administrator manages the season structure, contest dates and
+> who coordinates each region. Adding a region creates its contest; the state
+> contest is managed here too. I can open a regional overview or manage its
+> staff without keeping separate lists for each region.
 >
-> The coach can accept or decline from **My schools**. A regional coordinator
-> can also record a response for an uncoached school. The coach's navigation
-> shows a registration link for each assigned school with a participation
-> record in a regional contest.”
+> Creating the next season is available here, but today we're looking at a
+> season already in progress.”
 
-**Show:** Program season readiness and outstanding invitations. On a prepared
-setup contest, choose `registration_open` and **Update**; do not use `finalized`.
+Keep cross-school Topical Teams disabled; that workflow is unfinished. Do not
+make it part of the demonstration.
 
-> “Program shows missing regional contests and outstanding invitations. ‘Setup
-> ready’ checks the contest structure; it doesn't mean every school or roster
-> is ready. Opening registration allows coaches to work on their entries.
-> Activating the season and opening each contest are separate controls.”
+### 3. Connect schools, people and participation
+
+**Show:** **Schools** (`/schools`), find Hanford. This directory supports adding
+schools, changing their default division, and marking them inactive; it does not
+have a school-detail editor. **Users** (`/admin/users`) shows accounts and their
+coach, regional, and statewide assignments. Users requires system-wide coordinator
+access. Then open **Participation**
+(`/participation`) to find Hanford's accepted participation in Tri Cities,
+Division 1, and its coach assignment. Inspect existing records rather than
+issuing another invitation.
+
+**Say:**
+
+> “Schools are shared directory records. A person's assignment determines what
+> they can manage. Participation records which contest a school is entering,
+> its division, and its invitation response.
+>
+> Hanford is already participating in Tri Cities. Later I'll sign in as its
+> coach and show the team worksheet. These are connected records, so the coach
+> doesn't need a separate account for every student.”
+
+**Close / transition:**
+
+> “Does this give you the overview you need to manage the program? What would
+> you need to know about a region before calling its coordinator?
+>
+> Now I'll switch to the Northwest coordinator, whose contest is already scoring.”
+
+## Chapter 2 — Regional admin: find and complete missing scores (3–4 minutes)
+
+**Account:** `regional5@wsmc.example`. The reusable link opens scoring; use
+**Contest overview** to start this chapter. This is a regional-only account, not the
+statewide administrator continuing with broader permissions.
+
+### 1. Start with the contest overview
+
+**Show:** `/contests/contest-region-5`. Point to participating schools, student
+and entry counts, and score coverage. Northwest includes Anacortes, Cascade,
+Henry M Jackson, Kamiak, King's, Mariner and South Whidbey.
+
+**Say:**
+
+> “I'm now responsible for Northwest. The overview shows what the schools have
+> entered and how much scoring remains. Registration is already closed for this
+> contest, so coaches aren't changing the roster while we enter results.”
+
+### 2. Complete one topical result
+
+**Show:** `/scoring/contest-region-5`. Select **Topical Individual**, then
+**Missing only**. Choose an Anacortes entry with Part 1 filled and Part 2 blank
+(the fresh showcase has this on entry 2). Note its student name before editing.
+Keep the existing Part 1 and enter **65** for Part 2; press **Save**.
+If that entry was completed during rehearsal, choose another partial topical
+entry; do not depend on the same row remaining missing.
+
+**Say:**
+
+> “I can filter by event and division, or show only missing results. This entry
+> has its first part but is still incomplete. I'll enter the second part and
+> save. The app totals the two parts and records the editor and version.”
+
+**Show:** After saving, the filters stay selected. With
+**Missing only** enabled the completed entry is excluded. Turn it off and find
+the noted student to show both parts, their total, and the saved version.
+Do not promise a total of 125: Part 1 comes from the fixture.
+
+> “A blank means work is still missing; zero is an actual score. For bulk entry,
+> there's also a prefilled score CSV, with preview before import and version
+> checks to catch an older spreadsheet.”
+
+> “The current screen supports individual score entry and CSV import. For
+> high-volume entry, the next improvement would be a keyboard-driven grid that
+> works like the spreadsheet staff already use.”
+
+**Optional show:** Open the [W3C interactive data grid examples](https://www.w3.org/WAI/ARIA/apg/patterns/grid/examples/data-grids/)
+to illustrate how keyboard navigation and cell editing might work. This is an
+external interaction example, not functionality currently implemented in WSMC.
+
+### 3. Explain the completion checkpoint
+
+**Show:** Select **Knowdown** to show placed, eliminated and missing outcomes.
+Then scroll to **Contest controls** and its missing-result explanation.
+Leave **Finalize results** unsubmitted: Northwest intentionally has other gaps.
+
+**Say:**
+
+> “For Knowdown, this records the final outcome—placed or eliminated—not the
+> round-by-round bracket. Places one through four must be unique across the
+> contest.
+>
+> Northwest still has missing results, so it isn't ready to finalize. Once
+> everything is complete, finalization locks scoring. Publishing is a separate
+> step, and corrections after finalization require reopening with a reason.”
+
+**Optional, if asked what finished results look like:** In the state-admin
+chapter, or after explicitly switching back to that account, open
+`/results/contest-region-1` for Spokane's already published results. Label this
+as a different, prepared contest. Do not imply Northwest was just completed,
+or expect the Northwest-only account to have Spokane access.
+
+**Close / transition:**
+
+> “Would this help you find unfinished scoring on contest day? What correction
+> or exception should we try against a past contest?
+>
+> Next I'll switch schools and stages: Hanford's coach in Tri Cities, where
+> registration is still open.”
+
+## Chapter 3 — Coach: configure the school team (3 minutes)
+
+**Account:** `coach.hanford@wsmc.example`. The reusable link opens the worksheet;
+use **My schools** to start this chapter.
+
+### 1. Open the team's worksheet
+
+**Show:** `/my-schools`, Hanford's accepted participation, then its registration
+link. On the **Who's doing what?** worksheet, point out **Registration open**,
+Attendance, Team Contest, Topical, Project and Knowdown.
+
+**Say:**
+
+> “I'm now Hanford's coach. I manage my school's students and contest choices.
+> Each row brings together attendance, team assignments, topical event and
+> Knowdown nomination. Students don't need to sign in.
+>
+> Team Contest, Topical and Project teams are independent. Teams have up to
+> three students with different competing grades, and students can compete at
+> their actual grade or above.”
+
+### 2. Choose Knowdown nominees and save
+
+**Show:** On a fresh showcase Hanford has eight Knowdown boxes checked. The
+worksheet permits at most three nominees and disables **Save contest** above
+that limit. Uncheck five, retaining the first three students as nominees.
+Press **Save contest**, check for success, then reload to confirm persistence.
+This deliberately changes Hanford's contest entries; it does not delete students.
+
+**Say:**
+
+> “The sample starts with all eight students entered in Knowdown. As coach,
+> I'll choose the three nominees for this contest. The worksheet prevents me
+> from saving more than three. Now I save, and these choices are recorded.”
+
+**Repeat rehearsal:** If only three are already checked, swap one nomination
+from a checked student to an unchecked attending student, keep the total at
+three, and save. Keep everyone attending for this simple example.
+
+### 3. Show student maintenance and the deadline
+
+**Show:** **Edit student details**, then the **Add a student** fields without
+submitting. Point out the actual-grade field and registration CSV controls.
+Avoid adding extra students on every rehearsal.
+
+**Say:**
+
+> “I can maintain student names and actual grades, or add someone new. The
+> worksheet includes a newly added student in this contest, and I choose their
+> events here. There's also a registration CSV option for spreadsheet users;
+> it uses the app's template, with preview before import.
+>
+> When the coordinator locks registration, this becomes read-only. I would
+> contact the coordinator for a correction. I don't enter regional scores.”
 
 **Close:**
 
-> “For your annual setup, which information is missing here? And which of
-> these tasks would you expect a regional coordinator to do without you?”
+> “For a coach who does this once a year, are the event choices clear? Would
+> you use this worksheet, the CSV, or ask someone else to enter the team?”
 
-## Script 2 — Running a regional contest
+## End with the next conversation (30 seconds)
 
-**Accounts:** Regional-only coordinator, then statewide coordinator for
-qualifications. **Screens:** Contest overview → Registration → Scoring → Results.
-Use the assigned contest's Overview link in the coordinator's navigation.
-
-### 1. Check what the schools are bringing
-
-**Show:** The contest overview's school counts, rostered students, registered
-entries and score coverage. Open a prepared school registration page from its
-school row, including roster and category entries.
-
-**Say:**
-
-> “Each school selects the students attending and enters them in the events:
-> Project, Team Contest, Topical Team or Individual, and Knowdown. The team
-> entries include the members and their competing grades.
+> “We've seen the statewide setup and responsibilities, a coordinator finishing
+> scores, and a coach preparing a team. State qualifications and attendance come
+> later; this demo hasn't generated those yet.
 >
-> The overview shows how many schools, students and entries are in this contest,
-> including the Knowdown field. That gives the coordinator the entries that will
-> need scores. The event itself still runs in person, with people judging or
-> marking the work.”
+> Could we replay one past regional contest with a coordinator and a coach,
+> compare the entries and results with your records, and identify what would
+> need to change before a pilot?”
 
-**Show:** On the regional coordinator's contest overview, lock rosters and
-then start scoring. Use the prepared scoring example if its entries differ.
+## Rehearsal notes
 
-> “When registration is ready, I lock the roster and move this contest into
-> scoring. The regional coordinator can make those stage changes and manage
-> scorekeepers for this contest. We will not send a real invitation in this
-> recording.”
-
-### 2. Enter and check results
-
-**Show:** `/scoring/<regional-contest-id>`, Category and Division filters.
-Save one topical result, such as Part 1 = 60 and Part 2 = 65.
-
-**Say:**
-
-> “Project and Team Contest take one score. Topical entries take two parts,
-> and the app totals them. For Knowdown, it records the final places rather
-> than running the elimination bracket.
->
-> Here I save the two topical scores. The total is 125. The entry shows that
-> a result has been entered and records the editor and version.”
-
-**Show:** **Missing only**, a blank result and an explicitly entered zero.
-
-> “This view helps find work still outstanding. A blank means missing; zero
-> is an actual score. For bulk entry, there is also a score CSV: download,
-> edit, preview, then import. Version checks help prevent an older file from
-> silently overwriting a newer edit.”
-
-**Knowdown final outcomes:**
-
-> “Knowdown records each entrant's final outcome as placed or eliminated.
-> Places one through four are unique across the contest, so the six-person
-> example can be finalized without inventing places for the two eliminated
-> students. The app records final outcomes; it does not track each round.”
-
-### 3. Review results and hand them to the state admin
-
-**Show:** The prepared six-person Knowdown field with four places and two
-eliminated outcomes, plus valid complete results in the other categories. Use
-**Finalize results** on Scoring, then **View regional results**. Show fourth
-place labeled **Alt** and the eliminated entrants listed separately.
-
-**Say:**
-
-> “This prepared example shows the review stage. Finalization locks scoring.
-> Results are organized by event and division, with actual-grade standings for
-> Topical Individual and an ordered Knowdown finish. Ties keep the recorded
-> scores; they can produce shared qualifying places.
->
-> There is a separate Publish control. Coordinators can review finalized
-> results first; coaches receive a Results link only after publication.”
-
-**Show:** **Reopen for correction** reason field without submitting; then switch
-to statewide admin and open **Qualifications** to preview the next chapter.
-
-> “Corrections after finalization require reopening with a reason. The state
-> admin then reviews qualification decisions and any score-cutoff additions.
-> That is the handoff I most want to compare with your current spreadsheets.”
-
-**Close:**
-
-> “At your busiest point on contest day, would entering results this way help?
-> What exception from last year's contest should we try to reproduce?”
-
-## Script 3 — What a school coach does
-
-**Account:** Coach-only. **Screens:** My schools, then assigned Registration for an editable
-regional contest. Prepare students in grades 9, 9 and 11 for a team example;
-keep their other entries valid and the intended category available.
-
-### 1. Get to the school's registration
-
-**Show:** Already signed in as the coach, open **My schools** to show the
-assigned school and its invitation status, then open its Registration link.
-Do not display sign-in tokens.
-
-**Say:**
-
-> “The coach signs in with an emailed link, can respond to the school's
-> invitation here, and manages that school's registration. Students don't need
-> accounts. The assigned registration link appears in the menu when the school
-> has a participation record for a regional contest.”
-
-### 2. Separate the student list, attendance, and events
-
-**Show:** **Annual students** → **Add annual student** for a fictional student;
-then **Contest roster** → **Add to roster**.
-
-**Say:**
-
-> “There are three steps: who is in the school's student list for this season,
-> who is coming to this contest, and which events they are entering.
->
-> Adding a name here doesn't enter them automatically. I add the student to
-> the contest roster, then select their events. I'd like to learn whether this
-> separation is clear or whether coaches would want a more direct workflow.”
-
-### 3. Form a valid team
-
-**Show:** **Category entries** → Team Contest → **Create entry** → **Add member**.
-Add the first ninth grader at grade 9. Attempt the second at grade 9; show the
-validation error. Retry at grade 10, then add the eleventh grader at grade 11.
-
-**Say:**
-
-> “Team entries have up to three students with different competing grades.
-> Here's a second ninth grader. Using grade 9 again is rejected. I can enter
-> that student at grade 10 instead, and add the eleventh grader at grade 11.
->
-> Competing grade belongs to this team entry. A student can play up, but can't
-> play below their actual grade. The app also checks duplicate category entries,
-> Topical Team versus Individual, and the school's Knowdown limit.”
-
-### 4. Offer the spreadsheet route and explain the deadline
-
-**Show:** **Download registration CSV**, a prepared export, **Preview CSV**, and
-the preview result. State explicitly whether an import is performed.
-
-**Say:**
-
-> “For a larger roster, the coach can use the app's CSV template in a
-> spreadsheet. Preview checks the file without saving it; Import applies it.
-> This is a defined template, so an existing legacy workbook won't import
-> directly.
->
-> Once registration is locked, the coach needs the coordinator to handle a
-> correction. Coaches don't enter regional scores. If the school qualifies for
-> state, there is a separate attendance and state-entry workflow. Team berths
-> and some replacement cases still need the state admin's help.”
-
-**Close:**
-
-> “Thinking of a coach who only does this once a year, where would they get
-> stuck? Would they use these forms, the CSV, or ask someone else to enter it?”
-
-## Optional chapter — From regional results to state participation
-
-**Length:** About 2 minutes. **Account:** Statewide coordinator. Prepare an
-unpublished qualification draft separately from any already frozen seed round.
-
-**Show:** Program → **Open qualifications** → choose a finalized regional →
-**Generate qualification draft**; focus on the Reasons column.
-
-**Say:**
-
-> “This is where the regional results become a reviewable state invitation
-> list. The draft records the qualification reasons, including placement and
-> actual-grade results. You review it before publishing and freezing the round.
->
-> I'd want to compare this against one of your actual past invitation lists
-> to confirm the rules and exceptions match.”
-
-**Show:** Division cutoff fields and **Preview cutoff additions**, using a
-prepared example that actually adds an entry. Do not invent a qualifying outcome.
-
-> “You can also preview separate division cutoffs for Team Contest, Topical
-> Team, and Topical Individual, and review who would be added. Preview doesn't
-> save a decision. Saving a draft and publishing it are separate actions.”
-
-**Show:** Prepared published qualifications, then Program → **Open state
-administration**, **Qualified-school attendance**, and a prepared state roster.
-The example school must already have state participation recorded.
-
-> “Qualification and attendance are separate. A qualified school records
-> whether it is coming, and the state roster records how each student is
-> admitted: an individual qualification or a qualified team berth.
->
-> The state admin can exercise a team berth and arrange its members. The
-> replacement workflow still needs work, especially for a student who wasn't
-> already registered this season. State scoring then uses the same scoring
-> screens, with a public results page after finalization and publication.”
-
-**Close / concrete next step:**
-
-> “Would you be willing to choose one past regional contest to replay together,
-> with a regional coordinator and a coach? We could compare the results and
-> state invitations, and identify exactly what would need to change before
-> you would trust it for a pilot.”
-
-## Presenter checklist
-
-- Validate the demo environment, actual email sign-in, and every chosen screen
-  before recording; this draft has not been browser-rehearsed.
-- Use fictional data and separate roles; do not expose real student lists,
-  real invitations, credentials, or sign-in links in the recording.
-- Prepare valid fixture data rather than relying on the current seed unchanged.
-- Keep an editable registration example, a scoring example, and a finalized
-  results example. Make cuts between those stages explicit.
-- Do not reuse a frozen qualification round for a draft-generation scene.
-- Use the scoring page's finalization control. Program no longer offers a
-  direct `finalized` transition; publishing is a separate action.
-- Explain that Knowdown captures final outcomes but does not track each
-  elimination round. Do not present mixed-school Topical Teams as working.
-- Do not promise offline use, legacy workbook import, payments, automatic
-  annual roster rollover, or automatic coach notifications after qualification.
-- In a live discussion, pause after each chapter. Ask for a real task or
-  exception; capture the answer before explaining another feature.
+- Confirm the three accounts, routes and selected scoring entry before the demo.
+  This document is not evidence of a completed browser rehearsal.
+- The two live edits are one Northwest topical score and Hanford's Knowdown
+  selections. The state-admin chapter inspects existing records. No real
+  invitations need to be sent, and no contest needs to change stage.
+- The existing local database preserves edits. Do not reseed just to repeat the
+  talk. `npm run seed:showcase` replaces all local application data; use it only
+  when intentionally resetting. `npm run demo:preview` provides a separate,
+  disposable showcase, removed when that server stops.
+- The stage map and directory provenance are in
+  [showcase data](operations/showcase-data.md); startup details are in
+  [local development](operations/local-development.md).
+- The older [readiness assessment](demo-assessment.md) includes the former small
+  fixture and earlier coach UI. Use this script and the showcase guide for
+  current screen directions. Do not promise offline use, arbitrary legacy
+  workbook imports, automatic qualification notifications, or completed
+  cross-school Topical Team workflows.
