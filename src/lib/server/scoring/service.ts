@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
 import { PersistenceRuleError, saveResult } from '$lib/server/db/repositories';
@@ -88,20 +88,12 @@ export async function getScoringSnapshot(db: Database, contestId: string) {
 		.where(eq(schema.entries.contestId, contestId))
 		.orderBy(asc(schema.entries.category), asc(schema.entries.division), asc(schema.entries.entryNumber));
 
-	const entryIds = rows.map((row) => row.entry.id);
-	const members = entryIds.length === 0
-		? []
-		: await db.select({ member: schema.entryMembers, studentName: schema.annualStudents.name, actualGrade: schema.annualStudents.actualGrade, schoolName: schema.schools.shortName })
-			.from(schema.entryMembers)
-			.innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.entryMembers.annualStudentId))
-			.innerJoin(schema.schools, eq(schema.schools.id, schema.annualStudents.schoolId))
-			.where(eq(schema.entryMembers.entryId, entryIds[0]));
-	// D1/SQLite does not accept an empty IN list. Load the remaining members separately when needed.
-	const allMembers = entryIds.length <= 1 ? members : await db.select({ member: schema.entryMembers, studentName: schema.annualStudents.name, actualGrade: schema.annualStudents.actualGrade, schoolName: schema.schools.shortName })
+	const allMembers = await db.select({ member: schema.entryMembers, studentName: schema.annualStudents.name, actualGrade: schema.annualStudents.actualGrade, schoolName: schema.schools.shortName })
 		.from(schema.entryMembers)
+		.innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId))
 		.innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.entryMembers.annualStudentId))
 		.innerJoin(schema.schools, eq(schema.schools.id, schema.annualStudents.schoolId))
-		.where(inArray(schema.entryMembers.entryId, entryIds));
+		.where(eq(schema.entries.contestId, contestId));
 
 	return {
 		contest,
