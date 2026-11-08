@@ -34,6 +34,18 @@ export async function createSchool(db: Database, input: { name: string; shortNam
 	return { school, duplicates };
 }
 
+export async function updateSchool(db: Database, schoolId: string, input: { name: string; shortName: string; address: string; city: string; postalCode: string; division: number; confirmDuplicate?: boolean }) {
+	const name = input.name.trim();
+	const city = input.city.trim();
+	if (!name || !city) throw new SchoolDirectoryError('invalid_request', 'School name and city are required.');
+	const division = requireDivision(input.division);
+	const schools = await db.select().from(schema.schools);
+	if (!schools.some((school) => school.id === schoolId)) throw new SchoolDirectoryError('not_found', 'School not found.');
+	const duplicates = schools.filter((school) => school.id !== schoolId && normalizeSchoolName(school.name) === normalizeSchoolName(name) && school.city.toLowerCase() === city.toLowerCase());
+	if (duplicates.length && !input.confirmDuplicate) throw new SchoolDirectoryError('duplicate_suggestion', 'Another school with the same name and city already exists.', duplicates);
+	await db.update(schema.schools).set({ name, city, shortName: input.shortName.trim(), address: input.address.trim(), postalCode: input.postalCode.trim(), state: 'WA', division, updatedAt: Date.now() }).where(eq(schema.schools.id, schoolId));
+}
+
 export async function updateSchoolDivision(db: Database, schoolId: string, division: number, now = Date.now()): Promise<void> {
 	const valid = requireDivision(division);
 	const [school] = await db.select({ id: schema.schools.id }).from(schema.schools).where(eq(schema.schools.id, schoolId));

@@ -8,7 +8,17 @@
     "addresses": {
       "file": "WashingtonStatePublicSchools.csv",
       "sha256": "3805e528e74e68bf91d0403effc9b3f8b64d9261edb84f1ab29fd9818c7d9b6b",
-      "match": "Unique normalized name among schools serving grade 12; ambiguous names left unchanged."
+      "match": "Unique normalized name among schools serving grade 12; ambiguous names left unchanged.",
+      "supplemental": {
+        "school-bear-creek": "https://www.tbcs.org/about-us/contact-us",
+        "school-bellevue-christian": "https://www.bellevuechristian.org/wp-content/uploads/2025/09/Highschool-profile-August-2025-updated-9.pdf",
+        "school-bishop-blanchet": "https://www.bishopblanchet.org/about",
+        "school-king-s": "https://kingsschools.org/",
+        "school-seattle-prep": "https://www.seaprep.org/about-prep/contactanddirections",
+        "school-sunnyside-christian": "https://www.sunnysidechristianschool.org/forward-together/",
+        "school-tri-cities-prep": "https://www.tcprep.org/admissions"
+      },
+      "supplementalNotes": "Official school websites checked 2026-11-08. Bear Creek and Sunnyside Christian use high-school campuses. King's uses its published Seattle mailing city for the Shoreline campus."
     }
   },
   "notes": [
@@ -123,7 +133,11 @@
       "id": "school-tri-cities-prep",
       "name": "Tri-Cities Prep",
       "division": 2,
-      "region": 2
+      "region": 2,
+      "address": "9612 Saint Thomas Dr",
+      "city": "Pasco",
+      "state": "WA",
+      "postalCode": "99301"
     },
     {
       "id": "school-almira-coulee-hartline",
@@ -195,7 +209,11 @@
       "id": "school-sunnyside-christian",
       "name": "Sunnyside Christian",
       "division": 2,
-      "region": 4
+      "region": 4,
+      "address": "1820 Sheller Rd",
+      "city": "Sunnyside",
+      "state": "WA",
+      "postalCode": "98944"
     },
     {
       "id": "school-anacortes",
@@ -246,7 +264,11 @@
       "id": "school-king-s",
       "name": "King's",
       "division": 2,
-      "region": 5
+      "region": 5,
+      "address": "19303 Fremont Ave N",
+      "city": "Seattle",
+      "state": "WA",
+      "postalCode": "98133"
     },
     {
       "id": "school-mariner",
@@ -274,19 +296,31 @@
       "id": "school-bear-creek",
       "name": "Bear Creek",
       "division": 2,
-      "region": 6
+      "region": 6,
+      "address": "8525 208th Avenue NE",
+      "city": "Redmond",
+      "state": "WA",
+      "postalCode": "98053"
     },
     {
       "id": "school-bellevue-christian",
       "name": "Bellevue Christian",
       "division": 2,
-      "region": 6
+      "region": 6,
+      "address": "1701 98th Ave NE",
+      "city": "Clyde Hill",
+      "state": "WA",
+      "postalCode": "98004"
     },
     {
       "id": "school-bishop-blanchet",
       "name": "Bishop Blanchet",
       "division": 1,
-      "region": 6
+      "region": 6,
+      "address": "8200 Wallingford Ave N",
+      "city": "Seattle",
+      "state": "WA",
+      "postalCode": "98103"
     },
     {
       "id": "school-hazen",
@@ -301,15 +335,23 @@
     },
     {
       "id": "school-lincoln",
-      "name": "Lincoln",
+      "name": "Lincoln High School",
       "division": 1,
-      "region": 6
+      "region": 6,
+      "address": "4400 Interlake Ave N",
+      "city": "Seattle",
+      "state": "WA",
+      "postalCode": "98103"
     },
     {
       "id": "school-seattle-prep",
       "name": "Seattle Prep",
       "division": 1,
-      "region": 6
+      "region": 6,
+      "address": "2400 11th Ave E",
+      "city": "Seattle",
+      "state": "WA",
+      "postalCode": "98102"
     },
     {
       "id": "school-emerald-ridge",
@@ -348,7 +390,11 @@
       "id": "school-discovery",
       "name": "Discovery",
       "division": 2,
-      "region": 8
+      "region": 8,
+      "address": "5215 Nan Henriksen Way",
+      "city": "Camas",
+      "state": "WA",
+      "postalCode": "98607"
     },
     {
       "id": "school-skyview",
@@ -420,7 +466,11 @@
       "id": "school-liberty",
       "name": "Liberty",
       "division": 1,
-      "region": 11
+      "region": 11,
+      "address": "16688 SE 136th",
+      "city": "Renton",
+      "state": "WA",
+      "postalCode": "98059"
     },
     {
       "id": "school-stadium",
