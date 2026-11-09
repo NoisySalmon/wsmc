@@ -33,15 +33,16 @@ export async function issueSignInToken(
 	const now = input.now ?? Date.now();
 	const expiresAt = now + (input.ttlMs ?? SIGN_IN_TOKEN_TTL_MS);
 	const rawToken = randomToken();
+	const id = crypto.randomUUID();
 	await db.insert(schema.signInTokens).values({
-		id: crypto.randomUUID(),
+		id,
 		userId: input.userId,
 		tokenHash: await sha256(rawToken),
 		purpose: input.purpose ?? 'sign_in',
 		expiresAt,
 		createdAt: now,
 	});
-	return { rawToken, expiresAt };
+	return { id, rawToken, expiresAt };
 }
 
 export async function sendSignInLink(
@@ -87,6 +88,23 @@ export async function addUserAssignments(
 	if (user.status === 'disabled') throw new AuthError('user_disabled', 'Enable this user before adding access.');
 	await attachAssignments(db, user.id, input.assignments, input.now ?? Date.now());
 	return { user };
+}
+
+/** Add access by email, inviting only people who do not yet have an account. */
+export async function addPerson(
+	db: Database,
+	provider: EmailProvider,
+	input: { email: string; displayName?: string; assignments: InviteAssignment[]; origin: string },
+) {
+	if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) throw new AuthError('invalid_request', 'Enter a valid email address.');
+	const existing = await findUserByEmail(db, input.email);
+	if (existing) {
+		const { user } = await addUserAssignments(db, { userId: existing.id, assignments: input.assignments });
+		return { user, invited: false };
+	}
+	if (!input.displayName?.trim()) throw new AuthError('invalid_request', 'Name is required for a new account.');
+	const { user } = await inviteUser(db, provider, input);
+	return { user, invited: true };
 }
 
 async function attachAssignments(db: Database, userId: string, assignments: InviteAssignment[], now: number): Promise<void> {

@@ -30,7 +30,7 @@
 	{#if form?.success}<p class="success">{form.success}</p>{/if}
 
 	<section class="forms">
-		<div><h2>New season</h2><p class="muted">Creates the default regions and contests, and copies season coordinators from the most recent season. Regional coordinators are assigned per contest below.</p><form use:enhance method="POST" action="?/createSeason">
+		<div><h2>New season</h2><p class="muted">Creates the default regions and contests. Regional coordinators are assigned per contest below.</p><form use:enhance method="POST" action="?/createSeason">
 			<label>Year <input type="number" name="year" min="2000" max="2200" required /></label>
 			<label>Name <input name="name" placeholder="2027 WSMC" required /></label>
 			<button type="submit">Create season</button>

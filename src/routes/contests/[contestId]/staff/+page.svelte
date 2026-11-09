@@ -1,37 +1,53 @@
 <script lang="ts">
+	import QrSignIn from '$lib/components/QrSignIn.svelte';
 	let { data, form } = $props();
 </script>
 
-<svelte:head><title>{data.contest.name} staff — WSMC</title></svelte:head>
+<svelte:head><title>{data.contest.name} people — WSMC</title></svelte:head>
 <main>
 	<p><a href="/contests/{data.contest.id}">← {data.contest.name}</a></p>
-	<h1>Contest staff</h1>
-	<p>Regional coordinators manage schools and scores here. Scorekeepers help with score entry only.</p>
-	{#if data.canManageCoordinators}
-	<section><h2>Regional coordinators</h2>
-		{#if data.coordinators.length}
-			<ul>{#each data.coordinators as coordinator}<li><div><strong>{coordinator.displayName || coordinator.email}</strong><span>{coordinator.email} · {coordinator.status}</span></div><form method="POST" action="?/removeCoordinator"><input type="hidden" name="userId" value={coordinator.userId} /><button class="quiet" type="submit">Remove from this contest</button></form></li>{/each}</ul>
-		{:else}<p>No regional coordinators assigned yet.</p>{/if}
-		<h3>Invite or assign a regional coordinator</h3>
-		<form method="POST" action="?/inviteCoordinator"><label>Name <input name="displayName" required /></label><label>Email <input type="email" name="email" required /></label><button type="submit">Invite regional coordinator</button></form>
-	</section>
-	{:else if data.coordinators.length}
-	<section><h2>Regional coordinators</h2><ul>{#each data.coordinators as coordinator}<li>{coordinator.displayName || coordinator.email} · {coordinator.email}</li>{/each}</ul></section>
-	{/if}
+	<h1>People · {data.contest.name}</h1>
+	<p>Add people by email. Existing accounts receive access without an email; new accounts receive a sign-in invitation. Disabled accounts must be re-enabled by an administrator.</p>
 	{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
 
-	<section><h2>Current scorekeepers</h2>
-		{#if data.scorekeepers.length}
-			<ul>{#each data.scorekeepers as scorekeeper}<li><div><strong>{scorekeeper.displayName || scorekeeper.email}</strong><span>{scorekeeper.email} · {scorekeeper.status}</span></div><form method="POST" action="?/remove"><input type="hidden" name="userId" value={scorekeeper.userId} /><button class="quiet" type="submit">Remove from this contest</button></form></li>{/each}</ul>
-		{:else}<p>No scorekeepers are assigned.</p>{/if}
-	</section>
+	{#if form?.qr}<QrSignIn qr={form.qr} />{/if}
+	<p>Use Show sign-in QR to sign someone in without email. Accounts with coordinator access need an administrator to generate their code.</p>
 
-	<section><h2>Invite or assign a scorekeeper</h2>
-		<p>Existing accounts receive this contest assignment. New accounts receive a sign-in invitation.</p>
-		<form method="POST" action="?/invite"><label>Name <input name="displayName" required /></label><label>Email <input type="email" name="email" required /></label><button type="submit">Invite scorekeeper</button></form>
+	{#snippet addForm(role: string, schoolId = '')}
+		<form method="POST" action="?/add">
+			<input type="hidden" name="role" value={role} /><input type="hidden" name="schoolId" value={schoolId} />
+			<label>Email <input type="email" name="email" required /></label>
+			<label>Name (required for new accounts) <input name="displayName" /></label>
+			<button type="submit">Add {role === 'regional' ? 'regional coordinator' : role}</button>
+		</form>
+	{/snippet}
+	{#snippet personRow(person: { userId: string; displayName: string; email: string; status: string; canGenerateQr: boolean }, role: string, schoolId = '', manageable = true)}
+		<li><div><strong>{person.displayName || person.email}</strong><span>{person.email} · {person.status}</span></div>
+		{#if manageable}<div class="actions">
+			{#if person.canGenerateQr}<form method="POST" action="?/qr"><input type="hidden" name="userId" value={person.userId} /><button type="submit">Show sign-in QR</button></form>{/if}
+			{#if person.status === 'pending'}<form method="POST" action="?/resend"><input type="hidden" name="role" value={role} /><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="userId" value={person.userId} /><button class="quiet" type="submit">Resend invitation</button></form>{/if}
+			<form method="POST" action="?/remove"><input type="hidden" name="role" value={role} /><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="userId" value={person.userId} /><button class="quiet" type="submit">{role === 'coach' ? 'Remove school/season access' : 'Remove from this contest'}</button></form>
+		</div>{/if}</li>
+	{/snippet}
+
+	<section><h2>Regional coordinators</h2>
+		<ul>{#each data.coordinators as person}{@render personRow(person, 'regional', '', data.canManageCoordinators)}{:else}<li>No regional coordinators assigned.</li>{/each}</ul>
+		{#if data.canManageCoordinators}{@render addForm('regional')}{/if}
+	</section>
+	<section><h2>Scorekeepers</h2>
+		<ul>{#each data.scorekeepers as person}{@render personRow(person, 'scorekeeper')}{:else}<li>No scorekeepers assigned.</li>{/each}</ul>
+		{@render addForm('scorekeeper')}
+	</section>
+	<section><h2>School coaches</h2><p>Coach access belongs to the school for this season and stays with it when it moves between contests.</p>
+		{#each data.schools as school}<section id="school-{school.id}"><h3>{school.name}</h3>
+			<ul>{#each data.coaches.filter((coach) => coach.schoolId === school.id) as person}{@render personRow(person, 'coach', school.id)}{:else}<li>No coaches assigned.</li>{/each}</ul>
+			{@render addForm('coach', school.id)}
+		</section>{:else}<p>Invite a school through <a href="/participation">Participation</a> before adding its coaches.</p>{/each}
 	</section>
 </main>
 <style>
+	.actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+
 	main { max-width: 800px; margin: 0 auto; padding: 2rem 1rem; }
 	section { margin-top: 1.5rem; border-top: 1px solid #ddd; padding-top: 1rem; }
 	ul { list-style: none; padding: 0; } li { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: .75rem 0; border-bottom: 1px solid #eee; } li div { display: grid; gap: .2rem; } li span { color: #596273; }

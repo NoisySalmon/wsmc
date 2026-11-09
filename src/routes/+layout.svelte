@@ -1,12 +1,12 @@
 <script lang="ts">
 	let { children, data } = $props();
-	const nav = $derived(data?.nav as { isSystem: boolean; isSeasonCoordinator: boolean; isRegional: boolean; isCoach: boolean; isScorekeeper: boolean } | null | undefined);
+	const nav = $derived(data?.nav as { isAdmin: boolean; isRegional: boolean; isCoach: boolean; isScorekeeper: boolean } | null | undefined);
 	const principal = $derived(data?.principal);
-	const showProgram = $derived(Boolean(nav?.isSystem || nav?.isSeasonCoordinator));
-	// Schools/Participation are shown to system + season coordinators; regional coordinators
+	const showProgram = $derived(Boolean(nav?.isAdmin));
+	// Administrators have the school directory; regional coordinators
 	// manage schools through their contest Overview / Participation scope instead.
-	const showDirectory = $derived(Boolean(nav?.isSystem || nav?.isSeasonCoordinator));
-	const showUsers = $derived(Boolean(principal?.statewideSeasonIds.includes(null)));
+	const showDirectory = $derived(Boolean(nav?.isAdmin));
+	const showUsers = $derived(Boolean(nav?.isAdmin));
 </script>
 
 <svelte:head>
@@ -20,7 +20,7 @@
 	{#if showDirectory}<a href="/schools">Schools</a>{/if}
 	{#if showDirectory || nav?.isRegional}<a href="/participation">Participation</a>{/if}
 	{#if nav?.isCoach}<a href="/my-schools">My schools</a>{/if}
-	{#if showUsers}<a href="/admin/users">Users</a>{/if}
+	{#if showUsers}<a href="/admin/users">Users &amp; access</a>{/if}
 	{#each data?.roleLinks ?? [] as link}<a href={link.href}>{link.label}</a>{/each}
 	{#if principal}<form method="POST" action="/auth/sign-out"><button type="submit">Sign out</button></form>{/if}
 </nav>

@@ -8,13 +8,13 @@ export type Principal = {
 	scorekeeperContestIds: string[];
 };
 
-export function canCoordinateState(principal: Principal, seasonId: string): boolean {
-	return principal.statewideSeasonIds.some((assignedSeasonId) => assignedSeasonId === null || assignedSeasonId === seasonId);
+export function canCoordinateState(principal: Principal, _seasonId: string): boolean {
+	return canAdministerUsers(principal);
 }
 
-/** User administration is reserved for system-wide coordinators. */
+/** Both legacy statewide assignment forms grant administrator access. */
 export function canAdministerUsers(principal: Principal): boolean {
-	return principal.statewideSeasonIds.includes(null);
+	return principal.statewideSeasonIds.length > 0;
 }
 
 export function canCoordinateRegion(principal: Principal, contestId: string, seasonId?: string): boolean {

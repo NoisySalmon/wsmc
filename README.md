@@ -18,6 +18,23 @@ and [implementation progress](docs/implementation-progress.md).
 - **Contest operations:** Category-aware scoring, optimistic concurrency, finalization, publication, qualification snapshots, state attendance, and substitutions.
 - **Scoped visibility:** Assignment-based authorization and a publication-gated public state results page.
 
+## People and access
+
+Administrators manage accounts and assignments in **Users & access**. Legacy
+system-wide and season coordinator assignments both grant administrator access
+across seasons; new administrators receive one system-wide assignment.
+
+Use **Add person** with an email address to grant access. Existing accounts keep
+their name and sign-in links; new accounts receive an invitation. Pending
+invitations can be resent explicitly. Only administrators can disable or enable
+accounts and revoke sessions.
+
+Regional coordinators use their contest's **People** page to manage scorekeepers
+and coaches for participating schools. Administrators also manage regional
+coordinators there. Coach access belongs to a school and season and survives a
+move between regional contests. **Participation** manages school invitations,
+responses, divisions, and registration links; it links to People for coach changes.
+
 ## Tech Stack
 
 - **Frontend:** SvelteKit (Svelte 5)

@@ -1,20 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { canAdministerSchool, canAdministerUsers, canCoachSchool, canCoordinateRegion, canCoordinateState, canEditRoster, canFinalizeContest, canScoreContest, type Principal } from './capabilities';
 
-const principal: Principal = {
+const assignedPrincipal: Principal = {
 	id: 'user-1', email: 'user@example.com', displayName: 'User',
 	statewideSeasonIds: ['season-1'], regionalContestIds: ['contest-2'], coachAssignments: [{ seasonId: 'season-1', schoolId: 'school-1' }], scorekeeperContestIds: ['contest-3'],
 };
 
 describe('assignment capabilities', () => {
-	it('recognizes season-scoped statewide coordination', () => {
-		expect(canCoordinateState(principal, 'season-1')).toBe(true);
-		expect(canCoordinateState(principal, 'season-2')).toBe(false);
-		expect(canAdministerUsers(principal)).toBe(false);
-		expect(canAdministerUsers({ ...principal, statewideSeasonIds: [null] })).toBe(true);
+	it('treats legacy season and system assignments as administrators', () => {
+		expect(canCoordinateState(assignedPrincipal, 'season-1')).toBe(true);
+		expect(canCoordinateState(assignedPrincipal, 'season-2')).toBe(true);
+		expect(canAdministerUsers(assignedPrincipal)).toBe(true);
+		expect(canAdministerUsers({ ...assignedPrincipal, statewideSeasonIds: [null] })).toBe(true);
 	});
 
 	it('allows scoped regional and scorekeeper access without granting statewide access', () => {
+		const principal = { ...assignedPrincipal, statewideSeasonIds: [] };
 		expect(canCoordinateRegion(principal, 'contest-2', 'season-2')).toBe(true);
 		expect(canScoreContest(principal, 'contest-3', 'season-2')).toBe(true);
 		expect(canScoreContest(principal, 'contest-4', 'season-2')).toBe(false);
@@ -24,6 +25,7 @@ describe('assignment capabilities', () => {
 	});
 
 	it('supports a coach assigned to a school', () => {
+		const principal = { ...assignedPrincipal, statewideSeasonIds: [] };
 		expect(canCoachSchool(principal, 'school-1')).toBe(true);
 		expect(canCoachSchool(principal, 'school-1', 'season-1')).toBe(true);
 		expect(canCoachSchool(principal, 'school-1', 'season-2')).toBe(false);

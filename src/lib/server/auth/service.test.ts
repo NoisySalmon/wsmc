@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sha256 } from './crypto';
-import { AuthError, consumeSignInToken, inviteUser, isSignInTokenUsable, issueSignInToken, loadPrincipal, removeAssignment, setUserStatus } from './service';
+import { addPerson, AuthError, consumeSignInToken, isSignInTokenUsable, issueSignInToken, loadPrincipal, removeAssignment, setUserStatus } from './service';
 
 const base = { revokedAt: null, usedAt: null, expiresAt: 2000 };
 
@@ -92,11 +92,10 @@ describe('sign-in token policy', () => {
 			update: () => ({ set: () => ({ where: async () => undefined }) }),
 		};
 		const provider = { sendSignInLink: async (message: { to: string; url: string }) => { sent.push(message); } };
-		const result = await inviteUser(db as never, provider, {
+		const result = await addPerson(db as never, provider, {
 			email: ' COACH@Example.COM ',
 			displayName: 'Coach',
 			origin: 'https://wsmc.example',
-			now: 1000,
 			assignments: [
 				{ kind: 'coach', seasonId: 'season-2026', schoolId: 'school-alpha' },
 				{ kind: 'scorekeeper', contestId: 'contest-region-1' },
@@ -105,8 +104,27 @@ describe('sign-in token policy', () => {
 		expect(result.user.email).toBe('coach@example.com');
 		expect(inserted.filter((row) => row.userId === result.user.id)).toHaveLength(3);
 		expect(sent[0]?.to).toBe('coach@example.com');
-		expect(sent[0]?.url).toBe(`https://wsmc.example/auth/callback/${result.token.rawToken}`);
-		expect(inserted.find((row) => row.purpose === 'invite')?.tokenHash).not.toBe(result.token.rawToken);
+		expect(result.invited).toBe(true);
+		expect(sent).toHaveLength(1);
+		expect(sent[0]?.url).toMatch(/^https:\/\/wsmc\.example\/auth\/callback\//);
+		expect(inserted.find((row) => row.purpose === 'invite')?.tokenHash).toBe(await sha256(sent[0]!.url.split('/').at(-1)!));
+	});
+
+	it('adds access to a pending account without replacing its invitation or name', async () => {
+		const user = { id: 'pending-user', email: 'pending@example.com', displayName: 'Original name', status: 'pending' };
+		const inserted: Record<string, unknown>[] = [];
+		const db = {
+			select: () => ({ from: () => ({ where: async () => [user] }) }),
+			insert: () => ({ values: (values: Record<string, unknown>) => ({ onConflictDoNothing: async () => { inserted.push(values); } }) }),
+			update: () => { throw new Error('Adding access must not update account details or revoke tokens.'); },
+		};
+		const provider = { sendSignInLink: async () => { throw new Error('Adding access must not send email.'); } };
+		const result = await addPerson(db as never, provider, {
+			email: ' PENDING@example.com ', displayName: 'Replacement name', origin: 'https://wsmc.example',
+			assignments: [{ kind: 'scorekeeper', contestId: 'contest-2' }],
+		});
+		expect(result).toMatchObject({ invited: false, user: { displayName: 'Original name', status: 'pending' } });
+		expect(inserted).toEqual([expect.objectContaining({ userId: user.id, contestId: 'contest-2' })]);
 	});
 
 	it('loads overlapping and multi-school assignments into one principal', async () => {

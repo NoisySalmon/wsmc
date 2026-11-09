@@ -6,7 +6,7 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 	const principal = locals.principal;
 	if (!principal || !platform?.env.DB) return { principal, seasons: [], contests: [], regions: [] };
 	const db = getDb(platform.env.DB);
-	// Season coordinators (incl. system) see all seasons; others see seasons tied to their assignments.
+	// Administrators see all seasons; others see seasons tied to their assignments.
 	const isCoordinator = principal.statewideSeasonIds.length > 0;
 	const seasonIds = new Set<string>();
 	for (const id of principal.statewideSeasonIds) if (id) seasonIds.add(id);

@@ -1,12 +1,13 @@
 import { error, fail } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
+import { qrActions } from '$lib/server/auth/qr';
 import { canAdministerUsers } from '$lib/server/auth/capabilities';
 import { createEmailProvider, resolveAppOrigin } from '$lib/server/auth/email';
 import {
 	AuthError,
-	addUserAssignments,
-	findUserByEmail,
-	inviteUser,
+	addPerson,
+	sendSignInLink,
+	type InviteAssignment,
 	removeAssignment,
 	revokeUserSessions,
 	revokeUserTokens,
@@ -16,7 +17,7 @@ import { getDb, schema } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
 
 function requireUserAdmin(locals: App.Locals): void {
-	if (!locals.principal || !canAdministerUsers(locals.principal)) throw error(403, 'System coordinator access required.');
+	if (!locals.principal || !canAdministerUsers(locals.principal)) throw error(403, 'Administrator access required.');
 }
 
 function requiredText(value: FormDataEntryValue | null, label: string): string {
@@ -29,11 +30,10 @@ function textValue(value: FormDataEntryValue | null): string {
 	return typeof value === 'string' ? value.trim() : '';
 }
 
-function readAssignment(data: FormData): Parameters<typeof inviteUser>[2]['assignments'][number] {
+function readAssignment(data: FormData): InviteAssignment {
 	const role = requiredText(data.get('role'), 'Assignment');
 	switch (role) {
 		case 'statewide': return { kind: 'statewide', seasonId: null };
-		case 'season': return { kind: 'statewide', seasonId: requiredText(data.get('seasonId'), 'Season') };
 		case 'regional': return { kind: 'regional', contestId: requiredText(data.get('contestId'), 'Contest') };
 		case 'coach': return { kind: 'coach', seasonId: requiredText(data.get('seasonId'), 'Season'), schoolId: requiredText(data.get('schoolId'), 'School') };
 		case 'scorekeeper': return { kind: 'scorekeeper', contestId: requiredText(data.get('contestId'), 'Contest') };
@@ -59,40 +59,34 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 };
 
 export const actions: Actions = {
-	invite: async ({ locals, platform, request, url }) => {
+	...qrActions('admin'),
+	add: async ({ locals, platform, request, url }) => {
 		requireUserAdmin(locals);
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const data = await request.formData();
 		try {
 			const email = requiredText(data.get('email'), 'Email');
-			const existingUser = await findUserByEmail(getDb(platform.env.DB), email);
-			if (existingUser) throw new AuthError('existing_user', 'This person already has an account. Use “Add access to an existing user” below.');
-			const result = await inviteUser(getDb(platform.env.DB), createEmailProvider(platform.env), {
+			const result = await addPerson(getDb(platform.env.DB), createEmailProvider(platform.env), {
 				email,
-				displayName: requiredText(data.get('displayName'), 'Name'),
+				displayName: textValue(data.get('displayName')),
 				assignments: [readAssignment(data)],
 				origin: resolveAppOrigin(platform.env, url.origin),
 			});
-			return { success: `Invitation sent to ${result.user.email}.` };
+			return { success: result.invited ? `Invitation sent to ${result.user.email}.` : `Access added for ${result.user.email}. No email was sent.` };
 		} catch (cause) {
 			if (cause instanceof AuthError) return fail(400, { error: cause.message });
-			return fail(400, { error: 'Invitation could not be created. Check the assignment and try again.' });
+			return fail(400, { error: 'Access could not be added. Check the assignment and try again.' });
 		}
 	},
-	addAccess: async ({ locals, platform, request }) => {
+	resend: async ({ locals, platform, request, url }) => {
 		requireUserAdmin(locals);
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+		const db = getDb(platform.env.DB);
 		const data = await request.formData();
-		try {
-			const result = await addUserAssignments(getDb(platform.env.DB), {
-				userId: requiredText(data.get('userId'), 'User'),
-				assignments: [readAssignment(data)],
-			});
-			return { success: `Access updated for ${result.user.email}. No email was sent.` };
-		} catch (cause) {
-			if (cause instanceof AuthError) return fail(400, { error: cause.message });
-			return fail(400, { error: 'Access could not be added. Check the user and assignment.' });
-		}
+		const [user] = await db.select().from(schema.users).where(eq(schema.users.id, textValue(data.get('userId'))));
+		if (!user || user.status !== 'pending') return fail(400, { error: 'Choose a pending account.' });
+		await sendSignInLink(db, createEmailProvider(platform.env), { userId: user.id, email: user.email, origin: resolveAppOrigin(platform.env, url.origin), purpose: 'invite' });
+		return { success: `Invitation resent to ${user.email}. Earlier outstanding links have been replaced.` };
 	},
 	revoke: async ({ locals, platform, request }) => {
 		requireUserAdmin(locals);
@@ -128,10 +122,10 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const userId = requiredText(data.get('userId'), 'User');
 		const kind = requiredText(data.get('assignmentKind'), 'Assignment');
-		if (userId === locals.principal?.id && kind === 'statewide' && !textValue(data.get('seasonId'))) return fail(400, { error: 'You cannot remove your own system coordinator access.' });
+		if (userId === locals.principal?.id && kind === 'statewide') return fail(400, { error: 'You cannot remove your own administrator access.' });
 		try {
 			switch (kind) {
-				case 'statewide': await removeAssignment(getDb(platform.env.DB), { kind, userId, seasonId: textValue(data.get('seasonId')) || null }); break;
+				case 'statewide': await getDb(platform.env.DB).delete(schema.statewideAssignments).where(eq(schema.statewideAssignments.userId, userId)); break;
 				case 'regional': await removeAssignment(getDb(platform.env.DB), { kind, userId, contestId: requiredText(data.get('contestId'), 'Contest') }); break;
 				case 'coach': await removeAssignment(getDb(platform.env.DB), { kind, userId, seasonId: requiredText(data.get('seasonId'), 'Season'), schoolId: requiredText(data.get('schoolId'), 'School') }); break;
 				case 'scorekeeper': await removeAssignment(getDb(platform.env.DB), { kind, userId, contestId: requiredText(data.get('contestId'), 'Contest') }); break;

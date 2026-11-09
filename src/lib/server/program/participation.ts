@@ -36,17 +36,6 @@ export async function setParticipationStatus(db: Database, input: { participatio
 	await db.update(schema.schoolParticipations).set({ invitationStatus: input.status, updatedAt: input.now ?? Date.now() }).where(and(eq(schema.schoolParticipations.id, input.participationId), eq(schema.schoolParticipations.contestId, input.contestId)));
 }
 
-export async function assignCoach(db: Database, input: { userId: string; seasonId: string; schoolId: string; now?: number }): Promise<void> {
-	const [season] = await db.select({ id: schema.seasons.id, status: schema.seasons.status }).from(schema.seasons).where(eq(schema.seasons.id, input.seasonId));
-	if (!season) throw new ParticipationError('not_found', 'Season not found.');
-	if (season.status === 'archived') throw new ParticipationError('archived', 'Archived seasons are read-only.');
-	const [user] = await db.select({ id: schema.users.id }).from(schema.users).where(and(eq(schema.users.id, input.userId), eq(schema.users.status, 'active')));
-	if (!user) throw new ParticipationError('invalid_user', 'Only active users can be assigned as coaches.');
-	const [school] = await db.select({ id: schema.schools.id }).from(schema.schools).where(and(eq(schema.schools.id, input.schoolId), eq(schema.schools.active, true)));
-	if (!school) throw new ParticipationError('inactive_school', 'Only active schools can have new coach assignments.');
-	await db.insert(schema.coachAssignments).values({ userId: input.userId, seasonId: input.seasonId, schoolId: input.schoolId, createdAt: input.now ?? Date.now() }).onConflictDoNothing();
-}
-
 /** Remove a school from a contest so it can be re-added elsewhere (region moves).
  * Blocked when roster members or entries already reference the school in that contest. */
 export async function withdrawSchool(db: Database, input: { participationId: string; contestId: string }): Promise<void> {
@@ -59,8 +48,4 @@ export async function withdrawSchool(db: Database, input: { participationId: str
 	const entries = await db.select({ id: schema.entries.id }).from(schema.entries).where(and(eq(schema.entries.contestId, input.contestId), eq(schema.entries.ownerSchoolId, participation.schoolId)));
 	if (entries.length > 0) throw new ParticipationError('has_entries', 'Delete category entries before moving this school.');
 	await db.delete(schema.schoolParticipations).where(and(eq(schema.schoolParticipations.id, input.participationId), eq(schema.schoolParticipations.contestId, input.contestId)));
-}
-
-export async function removeCoach(db: Database, input: { userId: string; seasonId: string; schoolId: string }): Promise<void> {
-	await db.delete(schema.coachAssignments).where(and(eq(schema.coachAssignments.userId, input.userId), eq(schema.coachAssignments.seasonId, input.seasonId), eq(schema.coachAssignments.schoolId, input.schoolId)));
 }

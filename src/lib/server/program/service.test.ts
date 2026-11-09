@@ -10,24 +10,21 @@ describe('program setup rules', () => {
 
 	it('atomically creates a season with all known regions and a setup contest for each', async () => {
 		const operations: { table: unknown; values: any }[] = [];
-		const assignments: any[] = [];
 		const db = {
 			insert: (table: unknown) => ({ values: (values: unknown) => {
 				const operation = { table, values };
 				return {
 					...operation,
 					returning: () => operation,
-					onConflictDoNothing: async () => { assignments.push(values); },
 				};
 			} }),
 			batch: async (batch: typeof operations) => {
 				operations.push(...batch);
 				return [[batch[0].values], [], []];
 			},
-			select: () => ({ from: () => ({ where: async () => [{ userId: 'coordinator-1' }] }) }),
 		};
 		const season = await createSeason(db as never, {
-			year: 2027, name: '  2027 WSMC  ', now: 1234, cloneAssignmentsFromSeasonId: 'prior-season',
+			year: 2027, name: '  2027 WSMC  ', now: 1234,
 		});
 		expect(operations.map((operation) => operation.table)).toEqual([schema.seasons, schema.regions, ...Array(11).fill(schema.contests)]);
 		expect(season).toMatchObject({ year: 2027, name: '2027 WSMC', createdAt: 1234 });
@@ -47,7 +44,6 @@ describe('program setup rules', () => {
 				name: `Region ${region.number} — ${region.name}`, startsAt: null, createdAt: 1234,
 			}));
 		}
-		expect(assignments).toEqual([expect.objectContaining({ userId: 'coordinator-1', seasonId: season.id })]);
 	});
 
 	it('reports a failed season bootstrap instead of returning a partially configured season', async () => {

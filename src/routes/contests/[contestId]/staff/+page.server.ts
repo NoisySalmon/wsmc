@@ -1,10 +1,10 @@
+import { qrActions } from '$lib/server/auth/qr';
 import { and, eq } from 'drizzle-orm';
 import { error, fail } from '@sveltejs/kit';
-import { AuthError, inviteUser, removeAssignment } from '$lib/server/auth/service';
+import { addPerson, AuthError, removeAssignment, sendSignInLink, type InviteAssignment } from '$lib/server/auth/service';
 import { createEmailProvider, resolveAppOrigin } from '$lib/server/auth/email';
-import { normalizeEmail } from '$lib/server/auth/crypto';
 import { getDb, schema } from '$lib/server/db';
-import { canAdministerUsers, canCoordinateState } from '$lib/server/auth/capabilities';
+import { canAdministerUsers } from '$lib/server/auth/capabilities';
 import { canManageRegionalContestStaff } from '../../contest-staff-access';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -21,82 +21,85 @@ async function authorizedContest(locals: App.Locals, db: ReturnType<typeof getDb
 	return contest;
 }
 
+async function readAssignment(db: ReturnType<typeof getDb>, locals: App.Locals, contest: { id: string; seasonId: string }, data: FormData): Promise<InviteAssignment> {
+	switch (text(data, 'role')) {
+		case 'regional':
+			if (!canAdministerUsers(locals.principal!)) throw error(403, 'Administrator access required.');
+			return { kind: 'regional', contestId: contest.id };
+		case 'scorekeeper': return { kind: 'scorekeeper', contestId: contest.id };
+		case 'coach': {
+			const schoolId = text(data, 'schoolId');
+			const [participation] = await db.select().from(schema.schoolParticipations).where(and(eq(schema.schoolParticipations.contestId, contest.id), eq(schema.schoolParticipations.schoolId, schoolId)));
+			if (!participation) throw error(403, 'School does not participate in this contest.');
+			return { kind: 'coach', seasonId: contest.seasonId, schoolId };
+		}
+		default: throw error(400, 'Choose a valid assignment.');
+	}
+}
+
 export const load: PageServerLoad = async ({ locals, platform, params }) => {
-	if (!locals.principal) throw error(401, 'Sign in required.');
 	if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 	const db = getDb(platform.env.DB);
 	const contest = await authorizedContest(locals, db, params.contestId);
-	const [scorekeepers, coordinators] = await Promise.all([
-		db.select({ userId: schema.scorekeeperAssignments.userId, email: schema.users.email, displayName: schema.users.displayName, status: schema.users.status })
-			.from(schema.scorekeeperAssignments).innerJoin(schema.users, eq(schema.users.id, schema.scorekeeperAssignments.userId))
-			.where(eq(schema.scorekeeperAssignments.contestId, contest.id)),
-		db.select({ userId: schema.regionalCoordinatorAssignments.userId, email: schema.users.email, displayName: schema.users.displayName, status: schema.users.status })
-			.from(schema.regionalCoordinatorAssignments).innerJoin(schema.users, eq(schema.users.id, schema.regionalCoordinatorAssignments.userId))
-			.where(eq(schema.regionalCoordinatorAssignments.contestId, contest.id)),
+	const userFields = { userId: schema.users.id, email: schema.users.email, displayName: schema.users.displayName, status: schema.users.status };
+	const [scorekeepers, coordinators, schools, coaches, admins, regionalUsers] = await Promise.all([
+		db.select(userFields).from(schema.scorekeeperAssignments).innerJoin(schema.users, eq(schema.users.id, schema.scorekeeperAssignments.userId)).where(eq(schema.scorekeeperAssignments.contestId, contest.id)),
+		db.select(userFields).from(schema.regionalCoordinatorAssignments).innerJoin(schema.users, eq(schema.users.id, schema.regionalCoordinatorAssignments.userId)).where(eq(schema.regionalCoordinatorAssignments.contestId, contest.id)),
+		db.select({ id: schema.schools.id, name: schema.schools.name }).from(schema.schoolParticipations).innerJoin(schema.schools, eq(schema.schools.id, schema.schoolParticipations.schoolId)).where(eq(schema.schoolParticipations.contestId, contest.id)),
+		db.select({ ...userFields, schoolId: schema.coachAssignments.schoolId }).from(schema.coachAssignments)
+			.innerJoin(schema.users, eq(schema.users.id, schema.coachAssignments.userId))
+			.innerJoin(schema.schoolParticipations, eq(schema.schoolParticipations.schoolId, schema.coachAssignments.schoolId))
+			.where(and(eq(schema.schoolParticipations.contestId, contest.id), eq(schema.coachAssignments.seasonId, contest.seasonId))),
+		db.select({ userId: schema.statewideAssignments.userId }).from(schema.statewideAssignments),
+		db.select({ userId: schema.regionalCoordinatorAssignments.userId }).from(schema.regionalCoordinatorAssignments),
 	]);
-	const canManageCoordinators = Boolean(locals.principal && (canAdministerUsers(locals.principal) || canCoordinateState(locals.principal, contest.seasonId)));
-	return { contest, scorekeepers, coordinators, canManageCoordinators };
+	const protectedIds = new Set([...admins, ...regionalUsers].map((row) => row.userId));
+	const withQr = <T extends { userId: string; status: string }>(person: T) => ({ ...person, canGenerateQr: person.status !== 'disabled' && (canAdministerUsers(locals.principal!) || !protectedIds.has(person.userId)) });
+	return { contest, scorekeepers: scorekeepers.map(withQr), coordinators: coordinators.map(withQr), schools, coaches: coaches.map(withQr), canManageCoordinators: canAdministerUsers(locals.principal!) };
 };
 
 export const actions: Actions = {
-	invite: async ({ locals, platform, params, request, url }) => {
+	...qrActions('contest'),
+	add: async ({ locals, platform, params, request, url }) => {
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const db = getDb(platform.env.DB);
 		const contest = await authorizedContest(locals, db, params.contestId);
 		const data = await request.formData();
-		const email = text(data, 'email');
-		const displayName = text(data, 'displayName');
-		if (!email || !displayName) return fail(400, { error: 'Name and email are required.' });
+		const assignment = await readAssignment(db, locals, contest, data);
 		try {
-			const normalizedEmail = normalizeEmail(email);
-			const [existingUser] = await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.email, normalizedEmail));
-			const result = await inviteUser(db, createEmailProvider(platform.env), {
-				email, ...(existingUser ? {} : { displayName }), origin: resolveAppOrigin(platform.env, url.origin),
-				assignments: [{ kind: 'scorekeeper', contestId: contest.id }],
-			});
-			return { success: `Scorekeeper invitation sent to ${result.user.email}.` };
+			const result = await addPerson(db, createEmailProvider(platform.env), { email: text(data, 'email'), displayName: text(data, 'displayName'), origin: resolveAppOrigin(platform.env, url.origin), assignments: [assignment] });
+			return { success: result.invited ? `Invitation sent to ${result.user.email}.` : `Access added for ${result.user.email}. No email was sent.` };
 		} catch (cause) {
-			return fail(400, { error: cause instanceof AuthError ? cause.message : 'Scorekeeper could not be invited.' });
+			return fail(400, { error: cause instanceof AuthError ? cause.message : 'Person could not be added.' });
 		}
 	},
 	remove: async ({ locals, platform, params, request }) => {
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const db = getDb(platform.env.DB);
 		const contest = await authorizedContest(locals, db, params.contestId);
-		const userId = text(await request.formData(), 'userId');
-		if (!userId) return fail(400, { error: 'Choose a scorekeeper to remove.' });
-		await removeAssignment(db, { kind: 'scorekeeper', userId, contestId: contest.id });
-		return { success: 'Scorekeeper assignment removed from this contest.' };
-	},
-	inviteCoordinator: async ({ locals, platform, params, request, url }) => {
-		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
-		const db = getDb(platform.env.DB);
-		const contest = await authorizedContest(locals, db, params.contestId);
-		if (!locals.principal || !(canAdministerUsers(locals.principal) || canCoordinateState(locals.principal, contest.seasonId))) throw error(403, 'Season coordinator access required.');
 		const data = await request.formData();
-		const email = text(data, 'email');
-		const displayName = text(data, 'displayName');
-		if (!email || !displayName) return fail(400, { error: 'Name and email are required.' });
-		try {
-			const normalizedEmail = normalizeEmail(email);
-			const [existingUser] = await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.email, normalizedEmail));
-			const result = await inviteUser(db, createEmailProvider(platform.env), {
-				email, ...(existingUser ? {} : { displayName }), origin: resolveAppOrigin(platform.env, url.origin),
-				assignments: [{ kind: 'regional', contestId: contest.id }],
-			});
-			return { success: `Regional coordinator invitation sent to ${result.user.email}.` };
-		} catch (cause) {
-			return fail(400, { error: cause instanceof AuthError ? cause.message : 'Regional coordinator could not be invited.' });
-		}
+		const assignment = await readAssignment(db, locals, contest, data);
+		const userId = text(data, 'userId');
+		if (!userId) return fail(400, { error: 'Choose a person to remove.' });
+		await removeAssignment(db, { ...assignment, userId });
+		return { success: assignment.kind === 'coach' ? 'Coach access removed for this school and season.' : 'Assignment removed from this contest.' };
 	},
-	removeCoordinator: async ({ locals, platform, params, request }) => {
+	resend: async ({ locals, platform, params, request, url }) => {
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const db = getDb(platform.env.DB);
 		const contest = await authorizedContest(locals, db, params.contestId);
-		if (!locals.principal || !(canAdministerUsers(locals.principal) || canCoordinateState(locals.principal, contest.seasonId))) throw error(403, 'Season coordinator access required.');
-		const userId = text(await request.formData(), 'userId');
-		if (!userId) return fail(400, { error: 'Choose a coordinator to remove.' });
-		await removeAssignment(db, { kind: 'regional', userId, contestId: contest.id });
-		return { success: 'Regional coordinator removed from this contest.' };
+		const data = await request.formData();
+		const assignment = await readAssignment(db, locals, contest, data);
+		const userId = text(data, 'userId');
+		const [membership] = assignment.kind === 'coach'
+			? await db.select().from(schema.coachAssignments).where(and(eq(schema.coachAssignments.userId, userId), eq(schema.coachAssignments.schoolId, assignment.schoolId), eq(schema.coachAssignments.seasonId, assignment.seasonId)))
+			: assignment.kind === 'regional'
+				? await db.select().from(schema.regionalCoordinatorAssignments).where(and(eq(schema.regionalCoordinatorAssignments.userId, userId), eq(schema.regionalCoordinatorAssignments.contestId, contest.id)))
+				: await db.select().from(schema.scorekeeperAssignments).where(and(eq(schema.scorekeeperAssignments.userId, userId), eq(schema.scorekeeperAssignments.contestId, contest.id)));
+		if (!membership) throw error(403, 'Person is not assigned here.');
+		const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId));
+		if (!user || user.status !== 'pending') return fail(400, { error: 'Choose a pending account.' });
+		await sendSignInLink(db, createEmailProvider(platform.env), { userId, email: user.email, origin: resolveAppOrigin(platform.env, url.origin), purpose: 'invite' });
+		return { success: `Invitation resent to ${user.email}. Earlier outstanding links have been replaced.` };
 	},
 };

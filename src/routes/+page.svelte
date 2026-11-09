@@ -7,8 +7,7 @@
 	type ContestRow = { id: string; seasonId: string; regionId: string | null; name: string; kind: string; lifecycle: string };
 	type RegionRow = { id: string; seasonId: string; number: number; name: string };
 	type SeasonRow = { id: string; year: number; name: string; status: string };
-	const isSystem = $derived(((data.principal?.statewideSeasonIds ?? []) as (string | null)[]).includes(null));
-	const isSeasonCoordinator = $derived(((data.principal?.statewideSeasonIds ?? []) as (string | null)[]).length > 0);
+	const isAdmin = $derived((data.principal?.statewideSeasonIds ?? []).length > 0);
 	const isCoach = $derived((data.principal?.coachAssignments ?? []).length > 0);
 	function stateContestFor(seasonId: string): ContestRow | undefined { return (data.contests as ContestRow[]).find((c) => c.seasonId === seasonId && c.kind === 'state'); }
 	function regionalContestsFor(seasonId: string): (ContestRow & { region: RegionRow | null })[] {
@@ -26,7 +25,7 @@
 	<h1>Washington State Mathematics Council</h1>
 	{#if data.principal}
 		<p>Welcome back, {data.principal.displayName || data.principal.email}.</p>
-		{#if isCoach && !isSeasonCoordinator && !isSystem}
+		{#if isCoach && !isAdmin}
 			<p>Start with <a href="/my-schools">My schools</a> to manage your roster.</p>
 		{/if}
 		{#if (data.seasons as SeasonRow[]).length}
@@ -35,7 +34,7 @@
 				{@const stateContest = stateContestFor(season.id)}
 				<section class="card">
 					<div class="card-head"><h3>{season.year} — {season.name}</h3><span class="status">{statusLabel(season.status)}</span></div>
-					{#if isSeasonCoordinator || isSystem}
+					{#if isAdmin}
 						<p><a href="/program">Set up regions + state contest</a> · <a href="/reports/season/{season.id}">Statewide reports</a> · <a href="/qualifications/{season.id}">Qualifications</a></p>
 					{/if}
 					<h4>Regions</h4>

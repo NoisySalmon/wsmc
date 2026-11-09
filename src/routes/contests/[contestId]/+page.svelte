@@ -10,7 +10,7 @@
 	<p class="subheading">Regional contest · {data.contest.lifecycle}{#if data.contest.resultsPublishedAt} · results published{/if}</p>
 	<p>Contest date: {contestDate(data.contest.startsAt)}</p>
 	{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
-	<nav aria-label="Contest tools"><a href="/participation">Participation</a>{#if ['roster_locked', 'scoring', 'finalized'].includes(data.contest.lifecycle)}<a href="/scoring/{data.contest.id}">Scoring</a>{/if}{#if data.contest.lifecycle === 'finalized'}<a href="/results/{data.contest.id}">Results</a>{/if}{#if data.canManageStaff}<a href="/contests/{data.contest.id}/staff">Manage staff</a>{/if}</nav>
+	<nav aria-label="Contest tools"><a href="/participation">Participation</a>{#if ['roster_locked', 'scoring', 'finalized'].includes(data.contest.lifecycle)}<a href="/scoring/{data.contest.id}">Scoring</a>{/if}{#if data.contest.lifecycle === 'finalized'}<a href="/results/{data.contest.id}">Results</a>{/if}{#if data.canManageStaff}<a href="/contests/{data.contest.id}/staff">People</a>{/if}</nav>
 	{#if data.canAdvanceLifecycle && ['registration_open', 'roster_locked'].includes(data.contest.lifecycle)}
 		<section class="stage"><h2>Contest stage</h2><p>{data.contest.lifecycle === 'registration_open' ? 'Registration is open. Lock rosters when schools are ready for scoring.' : 'Rosters are locked. Start scoring when the contest is ready.'}</p>
 			<form method="POST" action="?/advanceLifecycle"><input type="hidden" name="lifecycle" value={data.contest.lifecycle === 'registration_open' ? 'roster_locked' : 'scoring'} /><button type="submit">{data.contest.lifecycle === 'registration_open' ? 'Lock rosters' : 'Start scoring'}</button></form>
@@ -30,7 +30,7 @@
 		{#if data.schools.length}
 			<div class="table-wrap"><table><thead><tr><th>School</th><th>Division</th><th>Response</th><th>Rostered students</th><th>School registration</th></tr></thead><tbody>
 			{#each data.schools as school}
-				<tr><td>{school.name}</td><td>Division {school.division}</td><td>{school.status}</td><td>{#if school.students.length}<ul>{#each school.students as student}<li>{student.studentName} (grade {student.actualGrade})</li>{/each}</ul>{:else}<span class="muted">No students rostered</span>{/if}</td><td><a href="/registration/{data.contest.id}/{school.id}">Open registration</a></td></tr>
+				<tr><td>{school.name}</td><td>Division {school.division}</td><td>{school.status}</td><td>{#if school.students.length}<ul>{#each school.students as student}<li>{student.studentName} (grade {student.actualGrade})</li>{/each}</ul>{:else}<span class="muted">No students rostered</span>{/if}</td><td><a href="/registration/{data.contest.id}/{school.id}">Open registration</a>{#if data.canManageStaff} · <a href="/contests/{data.contest.id}/staff#school-{school.id}">Manage coaches</a>{/if}</td></tr>
 			{/each}
 			</tbody></table></div>
 		{:else}<p class="muted">No schools have been invited to this contest.</p>{/if}

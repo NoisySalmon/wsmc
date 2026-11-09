@@ -34,7 +34,7 @@ d1 --file=scripts/seed.sql
 
 # Exercise scoring in the open state while retaining the seeded regional and
 # qualification records needed by the end-to-end handoff.
-d1 --command="UPDATE contests SET lifecycle = 'scoring' WHERE id = 'contest-region-1'; INSERT INTO users (id, email, display_name, status) VALUES ('user-scorekeeper-2', 'scorekeeper2@wsmc.example', 'Region 2 Scorekeeper', 'active'); INSERT INTO scorekeeper_assignments (user_id, contest_id) VALUES ('user-scorekeeper-2', 'contest-region-2'); INSERT INTO sessions (id, user_id, expires_at, created_at, last_seen_at) VALUES ('e2e-coordinator-session', 'user-coordinator', 4102444800000, 1700000000000, 1700000000000), ('e2e-scorekeeper-session', 'user-scorekeeper', 4102444800000, 1700000000000, 1700000000000), ('e2e-scorekeeper-2-session', 'user-scorekeeper-2', 4102444800000, 1700000000000, 1700000000000), ('e2e-coach-session', 'user-coach-alpha-1', 4102444800000, 1700000000000, 1700000000000), ('e2e-gamma-coach-session', 'user-coach-gamma', 4102444800000, 1700000000000, 1700000000000), ('e2e-regional-session', 'user-regional-coordinator-2', 4102444800000, 1700000000000, 1700000000000);"
+d1 --command="DELETE FROM statewide_assignments WHERE user_id = 'user-coordinator' AND season_id IS NULL; UPDATE contests SET lifecycle = 'scoring' WHERE id = 'contest-region-1'; INSERT INTO users (id, email, display_name, status) VALUES ('user-scorekeeper-2', 'scorekeeper2@wsmc.example', 'Region 2 Scorekeeper', 'active'); INSERT INTO scorekeeper_assignments (user_id, contest_id) VALUES ('user-scorekeeper-2', 'contest-region-2'); INSERT INTO sessions (id, user_id, expires_at, created_at, last_seen_at) VALUES ('e2e-coordinator-session', 'user-coordinator', 4102444800000, 1700000000000, 1700000000000), ('e2e-scorekeeper-session', 'user-scorekeeper', 4102444800000, 1700000000000, 1700000000000), ('e2e-scorekeeper-2-session', 'user-scorekeeper-2', 4102444800000, 1700000000000, 1700000000000), ('e2e-coach-session', 'user-coach-alpha-1', 4102444800000, 1700000000000, 1700000000000), ('e2e-gamma-coach-session', 'user-coach-gamma', 4102444800000, 1700000000000, 1700000000000), ('e2e-regional-session', 'user-regional-coordinator-2', 4102444800000, 1700000000000, 1700000000000);"
 
 npx wrangler pages dev .svelte-kit/cloudflare --d1 DB=5c5a8cb8-f2b9-489a-8a2d-b32a87c70cce --local --persist-to "$persist_dir" --port "$port" >"$persist_dir/server.log" 2>&1 &
 server_pid=$!
@@ -202,9 +202,34 @@ assert_action_failure POST '/scoring/contest-region-2?/finalize' 400 "$regional"
 assert_status GET /contests/contest-region-2/staff 200 "$regional"
 assert_status GET /contests/contest-region-1/staff 403 "$regional"
 assert_status GET /contests/contest-region-2/staff 403 "$scorekeeper2"
-assert_status POST '/contests/contest-region-2/staff?/remove' 200 "$regional" --data 'userId=user-scorekeeper-2'
+assert_status POST '/contests/contest-region-2/staff?/remove' 200 "$regional" --data 'role=scorekeeper&userId=user-scorekeeper-2'
 assert_status GET /scoring/contest-region-2 403 "$scorekeeper2"
 assert_status GET /scoring/contest-region-1 200 "$scorekeeper"
+
+# Account administration is available to legacy season administrators, while
+# regional coordinators can only grant contest-local staff and school access.
+assert_page_contains GET /admin/users "$coordinator" 'Add person'
+assert_status GET /admin/users 403 "$regional"
+assert_status POST '/admin/users?/add' 403 "$regional" --data 'email=scorekeeper2%40wsmc.example&role=statewide'
+assert_status POST '/contests/contest-region-2/staff?/add' 403 "$regional" --data 'email=scorekeeper2%40wsmc.example&role=regional'
+assert_status POST '/contests/contest-region-2/staff?/add' 403 "$regional" --data 'email=scorekeeper2%40wsmc.example&role=coach&schoolId=school-alpha'
+assert_status POST '/contests/contest-region-2/staff?/add' 200 "$regional" --data 'email=scorekeeper2%40wsmc.example&displayName=Do+not+rename&role=coach&schoolId=school-gamma'
+assert_page_contains GET /contests/contest-region-2/staff "$regional" 'Region 2 Scorekeeper'
+assert_status POST '/admin/users?/add' 200 "$coordinator" --data 'email=scorekeeper2%40wsmc.example&role=scorekeeper&contestId=contest-region-2'
+existing_access="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT (SELECT COUNT(*) FROM coach_assignments WHERE user_id = 'user-scorekeeper-2' AND school_id = 'school-gamma' AND season_id = 'season-2026') AS coaches, (SELECT COUNT(*) FROM sign_in_tokens WHERE user_id = 'user-scorekeeper-2') AS tokens, (SELECT display_name FROM users WHERE id = 'user-scorekeeper-2') AS name;")"
+node -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"))[0].results[0]; if(r.coaches!==1 || r.tokens!==0 || r.name!=="Region 2 Scorekeeper") throw new Error("Adding access changed identity or sign-in tokens");' <<< "$existing_access"
+assert_status POST '/contests/contest-region-2/staff?/remove' 200 "$regional" --data 'role=coach&schoolId=school-gamma&userId=user-scorekeeper-2'
+assert_status POST '/admin/users?/disable' 200 "$coordinator" --data 'userId=user-scorekeeper-2'
+assert_action_failure POST '/contests/contest-region-2/staff?/add' 400 "$regional" --data 'email=scorekeeper2%40wsmc.example&role=coach&schoolId=school-gamma'
+assert_status POST '/admin/users?/enable' 200 "$coordinator" --data 'userId=user-scorekeeper-2'
+
+# Legacy and new administrator grants appear as one role and are removed together.
+d1 --command="INSERT INTO statewide_assignments (id, user_id, season_id) VALUES ('legacy-admin-test', 'user-scorekeeper-2', 'season-2026');"
+assert_status POST '/admin/users?/add' 200 "$coordinator" --data 'email=scorekeeper2%40wsmc.example&role=statewide'
+assert_status POST '/admin/users?/removeAssignment' 200 "$coordinator" --data 'userId=user-scorekeeper-2&assignmentKind=statewide'
+admin_removal="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT (SELECT COUNT(*) FROM statewide_assignments WHERE user_id = 'user-scorekeeper-2') AS admins, (SELECT COUNT(*) FROM scorekeeper_assignments WHERE user_id = 'user-scorekeeper-2') AS scorekeepers;")"
+node -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"))[0].results[0]; if(r.admins!==0 || r.scorekeepers!==1) throw new Error("Administrator removal did not preserve unrelated roles");' <<< "$admin_removal"
+assert_action_failure POST '/admin/users?/removeAssignment' 400 "$coordinator" --data 'userId=user-coordinator&assignmentKind=statewide'
 
 # Cross-scope scorekeeper access is denied at the route boundary.
 assert_status GET /state/contest-state-2026 403 "$scorekeeper"
@@ -217,5 +242,9 @@ grep --fixed-strings --quiet 'Season created.' "$response_file" || { cat "$respo
 bootstrap_check="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT COUNT(*) AS bootstrapped_regions FROM regions r JOIN seasons s ON s.id = r.season_id JOIN contests c ON c.region_id = r.id AND c.season_id = s.id WHERE s.year = 2027 AND c.kind = 'regional' AND c.lifecycle = 'setup' AND c.starts_at IS NULL;")"
 [[ "$bootstrap_check" =~ \"bootstrapped_regions\"[[:space:]]*:[[:space:]]*11 ]] || { echo "season bootstrap did not persist eleven regions and contests: $bootstrap_check" >&2; exit 1; }
 assert_page_contains GET /program "$coordinator" 'Region 11 — Virtual'
+
+
+# QR credentials use the same worker and disposable D1; no email is sent.
+node scripts/qr-sign-in-journey.mjs "$base_url" "$persist_dir"
 
 echo "authenticated Pages end-to-end preview passed"

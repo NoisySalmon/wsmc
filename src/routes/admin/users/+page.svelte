@@ -1,36 +1,37 @@
 <script lang="ts">
+	import QrSignIn from '$lib/components/QrSignIn.svelte';
 	let { data, form } = $props();
 	let inviteRole = $state('statewide');
-	let accessRole = $state('statewide');
 </script>
 
 <svelte:head>
-	<title>User administration — WSMC</title>
+	<title>Users &amp; access — WSMC</title>
 </svelte:head>
 
 <main>
-	<h1>User administration</h1>
-	<p>Invite new people or add roles to existing accounts.</p>
+	<h1>Users &amp; access</h1>
+	<p>Manage accounts and their access. Administrators can manage all seasons and accounts.</p>
 
 	{#if form?.error}<p class="error">{form.error}</p>{/if}
 	{#if form?.success}<p class="success">{form.success}</p>{/if}
 
+	{#if form?.qr}<QrSignIn qr={form.qr} />{/if}
+
 	<section>
-		<h2>Invite someone</h2>
-		<p>Use this for someone who does not have an account yet. We’ll email a sign-in link. Sending another invitation replaces their earlier outstanding link.</p>
-		<form method="POST" action="?/invite">
+		<h2>Add person</h2>
+		<p>Enter an email and choose access. Existing accounts receive the assignment without an email; new accounts receive a sign-in invitation.</p>
+		<form method="POST" action="?/add">
 			<label>Email <input type="email" name="email" autocomplete="email" required /></label>
-			<label>Name <input type="text" name="displayName" autocomplete="name" required /></label>
+			<label>Name (required for new accounts) <input type="text" name="displayName" autocomplete="name" /></label>
 			<label>Assignment
 				<select name="role" bind:value={inviteRole} required>
-					<option value="statewide">System-wide coordinator</option>
-					<option value="season">Season coordinator</option>
+					<option value="statewide">Administrator</option>
 					<option value="regional">Regional coordinator</option>
 					<option value="coach">School coach</option>
 					<option value="scorekeeper">Scorekeeper</option>
 				</select>
 			</label>
-			{#if inviteRole === 'season' || inviteRole === 'coach'}<label>Season
+			{#if inviteRole === 'coach'}<label>Season
 				<select name="seasonId">
 					<option value="">Select a season</option>
 					{#each data.seasons as season}<option value={season.id}>{season.year} — {season.name}</option>{/each}
@@ -48,50 +49,7 @@
 					{#each data.schools as school}<option value={school.id}>{school.name}</option>{/each}
 				</select>
 			</label>{/if}
-			<button type="submit">Send invitation</button>
-		</form>
-	</section>
-
-	<section>
-		<h2>Add access to an existing user</h2>
-		<p>Choose an existing account and assign another role or scope. This does not send an email or change their sign-in links.</p>
-		<form method="POST" action="?/addAccess">
-			<label>User
-				<select name="userId" required>
-					<option value="">Select a user</option>
-					{#each data.users.filter((user) => user.status !== 'disabled') as user}
-						<option value={user.id}>{user.displayName || user.email} — {user.email}{user.status === 'pending' ? ' (pending)' : ''}</option>
-					{/each}
-				</select>
-			</label>
-			<label>Assignment
-				<select name="role" bind:value={accessRole} required>
-					<option value="statewide">System-wide coordinator</option>
-					<option value="season">Season coordinator</option>
-					<option value="regional">Regional coordinator</option>
-					<option value="coach">School coach</option>
-					<option value="scorekeeper">Scorekeeper</option>
-				</select>
-			</label>
-			{#if accessRole === 'season' || accessRole === 'coach'}<label>Season
-				<select name="seasonId">
-					<option value="">Select a season</option>
-					{#each data.seasons as season}<option value={season.id}>{season.year} — {season.name}</option>{/each}
-				</select>
-			</label>{/if}
-			{#if accessRole === 'regional' || accessRole === 'scorekeeper'}<label>Contest
-				<select name="contestId">
-					<option value="">Select a contest</option>
-					{#each data.contests as contest}<option value={contest.id}>{contest.name} ({contest.kind})</option>{/each}
-				</select>
-			</label>{/if}
-			{#if accessRole === 'coach'}<label>School
-				<select name="schoolId">
-					<option value="">Select a school</option>
-					{#each data.schools as school}<option value={school.id}>{school.name}</option>{/each}
-				</select>
-			</label>{/if}
-			<button type="submit">Add access</button>
+			<button type="submit">Add person</button>
 		</form>
 	</section>
 
@@ -102,6 +60,8 @@
 				<li>
 					<div><strong>{user.displayName || user.email}</strong><span>{user.email}</span><span class="status {user.status}">{user.status}</span></div>
 					<div class="actions">
+						{#if user.status !== 'disabled'}<form method="POST" action="?/qr"><input type="hidden" name="userId" value={user.id} /><button type="submit">Show sign-in QR</button></form>{/if}
+						{#if user.status === 'pending'}<form method="POST" action="?/resend"><input type="hidden" name="userId" value={user.id} /><button type="submit">Resend invitation</button></form>{/if}
 						<form method="POST" action="?/revoke"><input type="hidden" name="userId" value={user.id} /><button type="submit">Revoke links/sessions</button></form>
 						{#if user.status === 'disabled'}
 							<form method="POST" action="?/enable"><input type="hidden" name="userId" value={user.id} /><button type="submit">Enable</button></form>
@@ -110,10 +70,10 @@
 						{/if}
 					</div>
 					<div class="assignments">
-						{#each data.assignments.statewide.filter((assignment) => assignment.userId === user.id) as assignment}<form method="POST" action="?/removeAssignment"><input type="hidden" name="userId" value={user.id} /><input type="hidden" name="assignmentKind" value="statewide" /><input type="hidden" name="seasonId" value={assignment.seasonId ?? ''} /><span>Statewide {assignment.seasonId ?? 'system'}</span><button type="submit">Remove</button></form>{/each}
-						{#each data.assignments.regional.filter((assignment) => assignment.userId === user.id) as assignment}<form method="POST" action="?/removeAssignment"><input type="hidden" name="userId" value={user.id} /><input type="hidden" name="assignmentKind" value="regional" /><input type="hidden" name="contestId" value={assignment.contestId} /><span>Regional {assignment.contestId}</span><button type="submit">Remove</button></form>{/each}
-						{#each data.assignments.coach.filter((assignment) => assignment.userId === user.id) as assignment}<form method="POST" action="?/removeAssignment"><input type="hidden" name="userId" value={user.id} /><input type="hidden" name="assignmentKind" value="coach" /><input type="hidden" name="seasonId" value={assignment.seasonId} /><input type="hidden" name="schoolId" value={assignment.schoolId} /><span>Coach {assignment.schoolId} ({assignment.seasonId})</span><button type="submit">Remove</button></form>{/each}
-						{#each data.assignments.scorekeeper.filter((assignment) => assignment.userId === user.id) as assignment}<form method="POST" action="?/removeAssignment"><input type="hidden" name="userId" value={user.id} /><input type="hidden" name="assignmentKind" value="scorekeeper" /><input type="hidden" name="contestId" value={assignment.contestId} /><span>Scorekeeper {assignment.contestId}</span><button type="submit">Remove</button></form>{/each}
+						{#if data.assignments.statewide.some((assignment) => assignment.userId === user.id)}<form method="POST" action="?/removeAssignment"><input type="hidden" name="userId" value={user.id} /><input type="hidden" name="assignmentKind" value="statewide" /><span>Administrator</span><button type="submit">Remove access</button></form>{/if}
+						{#each data.assignments.regional.filter((assignment) => assignment.userId === user.id) as assignment}<form method="POST" action="?/removeAssignment"><input type="hidden" name="userId" value={user.id} /><input type="hidden" name="assignmentKind" value="regional" /><input type="hidden" name="contestId" value={assignment.contestId} /><span>Regional coordinator · {data.contests.find((contest) => contest.id === assignment.contestId)?.name ?? assignment.contestId}</span><button type="submit">Remove</button></form>{/each}
+						{#each data.assignments.coach.filter((assignment) => assignment.userId === user.id) as assignment}<form method="POST" action="?/removeAssignment"><input type="hidden" name="userId" value={user.id} /><input type="hidden" name="assignmentKind" value="coach" /><input type="hidden" name="seasonId" value={assignment.seasonId} /><input type="hidden" name="schoolId" value={assignment.schoolId} /><span>Coach · {data.schools.find((school) => school.id === assignment.schoolId)?.name ?? assignment.schoolId} · {data.seasons.find((season) => season.id === assignment.seasonId)?.name ?? assignment.seasonId}</span><button type="submit">Remove</button></form>{/each}
+						{#each data.assignments.scorekeeper.filter((assignment) => assignment.userId === user.id) as assignment}<form method="POST" action="?/removeAssignment"><input type="hidden" name="userId" value={user.id} /><input type="hidden" name="assignmentKind" value="scorekeeper" /><input type="hidden" name="contestId" value={assignment.contestId} /><span>Scorekeeper · {data.contests.find((contest) => contest.id === assignment.contestId)?.name ?? assignment.contestId}</span><button type="submit">Remove</button></form>{/each}
 					</div>
 				</li>
 			{/each}
@@ -135,7 +95,7 @@
 	.status { padding: 0.15rem 0.4rem; border-radius: 4px; background: #eee; font-size: 0.8rem; }
 	.status.active { background: #e2f5e8; color: #176b35; }
 	.status.disabled { background: #fbe3e3; color: #9a2020; }
-	.actions { display: flex; gap: 0.5rem; }
+	.actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 	.actions form { display: block; }
 	.actions button { background: #555; font-size: 0.85rem; }
 	.assignments { display: flex; flex-direction: column; gap: 0.3rem; }

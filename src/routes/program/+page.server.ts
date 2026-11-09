@@ -27,9 +27,7 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 	requireCoordinator(locals);
 	if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 	const db = getDb(platform.env.DB);
-	const allowed = locals.principal?.statewideSeasonIds.filter((id): id is string => id !== null) ?? [];
-	const seasonCondition = canAdministerUsers(locals.principal!) || allowed.length === 0 ? undefined : inArray(schema.seasons.id, allowed);
-	const seasons = seasonCondition ? await db.select().from(schema.seasons).where(seasonCondition) : await db.select().from(schema.seasons);
+	const seasons = await db.select().from(schema.seasons);
 	const seasonIds = seasons.map((season) => season.id);
 	const [regions, contests] = seasonIds.length === 0 ? [[], []] : await Promise.all([
 		db.select().from(schema.regions).where(inArray(schema.regions.seasonId, seasonIds)),
@@ -49,7 +47,7 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 export const actions: Actions = {
 	createSeason: async ({ locals, platform, request }) => {
 		requireCoordinator(locals);
-		if (!locals.principal || !canAdministerUsers(locals.principal)) throw error(403, 'System coordinator access required.');
+		if (!locals.principal || !canAdministerUsers(locals.principal)) throw error(403, 'Administrator access required.');
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const data = await request.formData();
 		try {

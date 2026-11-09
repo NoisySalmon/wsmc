@@ -1,10 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { error, fail } from '@sveltejs/kit';
 import { canAdministerUsers, canCoordinateRegion, canCoordinateState } from '$lib/server/auth/capabilities';
-import { createEmailProvider, resolveAppOrigin } from '$lib/server/auth/email';
-import { AuthError, inviteUser } from '$lib/server/auth/service';
-import { assignCoach, inviteSchool, ParticipationError, removeCoach, setParticipationStatus, withdrawSchool, type InvitationStatus } from '$lib/server/program/participation';
-import { canManageSeasonAssignments } from '$lib/server/program/access';
+import { inviteSchool, ParticipationError, setParticipationStatus, withdrawSchool, type InvitationStatus } from '$lib/server/program/participation';
 import { canManageParticipationResponse } from '$lib/server/program/participation-access';
 import { getDb, schema } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
@@ -26,19 +23,21 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 	requireCoordinator(locals);
 	if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 	const db = getDb(platform.env.DB);
-	const [allContests, schools, users, assignments, seasons] = await Promise.all([
+	const [allContests, schools] = await Promise.all([
 		db.select().from(schema.contests),
 		db.select().from(schema.schools).where(eq(schema.schools.active, true)),
-		db.select({ id: schema.users.id, email: schema.users.email, displayName: schema.users.displayName, status: schema.users.status }).from(schema.users).where(eq(schema.users.status, 'active')),
-		db.select().from(schema.coachAssignments),
-		db.select({ id: schema.seasons.id, name: schema.seasons.name, year: schema.seasons.year, status: schema.seasons.status }).from(schema.seasons),
 	]);
 	const contests = allContests.filter((contest) => canManageContest(locals, contest));
 	const contestIds = contests.map((contest) => contest.id);
 	const participations = contestIds.length ? await db.select().from(schema.schoolParticipations).where(inArray(schema.schoolParticipations.contestId, contestIds)) : [];
-	const schoolIds = new Set(schools.map((school) => school.id));
-	const coachAssignments = assignments.filter((assignment) => schoolIds.has(assignment.schoolId));
-	return { contests, schools, users, seasons, participations, coachAssignments };
+	const coachRows = contestIds.length ? await db.select({ userId: schema.coachAssignments.userId, schoolId: schema.coachAssignments.schoolId, seasonId: schema.coachAssignments.seasonId, displayName: schema.users.displayName, email: schema.users.email })
+		.from(schema.coachAssignments)
+		.innerJoin(schema.users, eq(schema.users.id, schema.coachAssignments.userId))
+		.innerJoin(schema.schoolParticipations, eq(schema.schoolParticipations.schoolId, schema.coachAssignments.schoolId))
+		.innerJoin(schema.contests, and(eq(schema.contests.id, schema.schoolParticipations.contestId), eq(schema.contests.seasonId, schema.coachAssignments.seasonId)))
+		.where(inArray(schema.contests.id, contestIds)) : [];
+	const coachAssignments = [...new Map(coachRows.map((row) => [`${row.userId}/${row.schoolId}/${row.seasonId}`, row])).values()];
+	return { contests, schools, coachAssignments, participations, canAddSchools: canAdministerUsers(locals.principal!) };
 };
 
 export const actions: Actions = {
@@ -91,44 +90,5 @@ export const actions: Actions = {
 		} catch (cause) {
 			return fail(400, { error: cause instanceof ParticipationError ? cause.message : 'Participation response could not be saved.' });
 		}
-	},
-	assignCoach: async ({ locals, platform, request }) => {
-		if (!locals.principal) throw error(403, 'Coordinator access required.');
-		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
-		const data = await request.formData();
-		const db = getDb(platform.env.DB);
-		if (!await canManageSeasonAssignments(db, locals.principal, text(data, 'seasonId'), text(data, 'schoolId'))) throw error(403, 'You cannot manage coach assignments for this school.');
-		try {
-			await assignCoach(db, { userId: text(data, 'userId'), seasonId: text(data, 'seasonId'), schoolId: text(data, 'schoolId') });
-			return { success: 'Coach assignment saved.' };
-		} catch (cause) {
-			return fail(400, { error: cause instanceof ParticipationError ? cause.message : 'Coach assignment could not be saved.' });
-		}
-	},
-	inviteCoach: async ({ locals, platform, request, url }) => {
-		if (!locals.principal) throw error(403, 'Coordinator access required.');
-		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
-		const data = await request.formData();
-		const db = getDb(platform.env.DB);
-		const seasonId = text(data, 'seasonId');
-		if (!await canManageSeasonAssignments(db, locals.principal, seasonId, text(data, 'schoolId'))) throw error(403, 'You cannot manage coach assignments for this school.');
-		const email = text(data, 'email');
-		const displayName = text(data, 'displayName');
-		if (!email || !displayName || !text(data, 'schoolId')) return fail(400, { error: 'Coach name, email, school, and season are required.' });
-		try {
-			const result = await inviteUser(db, createEmailProvider(platform.env), { email, displayName, origin: resolveAppOrigin(platform.env, url.origin), assignments: [{ kind: 'coach', seasonId, schoolId: text(data, 'schoolId') }] });
-			return { success: `Coach invitation sent to ${result.user.email}.` };
-		} catch (cause) {
-			return fail(400, { error: cause instanceof AuthError ? cause.message : 'Coach invitation could not be sent.' });
-		}
-	},
-	removeCoach: async ({ locals, platform, request }) => {
-		if (!locals.principal) throw error(403, 'Coordinator access required.');
-		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
-		const data = await request.formData();
-		const db = getDb(platform.env.DB);
-		if (!await canManageSeasonAssignments(db, locals.principal, text(data, 'seasonId'), text(data, 'schoolId'))) throw error(403, 'You cannot manage coach assignments for this school.');
-		await removeCoach(db, { userId: text(data, 'userId'), seasonId: text(data, 'seasonId'), schoolId: text(data, 'schoolId') });
-		return { success: 'Coach assignment removed.' };
 	},
 };

@@ -8,8 +8,7 @@ export const load: LayoutServerLoad = async ({ locals, platform }) => {
 	if (!principal || !platform?.env.DB) return { principal, roleLinks: [], nav: null };
 
 	const db = getDb(platform.env.DB);
-	const isSystem = canAdministerUsers(principal);
-	const isSeasonCoordinator = principal.statewideSeasonIds.length > 0;
+	const isAdmin = canAdministerUsers(principal);
 	const isRegional = principal.regionalContestIds.length > 0;
 	const isCoach = principal.coachAssignments.length > 0;
 	const isScorekeeper = principal.scorekeeperContestIds.length > 0;
@@ -30,6 +29,6 @@ export const load: LayoutServerLoad = async ({ locals, platform }) => {
 	return {
 		principal,
 		roleLinks,
-		nav: { isSystem, isSeasonCoordinator, isRegional, isCoach, isScorekeeper },
+		nav: { isAdmin, isRegional, isCoach, isScorekeeper },
 	};
 };

@@ -20,7 +20,7 @@ function requiredName(value: string, label: string): string {
 	return name;
 }
 
-export async function createSeason(db: Database, input: { year: number; name: string; now?: number; cloneAssignmentsFromSeasonId?: string | null }) {
+export async function createSeason(db: Database, input: { year: number; name: string; now?: number }) {
 	if (!Number.isInteger(input.year) || input.year < 2000 || input.year > 2200) {
 		throw new ProgramError('invalid_year', 'Season year must be between 2000 and 2200.');
 	}
@@ -41,24 +41,6 @@ export async function createSeason(db: Database, input: { year: number; name: st
 			settingsJson: '{}', lifecycle: 'setup' as const, createdAt: now, updatedAt: now,
 		})),
 	]);
-	// Bootstrap: new seasons start with the same season coordinators as the previous season.
-	// Regional/scorekeeper/coach assignments are contest/school scoped and are not cloned.
-	try {
-		let sourceSeasonId = input.cloneAssignmentsFromSeasonId ?? null;
-		if (!sourceSeasonId) {
-			const seasons = await db.select({ id: schema.seasons.id, year: schema.seasons.year }).from(schema.seasons);
-			const prior = seasons.filter((candidate) => candidate.id !== season.id).sort((a, b) => b.year - a.year)[0];
-			sourceSeasonId = prior?.id ?? null;
-		}
-		if (sourceSeasonId) {
-			const coordinators = await db.select().from(schema.statewideAssignments).where(eq(schema.statewideAssignments.seasonId, sourceSeasonId));
-			for (const row of coordinators) {
-				await db.insert(schema.statewideAssignments).values({ id: crypto.randomUUID(), userId: row.userId, seasonId: season.id, createdAt: now }).onConflictDoNothing();
-			}
-		}
-	} catch {
-		// Cloning is a convenience; season creation itself must succeed even if it fails.
-	}
 	return season;
 }
 
