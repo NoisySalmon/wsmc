@@ -23,11 +23,11 @@
 		{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
 		{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
 		{#if current}
-			<section class="card"><SeasonOverview season={current} contests={data.contests} regions={data.regions} canOpenState={isAdmin || isCoach} />
+			<section class="card"><SeasonOverview season={current} contests={data.contests} regions={data.regions} canOpenState={isAdmin || isCoach} canOpenQualifications={isAdmin} />
 				{#if isAdmin}
 			<div class="advance">
-				{#if current.status === 'regional'}<p>Qualification management is not available yet.</p>{:else if current.status === 'qualifications'}<p>Open the state contest once administrators have settled who qualifies.</p>{:else}<p>Archiving permanently closes editing for this season. It cannot be reopened.</p>{/if}
-				<form use:enhance method="POST" action="?/setSeasonStatus"><input type="hidden" name="seasonId" value={current.id} /><input type="hidden" name="status" value={nextStage[current.status]} /><button type="submit" disabled={current.status === 'regional'}>{nextLabel[current.status]}</button></form>
+				{#if current.status === 'regional'}<p>Plan qualifications as regional results are finalized.</p>{:else if current.status === 'qualifications'}<p>Finish the qualification draft, then freeze and publish it to open the state contest.</p>{:else}<p>Archiving permanently closes editing for this season. It cannot be reopened.</p>{/if}
+				{#if current.status === 'qualifications'}<p><a href="/qualifications/{current.id}">Review and publish qualifications →</a></p>{:else}<form use:enhance method="POST" action="?/setSeasonStatus"><input type="hidden" name="seasonId" value={current.id} /><input type="hidden" name="status" value={nextStage[current.status]} /><button type="submit">{nextLabel[current.status]}</button></form>{/if}
 			</div>
 				{/if}
 			</section>
@@ -36,7 +36,7 @@
 			<form class="create" use:enhance method="POST" action="?/createSeason"><label>Year <input type="number" name="year" min="2000" max="2200" required /></label><button type="submit">Create season</button></form>
 		</section>
 		{:else}<p>No active season.</p>{/if}
-		{#if archived.length}<details><summary>Archived seasons ({archived.length})</summary>{#each archived as season}<section class="card"><SeasonOverview {season} contests={data.contests} regions={data.regions} canOpenState={isAdmin || isCoach} /></section>{/each}</details>{/if}
+		{#if archived.length}<details><summary>Archived seasons ({archived.length})</summary>{#each archived as season}<section class="card"><SeasonOverview {season} contests={data.contests} regions={data.regions} canOpenState={isAdmin || isCoach} canOpenQualifications={isAdmin} /></section>{/each}</details>{/if}
 
 	{:else}
 		<p><a href="/login">Sign in</a> to continue.</p>

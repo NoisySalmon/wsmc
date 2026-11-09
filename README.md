@@ -82,8 +82,16 @@ seasons, or `npm run seed:new-season` for archived 2026 demo history ready for
 creating 2027. These replace local app data; `npm run seed:showcase` restores
 the original baseline.
 
+With the private, gitignored input files available locally, use
+`npm run seed:2026-results` to replace local data with the administrators'
+actual 2026 regional workbook results. All 11 regionals are finalized and the
+season is in qualification analysis, with no qualification decisions generated.
+Unresolved identities and scores are retained in a reconciliation report for
+correction after loading. See [the results seed guide](docs/operations/2026-results-seed.md)
+for accounts, exclusions, and correction instructions.
+
 The optional `npm run demo:preview -- new-season` command runs a chosen scenario
-(`showcase`, `first-season`, or `new-season`) in isolation. With no argument,
+(`showcase`, `first-season`, `new-season`, or `2026-results`) in isolation. With no argument,
 `npm run demo:preview` defaults to the showcase. The command builds the app and loads a fresh temporary local database with
 the selected scenario. It deletes that database when the server stops. Set
 `WSMC_DEMO_PORT=8798` if needed. To replace the persistent local development

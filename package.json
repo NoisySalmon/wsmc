@@ -13,6 +13,8 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test": "vitest run",
 		"test:db": "bash scripts/test-v2-db.sh",
+		"test:qualifications": "node scripts/test-qualification-workflow.mjs",
+		"test:2026-results": "python scripts/test-2026-results.py",
 		"rehearsal": "bash scripts/dress-rehearsal.sh",
 		"test:e2e:preview": "bash scripts/e2e-preview.sh",
 		"smoke:preview": "bash scripts/smoke-preview.sh",
@@ -20,7 +22,8 @@
 		"seed:remote": "wrangler d1 execute wsmc-db --remote --file=scripts/seed.sql",
 		"seed:first-season": "bash scripts/seed-scenario.sh first-season",
 		"seed:new-season": "bash scripts/seed-scenario.sh new-season",
-		"seed:showcase": "bash scripts/seed-showcase.sh"
+		"seed:showcase": "bash scripts/seed-showcase.sh",
+		"seed:2026-results": "bash scripts/seed-scenario.sh 2026-results"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^4.20260312.1",

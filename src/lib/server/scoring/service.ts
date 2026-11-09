@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
 import { PersistenceRuleError, saveResult } from '$lib/server/db/repositories';
@@ -145,7 +145,7 @@ export async function saveContestResult(db: Database, input: { contestId: string
 		action: 'score_saved', detailsJson: JSON.stringify({ category: entry.category, score: values.score, part1: values.part1, part2: values.part2, placement: values.placement, knowdownOutcome: values.knowdownOutcome, version: result?.version ?? null }), createdAt: input.now ?? Date.now(),
 	});
 	const [publishedQualificationRound] = contest.kind === 'regional'
-		? await db.select({ id: schema.qualificationRounds.id }).from(schema.qualificationRounds).where(and(eq(schema.qualificationRounds.seasonId, contest.seasonId), eq(schema.qualificationRounds.status, 'published'))).limit(1)
+		? await db.select({ id: schema.qualificationRounds.id }).from(schema.qualificationRounds).where(and(eq(schema.qualificationRounds.seasonId, contest.seasonId), inArray(schema.qualificationRounds.status, ['frozen', 'published']))).limit(1)
 		: [];
 	if (publishedQualificationRound) await db.insert(schema.auditEvents).values({
 		id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: contest.id, entityType: 'qualification_round', entityId: publishedQualificationRound.id,

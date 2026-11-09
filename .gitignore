@@ -19,5 +19,13 @@ vite.config.ts.timestamp-*
 .svelte-kit
 *.xlsx
 
-# Local
+# Private source data and historical results
+/legacy/
+/scripts/data/2026-regionals/
 State Math
+
+# Editor and Python temporary files
+.~lock.*#
+~$*
+__pycache__/
+*.py[cod]

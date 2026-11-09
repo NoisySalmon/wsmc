@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { contestDate } from '$lib/contest-date';
 	import { seasonStages, seasonLabels, seasonDescriptions } from '$lib/season';
-	let { season, contests, regions, canOpenState = true } : {
+	let { season, contests, regions, canOpenQualifications = false, canOpenState = true } : {
+		canOpenQualifications?: boolean;
 		canOpenState?: boolean;
 		season: { id: string; year: number; status: string };
 		contests: { id: string; seasonId: string; regionId: string | null; kind: string; lifecycle: string; canOpen: boolean; startsAt: number | null }[];
@@ -23,6 +24,7 @@
 		<li>{#if contest}{#if contest.canOpen}<a href="/contests/{contest.id}">Region {region.number} — {region.name}</a>{:else}<span>Region {region.number} — {region.name}</span>{/if}<span class="contest-status" data-status={contest.lifecycle}>{contestStatusLabels[contest.lifecycle] ?? contest.lifecycle}</span><span class="date">{contestDate(contest.startsAt)}</span>{:else}<span>Region {region.number} — {region.name}</span><span>Contest unavailable</span>{/if}</li>
 	{/each}
 </ul>
+{#if canOpenQualifications}<h3>State qualifications</h3><p><a href="/qualifications/{season.id}">Plan and review qualifications →</a></p>{/if}
 <h3>State contest</h3>
 {#if state}<div class="state">{#if canOpenState}<a href="/state/{state.id}">State contest</a>{:else}<span>State contest</span>{/if}<span class="contest-status" data-status={state.lifecycle}>{contestStatusLabels[state.lifecycle] ?? state.lifecycle}</span><span class="date">{contestDate(state.startsAt)}</span></div>{:else}<p>State contest unavailable.</p>{/if}
 <style>

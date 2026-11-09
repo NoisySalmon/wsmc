@@ -67,6 +67,10 @@ export async function setSeasonStatus(db: Database, seasonId: string, status: Se
 	if (!season) throw new ProgramError('not_found', 'Season not found.');
 	if (season.status === 'archived') throw new ProgramError('archived', 'Archived seasons are permanently read-only.');
 	if (seasonOrder.indexOf(status) !== seasonOrder.indexOf(season.status) + 1) throw new ProgramError('invalid_transition', 'Use the next available season stage.');
+	if (status === 'state') {
+		const rounds = await db.select().from(schema.qualificationRounds).where(eq(schema.qualificationRounds.seasonId, seasonId));
+		if (rounds.some(round => round.status !== 'published')) throw new ProgramError('incomplete', 'Publish the qualification draft before opening the state contest.');
+	}
 	if (status === 'qualifications') {
 		const contests = await db.select().from(schema.contests).where(and(eq(schema.contests.seasonId, seasonId), eq(schema.contests.kind, 'regional')));
 		if (!contests.length || contests.some((contest) => contest.lifecycle !== 'finalized')) throw new ProgramError('incomplete', 'Finalize all regional contests before attending to qualifications.');

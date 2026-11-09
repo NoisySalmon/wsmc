@@ -179,7 +179,7 @@ export const qualificationRounds = sqliteTable('qualification_rounds', {
 	id: text('id').primaryKey(),
 	seasonId: text('season_id').notNull().references(() => seasons.id, { onDelete: 'cascade' }),
 	kind: text('kind', { enum: ['regional_placements', 'state_cutoff', 'manual_review'] }).notNull(),
-	status: text('status', { enum: ['draft', 'published'] }).notNull().default('draft'),
+	status: text('status', { enum: ['draft', 'frozen', 'published'] }).notNull().default('draft'),
 	thresholdsJson: text('thresholds_json').notNull().default('{}'),
 	publishedAt: integer('published_at'),
 	createdBy: text('created_by').notNull().references(() => users.id, { onDelete: 'restrict' }),
