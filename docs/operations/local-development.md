@@ -16,6 +16,29 @@ These shortcuts work only on a loopback Vite development server, use the
 existing fixture accounts, and are disabled in production builds. No emailed
 token or manual sign-out is needed.
 
+## Starting scenarios
+
+These commands replace **all** default local application data, including sessions
+and any rehearsal edits. Stop the development server before switching, then run
+`npm run dev` and use the state admin shortcut above.
+
+```bash
+npm run seed:showcase      # Restore the original mixed regional baseline
+npm run seed:first-season  # 40 schools + system administrator; no seasons
+npm run seed:new-season    # Archived 2026 showcase history; no current season
+```
+
+For either season-creation scenario, sign in as `coordinator@wsmc.example`
+and open Home. Create 2026 for a first season, or 2027 after the archived season.
+The app creates the 11 regional contests and state contest. Active schools inherit their regional placements from the most recent earlier
+season, with fresh invitations and current school divisions. Active regional coordinators and coaches also carry forward; coaches of inactive
+schools are excluded. Students and scorekeeper assignments start fresh.
+`first-season` has only the administrator account. `new-season` retains the
+showcase's fictional users and annual records as read-only history; its mixed
+contest states are demo history, not a fully completed competition.
+All three seeds are local-only and can be rerun, including after archiving or
+creating additional seasons. `seed:showcase` always restores the original baseline.
+
 ## Optional: disposable preview
 
 This separate environment is not needed for normal demo rehearsals.
@@ -24,12 +47,14 @@ From the repository root, with Node.js 20+ installed:
 
 ```bash
 npm ci
-npm run demo:preview
+npm run demo:preview                     # Defaults to showcase
+npm run demo:preview -- first-season
+npm run demo:preview -- new-season
 ```
 
 Open `http://127.0.0.1:8797/login`. The command builds the app, applies
-migrations, and loads the real-school showcase into a temporary local D1.
-Ctrl+C removes that database. Restarting restores the showcase. Set
+migrations, and loads the selected scenario into a temporary local D1.
+Ctrl+C removes that database. Restarting restores the selected scenario. The default development database is untouched. Set
 `WSMC_DEMO_PORT=8798` to choose another port. The script rejects email/origin
 settings in `.dev.vars` and uses development email, which prints one-time
 sign-in links to the terminal. Sign out before switching accounts.

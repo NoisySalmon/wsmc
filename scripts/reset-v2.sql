@@ -1,3 +1,7 @@
+-- Local fixture reset only: temporarily unarchive history so delete guards allow reset.
+DROP TRIGGER IF EXISTS seasons_archived_update;
+DROP INDEX IF EXISTS seasons_one_current_uq;
+UPDATE seasons SET status = 'regional';
 DELETE FROM state_roster_members;
 DELETE FROM state_team_berths;
 DELETE FROM state_attendances;
@@ -23,3 +27,6 @@ DELETE FROM seasons;
 DELETE FROM sessions;
 DELETE FROM sign_in_tokens;
 DELETE FROM users;
+CREATE UNIQUE INDEX seasons_one_current_uq ON seasons ((1)) WHERE status <> 'archived';
+CREATE TRIGGER seasons_archived_update BEFORE UPDATE ON seasons WHEN OLD.status = 'archived'
+BEGIN SELECT RAISE(ABORT, 'Archived seasons are permanently read-only.'); END;

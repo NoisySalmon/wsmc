@@ -32,8 +32,8 @@
 				{/if}
 			</section>
 		{:else if isAdmin}
-		<section class="card"><h2>New season</h2><p>Creates the 11 fixed regional contests and the state contest.</p>
-			<form class="create" use:enhance method="POST" action="?/createSeason"><label>Year <input type="number" name="year" min="2000" max="2200" required /></label><label>Season name <input name="name" placeholder="2027 WSMC" required /></label><button type="submit">Create season</button></form>
+		<section class="card"><h2>New season</h2><p>Creates the 11 fixed regional contests and the state contest. Active schools start in their prior season’s regions, with regional coordinators and coaches carried forward. You can change these assignments.</p>
+			<form class="create" use:enhance method="POST" action="?/createSeason"><label>Year <input type="number" name="year" min="2000" max="2200" required /></label><button type="submit">Create season</button></form>
 		</section>
 		{:else}<p>No active season.</p>{/if}
 		{#if archived.length}<details><summary>Archived seasons ({archived.length})</summary>{#each archived as season}<section class="card"><SeasonOverview {season} contests={data.contests} regions={data.regions} canOpenState={isAdmin || data.principal.coachAssignments.some(a => a.seasonId === season.id)} /></section>{/each}</details>{/if}

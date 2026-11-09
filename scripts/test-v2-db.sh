@@ -10,6 +10,7 @@ sqlite3 "$database_path" < drizzle/0001_v2_baseline.sql
 sqlite3 "$database_path" < drizzle/0002_knowdown_outcomes.sql
 sqlite3 "$database_path" < drizzle/0003_school_division.sql
 sqlite3 "$database_path" < drizzle/0004_program_stages.sql
+sqlite3 "$database_path" < drizzle/0005_season_year.sql
 sqlite3 "$database_path" < scripts/seed.sql
 
 counts="$(sqlite3 -noheader -separator '|' "$database_path" "SELECT (SELECT COUNT(*) FROM seasons), (SELECT COUNT(*) FROM regions), (SELECT COUNT(*) FROM contests), (SELECT COUNT(*) FROM schools), (SELECT COUNT(*) FROM annual_students), (SELECT COUNT(*) FROM entries), (SELECT COUNT(*) FROM entry_members);")"

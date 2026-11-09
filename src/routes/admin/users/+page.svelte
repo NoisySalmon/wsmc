@@ -34,7 +34,7 @@
 			{#if inviteRole === 'coach'}<label>Season
 				<select name="seasonId">
 					<option value="">Select a season</option>
-					{#each data.seasons as season}<option value={season.id}>{season.year} — {season.name}</option>{/each}
+					{#each data.seasons as season}<option value={season.id}>{season.year}</option>{/each}
 				</select>
 			</label>{/if}
 			{#if inviteRole === 'regional' || inviteRole === 'scorekeeper'}<label>Contest
@@ -72,7 +72,7 @@
 					<div class="assignments">
 						{#if data.assignments.statewide.some((assignment) => assignment.userId === user.id)}<form method="POST" action="?/removeAssignment"><input type="hidden" name="userId" value={user.id} /><input type="hidden" name="assignmentKind" value="statewide" /><span>Administrator</span><button type="submit">Remove access</button></form>{/if}
 						{#each data.assignments.regional.filter((assignment) => assignment.userId === user.id) as assignment}<form method="POST" action="?/removeAssignment"><input type="hidden" name="userId" value={user.id} /><input type="hidden" name="assignmentKind" value="regional" /><input type="hidden" name="contestId" value={assignment.contestId} /><span>Regional coordinator · {data.contests.find((contest) => contest.id === assignment.contestId)?.name ?? assignment.contestId}</span><button type="submit">Remove</button></form>{/each}
-						{#each data.assignments.coach.filter((assignment) => assignment.userId === user.id) as assignment}<form method="POST" action="?/removeAssignment"><input type="hidden" name="userId" value={user.id} /><input type="hidden" name="assignmentKind" value="coach" /><input type="hidden" name="seasonId" value={assignment.seasonId} /><input type="hidden" name="schoolId" value={assignment.schoolId} /><span>Coach · {data.schools.find((school) => school.id === assignment.schoolId)?.name ?? assignment.schoolId} · {data.seasons.find((season) => season.id === assignment.seasonId)?.name ?? assignment.seasonId}</span><button type="submit">Remove</button></form>{/each}
+						{#each data.assignments.coach.filter((assignment) => assignment.userId === user.id) as assignment}<form method="POST" action="?/removeAssignment"><input type="hidden" name="userId" value={user.id} /><input type="hidden" name="assignmentKind" value="coach" /><input type="hidden" name="seasonId" value={assignment.seasonId} /><input type="hidden" name="schoolId" value={assignment.schoolId} /><span>Coach · {data.schools.find((school) => school.id === assignment.schoolId)?.name ?? assignment.schoolId} · {data.seasons.find((season) => season.id === assignment.seasonId)?.year ?? assignment.seasonId}</span><button type="submit">Remove</button></form>{/each}
 						{#each data.assignments.scorekeeper.filter((assignment) => assignment.userId === user.id) as assignment}<form method="POST" action="?/removeAssignment"><input type="hidden" name="userId" value={user.id} /><input type="hidden" name="assignmentKind" value="scorekeeper" /><input type="hidden" name="contestId" value={assignment.contestId} /><span>Scorekeeper · {data.contests.find((contest) => contest.id === assignment.contestId)?.name ?? assignment.contestId}</span><button type="submit">Remove</button></form>{/each}
 					</div>
 				</li>

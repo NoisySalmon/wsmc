@@ -47,7 +47,7 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 	const db = getDb(platform.env.DB);
 	const [users, seasons, contests, schools, statewideAssignments, regionalAssignments, coachAssignments, scorekeeperAssignments] = await Promise.all([
 		db.select({ id: schema.users.id, email: schema.users.email, displayName: schema.users.displayName, status: schema.users.status, createdAt: schema.users.createdAt }).from(schema.users),
-		db.select({ id: schema.seasons.id, name: schema.seasons.name, year: schema.seasons.year }).from(schema.seasons),
+		db.select({ id: schema.seasons.id, year: schema.seasons.year }).from(schema.seasons),
 		db.select({ id: schema.contests.id, name: schema.contests.name, kind: schema.contests.kind }).from(schema.contests),
 		db.select({ id: schema.schools.id, name: schema.schools.name }).from(schema.schools).where(eq(schema.schools.active, true)),
 		db.select().from(schema.statewideAssignments),

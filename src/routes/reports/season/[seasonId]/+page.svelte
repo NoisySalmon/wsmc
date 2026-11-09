@@ -3,10 +3,10 @@
 	const labels: Record<string, string> = { regional_placements: 'Regional placement qualifications', state_cutoff: 'State cutoff qualifications', manual_review: 'Manual qualification review' };
 </script>
 
-<svelte:head><title>{data.season.name} statewide reports — WSMC</title></svelte:head>
+<svelte:head><title>{data.season.year} statewide reports — WSMC</title></svelte:head>
 <main>
 	<p><a href="/">← Home</a></p>
-	<h1>{data.season.name} statewide reports</h1>
+	<h1>{data.season.year} statewide reports</h1>
 	<p class="subheading">Published results and frozen qualification decisions are available to assigned coaches and coordinators. Coordinators can also review finalized regional results before publication.</p>
 	<p><a href="/reports/qualifications?seasonId={data.season.id}">Download qualification CSV</a></p>
 

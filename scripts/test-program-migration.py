@@ -39,3 +39,10 @@ db.execute("INSERT INTO seasons (id, year, name) VALUES ('next', 2027, 'Next')")
 # A new season cannot absorb an archived record.
 rejected("UPDATE contests SET season_id = 'next' WHERE id = 'regional'")
 print('program migration checks passed: legacy upgrade, state backfill, one current season, permanent archive')
+
+# Removing redundant names must also upgrade archived history without weakening guards.
+db.executescript(Path('drizzle/0005_season_year.sql').read_text())
+assert 'name' not in [row[1] for row in db.execute('PRAGMA table_info(seasons)')]
+assert db.execute("SELECT year, status FROM seasons WHERE id = 'season'").fetchone() == (2026, 'archived')
+rejected("UPDATE seasons SET year = 2025 WHERE id = 'season'")
+print('year-only season upgrade preserves archived history and protection')

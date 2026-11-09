@@ -26,7 +26,7 @@
 		{#if manageable}<div class="actions">
 			{#if person.canGenerateQr}<form method="POST" action="?/qr"><input type="hidden" name="userId" value={person.userId} /><button type="submit">Show sign-in QR</button></form>{/if}
 			{#if person.status === 'pending'}<form method="POST" action="?/resend"><input type="hidden" name="role" value={role} /><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="userId" value={person.userId} /><button class="quiet" type="submit">Resend invitation</button></form>{/if}
-			<form method="POST" action="?/remove"><input type="hidden" name="role" value={role} /><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="userId" value={person.userId} /><button class="quiet" type="submit">{role === 'coach' ? 'Remove school/season access' : 'Remove from this contest'}</button></form>
+			<form method="POST" action="?/remove"><input type="hidden" name="role" value={role} /><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="userId" value={person.userId} /><button class="quiet" type="submit">{role === 'scorekeeper' ? 'Remove from this contest' : 'Remove access'}</button></form>
 		</div>{/if}</li>
 	{/snippet}
 

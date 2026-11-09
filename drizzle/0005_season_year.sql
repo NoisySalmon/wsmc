@@ -1,0 +1,1 @@
+ALTER TABLE seasons DROP COLUMN name;

@@ -37,7 +37,6 @@ export const sessions = sqliteTable('sessions', {
 export const seasons = sqliteTable('seasons', {
 	id: text('id').primaryKey(),
 	year: integer('year').notNull().unique(),
-	name: text('name').notNull(),
 	status: text('status', { enum: ['regional', 'qualifications', 'state', 'archived'] }).notNull().default('regional'),
 	createdAt: integer('created_at').notNull().default(timestamp()),
 	updatedAt: integer('updated_at').notNull().default(timestamp()),

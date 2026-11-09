@@ -14,7 +14,7 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 	const seasonIds = new Set<string>();
 	for (const id of principal.statewideSeasonIds) if (id) seasonIds.add(id);
 	for (const assignment of principal.coachAssignments) seasonIds.add(assignment.seasonId);
-	let seasons = await db.select({ id: schema.seasons.id, year: schema.seasons.year, name: schema.seasons.name, status: schema.seasons.status }).from(schema.seasons);
+	let seasons = await db.select({ id: schema.seasons.id, year: schema.seasons.year, status: schema.seasons.status }).from(schema.seasons);
 	if (!isCoordinator && seasonIds.size > 0) seasons = seasons.filter((season) => seasonIds.has(season.id));
 	seasons = [...seasons].sort((a, b) => {
 		const order = (s: string) => (s === 'archived' ? 1 : 0);
@@ -54,7 +54,7 @@ export const actions: Actions = {
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const data = await request.formData();
 		try {
-			await createSeason(getDb(platform.env.DB), { year: numberValue(data, 'year'), name: textValue(data, 'name') });
+			await createSeason(getDb(platform.env.DB), { year: numberValue(data, 'year') });
 			return { success: 'Season created.' };
 		} catch (cause) {
 			return fail(400, { error: cause instanceof ProgramError ? cause.message : 'Season could not be created.' });

@@ -19,7 +19,7 @@
 
 <main>
 	<header>
-		<p class="eyebrow">{data.season?.name ?? 'No current season'}</p>
+		<p class="eyebrow">{data.season?.year ?? 'No current season'}</p>
 		<h1>Regions</h1>
 		<p class="intro">Schools are assigned to a regional contest. To change a school's region, remove its participation, then assign it to the new region below. Use Virtual for schools attending outside a local region.</p>
 		{#if data.canAddSchools}<p class="muted">School missing from the list? <a href="/schools">Add it under Schools</a>, then assign it here.</p>{/if}

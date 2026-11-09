@@ -116,7 +116,7 @@
 	<a class="back" href="/my-schools" onclick={guardNavigation}>← My schools</a>
 	<header class="page-heading">
 		<div>
-			<p class="eyebrow">MY TEAM / {data.season?.name ?? 'Season'}</p>
+			<p class="eyebrow">MY TEAM / {data.season?.year ?? 'Season'}</p>
 			<h1>{data.school.name}</h1>
 			<p class="intro">
 				Add your students. Set their events. Keep the whole team in one place.

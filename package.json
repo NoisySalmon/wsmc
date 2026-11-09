@@ -18,6 +18,8 @@
 		"smoke:preview": "bash scripts/smoke-preview.sh",
 		"seed": "wrangler d1 execute wsmc-db --local --file=scripts/seed.sql",
 		"seed:remote": "wrangler d1 execute wsmc-db --remote --file=scripts/seed.sql",
+		"seed:first-season": "bash scripts/seed-scenario.sh first-season",
+		"seed:new-season": "bash scripts/seed-scenario.sh new-season",
 		"seed:showcase": "bash scripts/seed-showcase.sh"
 	},
 	"devDependencies": {

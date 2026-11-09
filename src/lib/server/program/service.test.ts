@@ -4,14 +4,13 @@ import { schema } from '$lib/server/db';
 
 describe('program setup rules', () => {
 	it('rejects invalid season input before writing', async () => {
-		await expect(createSeason({} as never, { year: 1999, name: 'Old' })).rejects.toMatchObject({ code: 'invalid_year' });
-		await expect(createSeason({} as never, { year: 2026, name: '   ' })).rejects.toMatchObject({ code: 'invalid_request' });
+		await expect(createSeason({} as never, { year: 1999 })).rejects.toMatchObject({ code: 'invalid_year' });
 	});
 
 	it('atomically creates a season with all known regions and a setup contest for each', async () => {
 		const operations: { table: unknown; values: any }[] = [];
 		const db = {
-			select: () => ({ from: () => ({ where: async () => [] }) }),
+			select: () => { const query = { innerJoin: () => query, where: async () => [] }; return { from: () => query }; },
 			insert: (table: unknown) => ({ values: (values: unknown) => {
 				const operation = { table, values };
 				return {
@@ -25,10 +24,10 @@ describe('program setup rules', () => {
 			},
 		};
 		const season = await createSeason(db as never, {
-			year: 2027, name: '  2027 WSMC  ', now: 1234,
+			year: 2027, now: 1234,
 		});
 		expect(operations.map((operation) => operation.table)).toEqual([schema.seasons, schema.regions, ...Array(12).fill(schema.contests)]);
-		expect(season).toMatchObject({ year: 2027, name: '2027 WSMC', createdAt: 1234 });
+		expect(season).toMatchObject({ year: 2027, createdAt: 1234 });
 		const regions = operations[1].values;
 		expect(regions.map(({ number, name }: { number: number; name: string }) => [number, name])).toEqual([
 			[1, 'Spokane area'], [2, 'Tri Cities'], [3, 'North Central'], [4, 'Yakima area'],
@@ -50,11 +49,11 @@ describe('program setup rules', () => {
 
 	it('reports a failed season bootstrap instead of returning a partially configured season', async () => {
 		const db = {
-			select: () => ({ from: () => ({ where: async () => [] }) }),
+			select: () => { const query = { innerJoin: () => query, where: async () => [] }; return { from: () => query }; },
 			insert: () => ({ values: () => ({ returning: () => ({}) }) }),
 			batch: async () => { throw new Error('bootstrap failed'); },
 		};
-		await expect(createSeason(db as never, { year: 2027, name: '2027 WSMC' })).rejects.toThrow('bootstrap failed');
+		await expect(createSeason(db as never, { year: 2027 })).rejects.toThrow('bootstrap failed');
 	});
 
 	it('does not allow lifecycle rollback', async () => {
@@ -77,7 +76,7 @@ describe('program setup rules', () => {
 	});
 	it('requires archiving the existing season before another can be created', async () => {
 		const db = { select: () => ({ from: () => ({ where: async () => [{ id: 'current' }] }) }) };
-		await expect(createSeason(db as never, { year: 2027, name: '2027 WSMC' })).rejects.toMatchObject({ code: 'active_season' });
+		await expect(createSeason(db as never, { year: 2027 })).rejects.toMatchObject({ code: 'active_season' });
 	});
 
 	it.each([

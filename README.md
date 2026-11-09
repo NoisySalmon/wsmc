@@ -75,8 +75,15 @@ dates are fictional demo data. No scorekeepers are configured. Regions cover
 setup, registration, locked rosters, partial scoring, finalized results, and
 published results. The state contest awaits setup.
 
-The optional `npm run demo:preview` command builds the app and loads a fresh temporary local database with
-the showcase. It deletes that database when the server stops. Set
+Use `npm run seed:first-season` for the school directory and administrator with no
+seasons, or `npm run seed:new-season` for archived 2026 demo history ready for
+creating 2027. These replace local app data; `npm run seed:showcase` restores
+the original baseline.
+
+The optional `npm run demo:preview -- new-season` command runs a chosen scenario
+(`showcase`, `first-season`, or `new-season`) in isolation. With no argument,
+`npm run demo:preview` defaults to the showcase. The command builds the app and loads a fresh temporary local database with
+the selected scenario. It deletes that database when the server stops. Set
 `WSMC_DEMO_PORT=8798` if needed. To replace the persistent local development
 database instead, run `npm run seed:showcase` and `npm run dev`.
 Production is unchanged. See the [local development guide](docs/operations/local-development.md)

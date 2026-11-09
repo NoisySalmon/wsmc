@@ -31,6 +31,7 @@ d1 --file=drizzle/0001_v2_baseline.sql
 d1 --file=drizzle/0002_knowdown_outcomes.sql
 d1 --file=drizzle/0003_school_division.sql
 d1 --file=drizzle/0004_program_stages.sql
+d1 --file=drizzle/0005_season_year.sql
 d1 --file=scripts/seed.sql
 
 # Exercise scoring in the open state while retaining the seeded regional and
@@ -275,12 +276,16 @@ attendance_check="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persi
 node scripts/qr-sign-in-journey.mjs "$base_url" "$persist_dir"
 
 # One current season; archiving is permanent, then the next season bootstraps all contests.
-assert_action_failure POST '/?/createSeason' 400 "$coordinator" --data 'year=2027&name=2027+WSMC'
+assert_action_failure POST '/?/createSeason' 400 "$coordinator" --data 'year=2027'
 assert_status POST '/?/setSeasonStatus' 403 "$regional" --data 'seasonId=season-2026&status=archived'
+# Disabled historical staff must not gain assignments in the new season.
+d1 --command="INSERT INTO users (id, email, display_name, status) VALUES ('disabled-rollover', 'disabled.rollover@wsmc.example', 'Disabled historical staff', 'disabled'); INSERT INTO regional_coordinator_assignments (user_id, contest_id) VALUES ('disabled-rollover', 'contest-region-2'); INSERT INTO coach_assignments (user_id, season_id, school_id) VALUES ('disabled-rollover', 'season-2026', 'school-alpha');"
+# Directory changes should govern the new invitations, without changing history.
+d1 --command="UPDATE schools SET active = 0 WHERE id = 'school-beta'; UPDATE schools SET division = 2 WHERE id = 'school-alpha';"
 assert_status POST '/?/setSeasonStatus' 200 "$coordinator" --data 'seasonId=season-2026&status=archived'
 assert_action_failure POST '/?/setSeasonStatus' 400 "$coordinator" --data 'seasonId=season-2026&status=regional'
 assert_action_failure POST '/state/contest-state-2026?/setAttendance' 400 "$coordinator" --data 'schoolId=school-alpha&intent=attending'
-assert_status POST '/?/createSeason' 200 "$coordinator" --data 'year=2027&name=2027+WSMC'
+assert_status POST '/?/createSeason' 200 "$coordinator" --data 'year=2027'
 grep --fixed-strings --quiet 'Season created.' "$response_file" || { cat "$response_file" >&2; exit 1; }
 bootstrap_check="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT COUNT(*) AS bootstrapped_regions FROM regions r JOIN seasons s ON s.id = r.season_id JOIN contests c ON c.region_id = r.id AND c.season_id = s.id WHERE s.year = 2027 AND c.kind = 'regional' AND c.lifecycle = 'setup' AND c.starts_at IS NULL;")"
 [[ "$bootstrap_check" =~ \"bootstrapped_regions\"[[:space:]]*:[[:space:]]*11 ]] || { echo "season bootstrap did not persist eleven regions and contests: $bootstrap_check" >&2; exit 1; }
@@ -288,6 +293,51 @@ assert_page_contains GET / "$coordinator" 'Region 11 — Virtual'
 assert_page_contains GET / "$coordinator" 'Regional contests are in progress.'
 state_bootstrap="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT COUNT(*) AS state_contests FROM contests c JOIN seasons s ON s.id = c.season_id WHERE s.year = 2027 AND c.kind = 'state';")"
 [[ "$state_bootstrap" =~ \"state_contests\"[[:space:]]*:[[:space:]]*1 ]] || { echo "season must create exactly one state contest: $state_bootstrap" >&2; exit 1; }
+
+# Rollover preserves regional placement only: active schools, current division,
+# fresh invitation status, and no annual roster or state participation.
+rollover_check="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="
+WITH expected AS (
+ SELECT p.school_id, r.number, school.division FROM school_participations p
+ JOIN contests c ON c.id = p.contest_id JOIN regions r ON r.id = c.region_id
+ JOIN schools school ON school.id = p.school_id
+ WHERE c.season_id = 'season-2026' AND c.kind = 'regional' AND school.active = 1
+), actual AS (
+ SELECT p.school_id, r.number, p.division FROM school_participations p
+ JOIN contests c ON c.id = p.contest_id JOIN regions r ON r.id = c.region_id
+ JOIN seasons s ON s.id = c.season_id WHERE s.year = 2027
+), missing AS (SELECT * FROM expected EXCEPT SELECT * FROM actual),
+extra AS (SELECT * FROM actual EXCEPT SELECT * FROM expected)
+SELECT (SELECT COUNT(*) FROM missing) + (SELECT COUNT(*) FROM extra) +
+ (SELECT COUNT(*) FROM school_participations p JOIN contests c ON c.id = p.contest_id JOIN seasons s ON s.id = c.season_id WHERE s.year = 2027 AND (p.invitation_status <> 'invited' OR c.kind <> 'regional')) +
+ (SELECT COUNT(*) FROM annual_students a JOIN seasons s ON s.id = a.season_id WHERE s.year = 2027) AS rollover_errors;")"
+[[ "$rollover_check" =~ \"rollover_errors\"[[:space:]]*:[[:space:]]*0 ]] || { echo "school-region rollover failed: $rollover_check" >&2; exit 1; }
+
+# Compare complete assignment sets, including multiple coaches and disabled staff.
+role_rollover_check="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="
+WITH expected AS (
+ SELECT 'regional' AS role, a.user_id, CAST(r.number AS TEXT) AS scope
+ FROM regional_coordinator_assignments a JOIN users u ON u.id = a.user_id
+ JOIN contests c ON c.id = a.contest_id JOIN regions r ON r.id = c.region_id
+ WHERE c.season_id = 'season-2026' AND c.kind = 'regional' AND u.status = 'active'
+ UNION ALL
+ SELECT 'coach', a.user_id, a.school_id FROM coach_assignments a
+ JOIN users u ON u.id = a.user_id JOIN schools school ON school.id = a.school_id
+ WHERE a.season_id = 'season-2026' AND u.status = 'active' AND school.active = 1
+), actual AS (
+ SELECT 'regional' AS role, a.user_id, CAST(r.number AS TEXT) AS scope
+ FROM regional_coordinator_assignments a JOIN contests c ON c.id = a.contest_id
+ JOIN regions r ON r.id = c.region_id JOIN seasons s ON s.id = c.season_id WHERE s.year = 2027
+ UNION ALL
+ SELECT 'coach', a.user_id, a.school_id FROM coach_assignments a
+ JOIN seasons s ON s.id = a.season_id WHERE s.year = 2027
+), missing AS (SELECT * FROM expected EXCEPT SELECT * FROM actual),
+extra AS (SELECT * FROM actual EXCEPT SELECT * FROM expected)
+SELECT (SELECT COUNT(*) FROM missing) + (SELECT COUNT(*) FROM extra) AS role_errors;")"
+[[ "$role_rollover_check" =~ \"role_errors\"[[:space:]]*:[[:space:]]*0 ]] || { echo "staff rollover failed: $role_rollover_check" >&2; exit 1; }
+assert_page_contains GET /my-schools "$coach" '2027'
+new_regional_contest="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT c.id FROM contests c JOIN regions r ON r.id = c.region_id JOIN seasons s ON s.id = c.season_id WHERE s.year = 2027 AND r.number = 2;" | node -e 'let s="";process.stdin.on("data",x=>s+=x);process.stdin.on("end",()=>process.stdout.write(JSON.parse(s)[0].results[0].id));')"
+assert_page_contains GET "/contests/$new_regional_contest" "$regional" 'Region 2'
 
 # Season progression is administrator-controlled and shared with the homepage.
 new_season_id="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT id FROM seasons WHERE year = 2027;" | node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(0,"utf8"))[0].results[0].id)')"

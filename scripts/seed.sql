@@ -5,8 +5,8 @@
 
 PRAGMA foreign_keys = ON;
 
-INSERT INTO seasons (id, year, name, status) VALUES
-  ('season-2026', 2026, '2026 WSMC', 'state');
+INSERT INTO seasons (id, year, status) VALUES
+  ('season-2026', 2026, 'state');
 
 INSERT INTO regions (id, season_id, number, name) VALUES
   ('region-1-2026', 'season-2026', 1, 'Spokane area'),

@@ -9,7 +9,11 @@ live season after the production email provider and D1 binding are configured.
 
 1. Sign in as an administrator. Only one season may be active at a time.
 2. Open **Home** and create a season after the prior season is archived.
-   All 11 fixed regions, regional contests, and the state contest are created together.
+   Enter the year; all 11 fixed regions, regional contests, and the state contest
+   are created together. Active schools inherit regional placements from the most
+   recent earlier season, with fresh invitations and current school divisions.
+   Active regional coordinators and coaches also carry forward (excluding coaches
+   of inactive schools). Review and adjust these assignments before registration.
 3. The homepage shows the season overview, contest statuses, and dates.
    Regional contest links appear only for users with access.
 4. Open each contest to set its date and manage people and contest stages.

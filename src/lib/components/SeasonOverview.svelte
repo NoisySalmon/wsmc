@@ -3,7 +3,7 @@
 	import { seasonStages, seasonLabels, seasonDescriptions } from '$lib/season';
 	let { season, contests, regions, canOpenState = true } : {
 		canOpenState?: boolean;
-		season: { id: string; name: string; year: number; status: string };
+		season: { id: string; year: number; status: string };
 		contests: { id: string; seasonId: string; regionId: string | null; kind: string; lifecycle: string; canOpen: boolean; startsAt: number | null }[];
 		regions: { id: string; seasonId: string; number: number; name: string }[];
 	} = $props();
@@ -11,7 +11,7 @@
 	const regional = $derived(regions.filter(r => r.seasonId === season.id).sort((a,b) => a.number-b.number));
 	const state = $derived(contests.find(c => c.seasonId === season.id && c.kind === 'state'));
 </script>
-<header><h2>{season.name}</h2><span class="badge">{seasonLabels[season.status]}</span></header>
+<header><h2>{season.year}</h2><span class="badge">{seasonLabels[season.status]}</span></header>
 <ol aria-label="Season stages">
 	{#each seasonStages as stage}<li aria-current={season.status === stage ? 'step' : undefined} class:current={season.status === stage}>{seasonLabels[stage]}</li>{/each}
 </ol>
