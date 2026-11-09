@@ -125,9 +125,30 @@ publicly reachable URLs by default, so the preview must retain the app's
 normal authentication. Cloudflare Access can provide an additional gate if
 wanted; a branch alias alone is not an access restriction.
 
-## Status
+## Rollout completed on 2026-11-09
 
-The commit, branch, empty preview DB, branch configuration, private backup,
-and successful local upgrade rehearsal are prepared. Production has not been
-migrated, reseeded, or redeployed. The preview has not been seeded or deployed,
-and neither Git branch has been pushed by this work.
+- Both Git branches have been pushed.
+- Production now runs `41617bf` at <https://wsmc.pages.dev>.
+  Immutable deployment: <https://9f6cd598.wsmc.pages.dev>.
+- Preview runs `5724809` at <https://cloudflare-preview.wsmc.pages.dev>.
+  Immutable deployment: <https://9960ea06.wsmc.pages.dev>.
+- Both databases have all migrations applied. The deployed environment bindings
+  were checked through the Pages API and point to distinct D1 IDs.
+- Production accounts and session records were retained; existing administrator
+  access was verified with a previously issued session. The original 40 schools,
+  320 fictional students, and mixed regional contest states remain intact.
+- Preview has 53 schools and 517 historical students. The cutoff values and
+  complete qualification draft were saved through the deployed application:
+  250 active event qualifications, still editable and unpublished.
+- Production administrator accounts and statewide grants were provisioned in
+  preview. Production sessions were not copied. A deployment-only preview
+  verification session was removed after authenticated route/save checks.
+- Preview's encrypted email secret was configured from the existing local
+  send-only Resend credential. No verification emails were sent to users.
+- Unauthenticated smoke checks passed on both hosts, including private-route
+  protection and the unpublished state-results boundary. Named team members
+  and removal of the target/preset controls were checked on the deployed preview.
+
+The earlier evaluation above describes the pre-rollout state. Keep this
+historical record when using the runbook for subsequent upgrades; pending
+migration names and fixture counts must be rechecked each time.
