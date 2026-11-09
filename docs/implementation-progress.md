@@ -66,7 +66,7 @@ This is the implementation tracker for [the execution plan](execution-plan.md).
 - **Implemented:** `/schools` directory with normalized same-city duplicate
   suggestions, explicit duplicate confirmation, and reversible active/inactive
   status. Regional coordinators can create schools; season coordinators see all.
-- **Implemented:** `/participation` contest invitation and response flow with
+- **Implemented:** `/regions` regional school assignments with
   division validation, lifecycle locking, contest-scoped authorization, and
   guarded school withdraw for region moves; system-coordinator coach
   assignment/removal for active users and schools.

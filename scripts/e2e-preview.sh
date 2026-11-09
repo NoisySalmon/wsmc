@@ -167,9 +167,20 @@ assert_status GET /contests/contest-region-2 200 "$coordinator"
 assert_status GET /registration/contest-region-2/school-gamma 200 "$coordinator"
 assert_status GET /my-schools 200 "$gamma_coach"
 assert_status GET /my-schools 403 "$scorekeeper"
-assert_status POST '/my-schools?/respond' 403 "$gamma_coach" --data 'participationId=participation-r1-alpha&contestId=contest-region-1&status=declined'
-assert_status POST '/my-schools?/respond' 200 "$gamma_coach" --data 'participationId=participation-r2-gamma&contestId=contest-region-2&status=declined'
-assert_status POST '/my-schools?/respond' 200 "$gamma_coach" --data 'participationId=participation-r2-gamma&contestId=contest-region-2&status=accepted'
+# Participation is a region assignment, with no coach response workflow.
+assert_status POST '/my-schools?/respond' 405 "$gamma_coach" --data 'participationId=participation-r2-gamma&contestId=contest-region-2&status=declined'
+assert_action_failure POST '/regions?/assign' 400 "$regional" --data 'schoolId=school-alpha&contestId=contest-region-2'
+assert_status POST '/regions?/assign' 403 "$regional" --data 'schoolId=school-gamma&contestId=contest-region-1'
+# A walk-in school can be assigned, removed, and moved to another region.
+d1 --command="INSERT INTO schools (id, name, division) VALUES ('school-walk-in', 'Walk-in High School', 2);"
+assert_page_contains GET /regions "$regional" 'Walk-in High School'
+assert_status POST '/regions?/assign' 200 "$regional" --data 'schoolId=school-walk-in&contestId=contest-region-2'
+assert_page_contains GET /registration/contest-region-2/school-walk-in "$regional" 'Division 2'
+walk_in_id="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT id FROM school_participations WHERE school_id = 'school-walk-in';" | node -e 'let s="";process.stdin.on("data",x=>s+=x);process.stdin.on("end",()=>process.stdout.write(JSON.parse(s)[0].results[0].id));')"
+assert_status POST '/regions?/withdraw' 200 "$regional" --data "participationId=$walk_in_id&contestId=contest-region-2"
+assert_status GET /registration/contest-region-2/school-walk-in 404 "$regional"
+assert_status POST '/regions?/assign' 200 "$coordinator" --data 'schoolId=school-walk-in&contestId=contest-virtual-2026'
+d1 --command="DELETE FROM school_participations WHERE school_id = 'school-walk-in'; DELETE FROM schools WHERE id = 'school-walk-in';"
 # The coach worksheet validates the whole form before writing, then saves
 # attendance and all events together. An absent student's assignments disappear.
 worksheet='/registration/contest-region-2/school-gamma?/saveWorksheet'
@@ -218,7 +229,7 @@ assert_status GET '/reports/results?contestId=contest-region-1' 200 "$coach"
 # A regional-only coordinator can advance their own registration through roster
 # lock and scoring, then review the missing scores without statewide help.
 assert_status GET /contests/contest-region-2 200 "$regional"
-assert_status GET '/reports/participation?contestId=contest-region-2' 200 "$regional"
+assert_status GET '/reports/participation?contestId=contest-region-2' 404 "$regional"
 assert_status POST '/contests/contest-region-2?/advanceLifecycle' 200 "$regional" --data 'lifecycle=roster_locked'
 assert_status POST '/contests/contest-region-2?/advanceLifecycle' 200 "$regional" --data 'lifecycle=scoring'
 assert_status GET /scoring/contest-region-2 200 "$regional"

@@ -40,7 +40,7 @@
 		<div class="school-list">
 			{#each data.qualifiedSchools as school}
 				<article class="school-card">
-					<div><strong>{school.schoolName}</strong><span>Division {participationFor(school.schoolId)?.division ?? 'unconfirmed'} · {participationFor(school.schoolId)?.invitationStatus ?? 'not participating'}</span></div>
+					<div><strong>{school.schoolName}</strong><span>Division {participationFor(school.schoolId)?.division ?? 'unconfirmed'}</span></div>
 					<form method="POST" action="?/setAttendance">
 						<input type="hidden" name="schoolId" value={school.schoolId} />
 						<label>Attendance <select name="intent" aria-label="Attendance for {school.schoolName}"><option value="undecided" selected={attendanceFor(school.schoolId) === 'undecided'}>Undecided</option><option value="attending" selected={attendanceFor(school.schoolId) === 'attending'}>Attending</option><option value="not_attending" selected={attendanceFor(school.schoolId) === 'not_attending'}>Not attending</option></select></label>

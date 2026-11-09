@@ -1,13 +1,13 @@
 import { error } from '@sveltejs/kit';
 import { and, asc, eq, inArray } from 'drizzle-orm';
-import { canCoordinateRegion, canCoordinateState, canScoreContest } from '$lib/server/auth/capabilities';
+import { canCoordinateState, canScoreContest } from '$lib/server/auth/capabilities';
 import { getDb, schema } from '$lib/server/db';
 import { exportReportCsv } from '$lib/server/reports/csv';
 import { getRegionalRankings, getStateRankings, ScoringError } from '$lib/server/scoring/service';
 import { getStateRosterRows } from '$lib/server/state/service';
 import type { RequestHandler } from './$types';
 
-const reportKinds = ['schools', 'participation', 'results', 'qualifications', 'state-roster'] as const;
+const reportKinds = ['schools', 'results', 'qualifications', 'state-roster'] as const;
 type ReportKind = typeof reportKinds[number];
 
 function isReportKind(value: string): value is ReportKind { return reportKinds.includes(value as ReportKind); }
@@ -26,13 +26,6 @@ export const GET: RequestHandler = async ({ locals, platform, params, url }) => 
 		if (!locals.principal.statewideSeasonIds.length) throw error(403, 'Coordinator access required.');
 		const schools = await db.select().from(schema.schools).orderBy(asc(schema.schools.name));
 		csv = exportReportCsv(['report_version', 'school_id', 'name', 'short_name', 'address', 'city', 'state', 'postal_code', 'contact_email', 'active'], schools.map((school) => ['wsmc.schools.v1', school.id, school.name, school.shortName, school.address, school.city, school.state, school.postalCode, school.contactEmail, school.active ? 'yes' : 'no']));
-	} else if (params.kind === 'participation') {
-		const contestId = required(url, 'contestId');
-		const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, contestId));
-		if (!contest || !(accessToSeason(locals.principal, contest.seasonId) || canCoordinateRegion(locals.principal, contest.id, contest.seasonId))) throw error(403, 'You cannot export this participation report.');
-		const rows = await db.select({ participation: schema.schoolParticipations, schoolName: schema.schools.name }).from(schema.schoolParticipations).innerJoin(schema.schools, eq(schema.schools.id, schema.schoolParticipations.schoolId)).where(eq(schema.schoolParticipations.contestId, contestId));
-		csv = exportReportCsv(['report_version', 'contest_id', 'school_id', 'school_name', 'division', 'invitation_status'], rows.map(({ participation, schoolName }) => ['wsmc.participation.v1', contestId, participation.schoolId, schoolName, participation.division, participation.invitationStatus]));
-		filename = `wsmc-${contestId}-participation.csv`;
 	} else if (params.kind === 'results') {
 		const contestId = required(url, 'contestId');
 		const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, contestId));

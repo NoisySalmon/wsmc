@@ -5,17 +5,15 @@
 
 <svelte:head><title>{data.contest.name} overview — WSMC</title></svelte:head>
 <main>
-	<p><a href="/participation">← Participation</a></p>
+	<p><a href="/regions">← Regions</a></p>
 	<h1>{data.contest.name}</h1>
 	<p class="subheading">Regional contest · {data.contest.lifecycle}{#if data.contest.resultsPublishedAt} · results published{/if}</p>
 	<ContestSettings contest={data.contest} canManage={data.canManageContest} />
 	{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
-	<nav aria-label="Contest tools"><a href="/participation">Participation</a>{#if ['roster_locked', 'scoring', 'finalized'].includes(data.contest.lifecycle)}<a href="/scoring/{data.contest.id}">Scoring</a>{/if}{#if data.contest.lifecycle === 'finalized'}<a href="/results/{data.contest.id}">Results</a>{/if}{#if data.canManageStaff}<a href="/contests/{data.contest.id}/staff">People</a>{/if}</nav>
+	<nav aria-label="Contest tools"><a href="/regions">Regions</a>{#if ['roster_locked', 'scoring', 'finalized'].includes(data.contest.lifecycle)}<a href="/scoring/{data.contest.id}">Scoring</a>{/if}{#if data.contest.lifecycle === 'finalized'}<a href="/results/{data.contest.id}">Results</a>{/if}{#if data.canManageStaff}<a href="/contests/{data.contest.id}/staff">People</a>{/if}</nav>
 
 	<section class="summary" aria-label="Contest summary">
-		<div><strong>{data.acceptedSchoolCount}</strong><span>accepted schools</span></div>
-		<div><strong>{data.invitedSchoolCount}</strong><span>invited or pending</span></div>
-		<div><strong>{data.declinedSchoolCount}</strong><span>declined schools</span></div>
+		<div><strong>{data.schools.length}</strong><span>participating schools</span></div>
 		<div><strong>{data.rosteredStudentCount}</strong><span>distinct rostered students</span></div>
 		<div><strong>{data.entries.length}</strong><span>competition entries</span></div>
 		<div><strong>{data.completedEntryCount} / {data.entries.length}</strong><span>entries with complete results</span></div>
@@ -23,12 +21,12 @@
 
 	<section><h2>School participation and rosters</h2>
 		{#if data.schools.length}
-			<div class="table-wrap"><table><thead><tr><th>School</th><th>Division</th><th>Response</th><th>Rostered students</th><th>School registration</th></tr></thead><tbody>
+			<div class="table-wrap"><table><thead><tr><th>School</th><th>Division</th><th>Rostered students</th><th>School registration</th></tr></thead><tbody>
 			{#each data.schools as school}
-				<tr><td>{school.name}</td><td>Division {school.division}</td><td>{school.status}</td><td>{#if school.students.length}<ul>{#each school.students as student}<li>{student.studentName} (grade {student.actualGrade})</li>{/each}</ul>{:else}<span class="muted">No students rostered</span>{/if}</td><td><a href="/registration/{data.contest.id}/{school.id}">Open registration</a>{#if data.canManageStaff} · <a href="/contests/{data.contest.id}/staff#school-{school.id}">Manage coaches</a>{/if}</td></tr>
+				<tr><td>{school.name}</td><td>Division {school.division}</td><td>{#if school.students.length}<ul>{#each school.students as student}<li>{student.studentName} (grade {student.actualGrade})</li>{/each}</ul>{:else}<span class="muted">No students rostered</span>{/if}</td><td><a href="/registration/{data.contest.id}/{school.id}">Open registration</a>{#if data.canManageStaff} · <a href="/contests/{data.contest.id}/staff#school-{school.id}">Manage coaches</a>{/if}</td></tr>
 			{/each}
 			</tbody></table></div>
-		{:else}<p class="muted">No schools have been invited to this contest.</p>{/if}
+		{:else}<p class="muted">No schools have been assigned to this contest.</p>{/if}
 	</section>
 
 	<section><h2>Entry and scoring coverage</h2><p class="muted">Knowdown outcomes record each entrant as placed or eliminated; places 1 through 4 are unique across the contest.</p><div class="table-wrap"><table><thead><tr><th>Category</th><th>Entries</th><th>Complete results</th><th>Missing</th></tr></thead><tbody>

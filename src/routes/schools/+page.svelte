@@ -14,7 +14,7 @@
 <main>
 	<h1>School directory</h1>
 	<p>Maintain reusable school records. Inactive schools remain available for historical records but cannot be newly selected.</p>
-	<p>Manage school participation in <a href="/participation">Participation</a>.{#if data.canAdministerUsers}{' '}Manage accounts and access in <a href="/admin/users">Users</a>.{/if}</p>
+	<p>Manage school participation in <a href="/regions">Regions</a>.{#if data.canAdministerUsers}{' '}Manage accounts and access in <a href="/admin/users">Users</a>.{/if}</p>
 	{#if form?.error}<p class="error">{form.error}</p>{/if}
 	{#if form?.success && !form.savedSchoolId}<p class="success" role="status">{form.success}</p>{/if}
 	{#if duplicateForm?.duplicates?.length}

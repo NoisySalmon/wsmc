@@ -2,8 +2,6 @@ import { and, eq } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
 
-export type InvitationStatus = 'pending' | 'invited' | 'accepted' | 'declined';
-
 export class ParticipationError extends Error {
 	constructor(public readonly code: string, message: string) {
 		super(message);
@@ -11,29 +9,29 @@ export class ParticipationError extends Error {
 	}
 }
 
-export async function inviteSchool(db: Database, input: { contestId: string; schoolId: string; division?: number | null; now?: number }) {
+export async function assignSchool(db: Database, input: { contestId: string; schoolId: string; division?: number | null; now?: number }) {
 	if (input.division !== undefined && input.division !== null && (!Number.isInteger(input.division) || ![1, 2].includes(input.division))) throw new ParticipationError('invalid_division', 'Division must be 1 or 2.');
 	const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, input.contestId));
 	if (!contest) throw new ParticipationError('not_found', 'Contest not found.');
-	if (!['setup', 'registration_open'].includes(contest.lifecycle)) throw new ParticipationError('locked', 'Schools can only be invited before rosters are locked.');
+	if (!['setup', 'registration_open'].includes(contest.lifecycle)) throw new ParticipationError('locked', 'Schools can only be assigned before rosters are locked.');
+	if (contest.kind !== 'regional') throw new ParticipationError('invalid_contest', 'Choose a regional contest.');
+	const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, contest.seasonId));
+	if (!season || season.status === 'archived') throw new ParticipationError('locked', 'Archived seasons are read-only.');
+	const existing = await db.select({ id: schema.schoolParticipations.id })
+		.from(schema.schoolParticipations)
+		.innerJoin(schema.contests, eq(schema.contests.id, schema.schoolParticipations.contestId))
+		.where(and(eq(schema.schoolParticipations.schoolId, input.schoolId), eq(schema.contests.seasonId, contest.seasonId), eq(schema.contests.kind, 'regional')));
+	if (existing.length) throw new ParticipationError('already_assigned', 'This school already has a region. Remove its participation there before assigning it here.');
 	const [school] = await db.select().from(schema.schools).where(eq(schema.schools.id, input.schoolId));
-	if (!school || !school.active) throw new ParticipationError('inactive_school', 'Only active schools can be invited.');
+	if (!school || !school.active) throw new ParticipationError('inactive_school', 'Only active schools can be assigned.');
 	// Division lives on the school record; the participation stores a snapshot so
 	// history is preserved if the school later changes division. An explicit
 	// division may still be passed to override for a single contest.
 	const division = input.division ?? school.division;
 	if (!Number.isInteger(division) || ![1, 2].includes(division)) throw new ParticipationError('invalid_division', 'Division must be 1 or 2.');
 	const now = input.now ?? Date.now();
-	const [participation] = await db.insert(schema.schoolParticipations).values({ id: crypto.randomUUID(), contestId: input.contestId, schoolId: input.schoolId, division, invitationStatus: 'invited', createdAt: now, updatedAt: now }).returning();
+	const [participation] = await db.insert(schema.schoolParticipations).values({ id: crypto.randomUUID(), contestId: input.contestId, schoolId: input.schoolId, division, createdAt: now, updatedAt: now }).returning();
 	return participation;
-}
-
-export async function setParticipationStatus(db: Database, input: { participationId: string; contestId: string; status: InvitationStatus; now?: number }) {
-	const [participation] = await db.select().from(schema.schoolParticipations).where(and(eq(schema.schoolParticipations.id, input.participationId), eq(schema.schoolParticipations.contestId, input.contestId)));
-	if (!participation) throw new ParticipationError('not_found', 'Participation record not found.');
-	const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, input.contestId));
-	if (!contest || !['setup', 'registration_open'].includes(contest.lifecycle)) throw new ParticipationError('locked', 'Participation responses are closed.');
-	await db.update(schema.schoolParticipations).set({ invitationStatus: input.status, updatedAt: input.now ?? Date.now() }).where(and(eq(schema.schoolParticipations.id, input.participationId), eq(schema.schoolParticipations.contestId, input.contestId)));
 }
 
 /** Remove a school from a contest so it can be re-added elsewhere (region moves).

@@ -88,10 +88,10 @@ make it part of the demonstration.
 schools, changing their default division, and marking them inactive; it does not
 have a school-detail editor. **Users** (`/admin/users`) shows accounts and their
 coach, regional, and statewide assignments. Users requires system-wide coordinator
-access. Then open **Participation**
-(`/participation`) to find Hanford's accepted participation in Tri Cities,
+access. Then open **Regions**
+(`/regions`) to find Hanford's regional assignment in Tri Cities,
 Division 1, and its coach assignment. Inspect existing records rather than
-issuing another invitation.
+changing a region assignment.
 
 **Say:**
 
@@ -197,7 +197,7 @@ use **My schools** to start this chapter.
 
 ### 1. Open the team's worksheet
 
-**Show:** `/my-schools`, Hanford's accepted participation, then its registration
+**Show:** `/my-schools`, Hanford's regional assignment, then its registration
 link. On the **Who's doing what?** worksheet, point out **Registration open**,
 Attendance, Team Contest, Topical, Project and Knowdown.
 

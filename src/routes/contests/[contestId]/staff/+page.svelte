@@ -42,7 +42,7 @@
 		{#each data.schools as school}<section id="school-{school.id}"><h3>{school.name}</h3>
 			<ul>{#each data.coaches.filter((coach) => coach.schoolId === school.id) as person}{@render personRow(person, 'coach', school.id)}{:else}<li>No coaches assigned.</li>{/each}</ul>
 			{@render addForm('coach', school.id)}
-		</section>{:else}<p>Invite a school through <a href="/participation">Participation</a> before adding its coaches.</p>{/each}
+		</section>{:else}<p>Assign a school through <a href="/regions">Regions</a> before adding its coaches.</p>{/each}
 	</section>
 </main>
 <style>

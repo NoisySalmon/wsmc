@@ -22,47 +22,28 @@ email provider is configured.
 
 | Page | Purpose |
 |---|---|
-| `/participation` | Invite existing schools, invite or assign coaches, and open a school's registration. |
-| `/contests/<contest-id>` | Review all invited schools, rosters, entries, result coverage, and move from registration to roster lock and scoring. |
+| `/regions` | Assign unmapped schools to a region and open school registration. |
+| `/contests/<contest-id>` | Review all participating schools, rosters, entries, result coverage, and move from registration to roster lock and scoring. |
 | `/contests/<contest-id>/staff` | Invite or remove scorekeepers for this contest. Season coordinators also assign regional coordinators here. |
 | `/registration/<contest-id>/<school-id>` | Edit any participating school's regional roster and entries. |
 | `/scoring/<contest-id>` | Enter scores, finalize, publish, or reopen the assigned contest. |
 | `/results/<contest-id>` | Review finalized regional rankings. |
 
-The top navigation includes **Participation** and an **Overview** link for
+The top navigation includes **Regions** and an **Overview** link for
 each assigned contest. A **Scoring** link appears after roster lock.
 
 ## 1. Prepare school participation
 
-Open **Participation**.
+Open **Regions**.
 
-1. Under **Invite a school**, select your assigned contest and an existing
-   active school.
-2. Choose Division 1 or Division 2 for this participation.
-3. Select **Send invitation**.
-4. Under **Invite a coach**, enter the coach's email and name, then select the
-   matching season and school.
-5. If the coach is already an active user, use **Assign an active coach**.
-6. Confirm the participation and coach assignment appear in their lists.
+1. Under **Unmapped schools**, find an active school with no regional assignment.
+2. Choose your region and select **Assign region**. Its division comes from the school record.
+3. Find the school in your regional group and select **Open registration**.
+4. To change its region, select **Remove participation**, then assign it to the
+   correct region. Removal requires unlocked rosters and no roster students or entries.
 
-You can invite or assign a coach only after that school participates in a
-contest you manage. Inviting an existing email adds the coach assignment to
-the existing account.
-
-Select **Open registration** beside a participation to administer an uncoached
-school or help a coach.
-
-**Notes:**
-
-- Regional coordinators can add schools in **Schools** and then invite them
-  to their contest. To move a school to another region, use **Remove** on
-  its participation and re-invite it to the correct contest (only possible
-  before rosters are locked and rosters/entries are empty).
-- The page's Accept and Decline buttons let you record a response for an
-  uncoached school in your assigned contest. Assigned coaches can also respond
-  from **My schools**.
-- Participation, registration, and score CSV downloads work within the
-  assigned contest scope.
+Schools do not accept or decline their assignments. Manage coaches through
+the contest's **People** page after assigning the school to the contest.
 
 ## 2. Review and edit registration
 

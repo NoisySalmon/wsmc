@@ -45,7 +45,7 @@ export const actions: Actions = {
 			await updateSchool(getDb(platform.env.DB), schoolId, {
 				name: value(data, 'name'), shortName: value(data, 'shortName'), address: value(data, 'address'), city: value(data, 'city'), postalCode: value(data, 'postalCode'), division: Number(value(data, 'division')), confirmDuplicate: data.get('confirmDuplicate') === 'yes',
 			});
-			return { success: 'School updated. Division changes apply to new invitations; existing participations keep their division.', savedSchoolId: schoolId };
+			return { success: 'School updated. Division changes apply to new region assignments; existing participations keep their division.', savedSchoolId: schoolId };
 		} catch (cause) {
 			return fail(cause instanceof SchoolDirectoryError && cause.code === 'duplicate_suggestion' ? 409 : 400, { error: cause instanceof SchoolDirectoryError ? cause.message : 'School could not be updated.', editingId: schoolId, values: Object.fromEntries(data), duplicates: cause instanceof SchoolDirectoryError ? cause.duplicates : [] });
 		}

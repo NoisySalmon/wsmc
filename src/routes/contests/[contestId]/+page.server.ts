@@ -61,7 +61,7 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	});
 	const schools = participations.map(({ participation, schoolName, schoolShortName }) => {
 		const students = studentsBySchool.get(participation.schoolId) ?? [];
-		return { id: participation.schoolId, name: schoolShortName || schoolName, division: participation.division, status: participation.invitationStatus, students };
+		return { id: participation.schoolId, name: schoolShortName || schoolName, division: participation.division, students };
 	}).sort((a, b) => a.name.localeCompare(b.name));
 	const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, contest.seasonId));
 	return {
@@ -73,9 +73,6 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 		categoryCoverage,
 		rosteredStudentCount: new Set(rosterRows.map((student) => student.studentId)).size,
 		completedEntryCount: entries.filter((entry) => entry.complete).length,
-		acceptedSchoolCount: schools.filter((school) => school.status === 'accepted').length,
-		declinedSchoolCount: schools.filter((school) => school.status === 'declined').length,
-		invitedSchoolCount: schools.filter((school) => school.status === 'invited' || school.status === 'pending').length,
 	};
 };
 

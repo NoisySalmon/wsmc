@@ -122,6 +122,7 @@ export const schoolParticipations = sqliteTable('school_participations', {
 	contestId: text('contest_id').notNull().references(() => contests.id, { onDelete: 'cascade' }),
 	schoolId: text('school_id').notNull().references(() => schools.id, { onDelete: 'restrict' }),
 	division: integer('division').notNull(),
+	// Legacy storage only; school participation no longer has a response workflow.
 	invitationStatus: text('invitation_status', { enum: ['pending', 'invited', 'accepted', 'declined'] }).notNull().default('pending'),
 	createdAt: integer('created_at').notNull().default(timestamp()),
 	updatedAt: integer('updated_at').notNull().default(timestamp()),
