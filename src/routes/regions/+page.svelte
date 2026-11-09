@@ -10,8 +10,8 @@
 			.map((row) => ({ ...row, school: data.schools.find((school) => school.id === row.schoolId) }))
 			.sort((a, b) => (a.school?.name ?? a.schoolId).localeCompare(b.school?.name ?? b.schoolId))
 	})));
-	function coachesFor(schoolId: string, seasonId: string) {
-		return data.coachAssignments.filter((assignment) => assignment.schoolId === schoolId && assignment.seasonId === seasonId);
+	function coachesFor(schoolId: string) {
+		return data.coachAssignments.filter((assignment) => assignment.schoolId === schoolId);
 	}
 </script>
 
@@ -67,7 +67,7 @@
 							<div class="school">
 								<strong>{participation.school?.name ?? participation.schoolId}</strong>
 								<span class="muted">Division {participation.division}{#if participation.school && !participation.school.active} · Inactive school{/if}</span>
-								<span class="muted coach">Coach: {#each coachesFor(participation.schoolId, contest.seasonId) as coach, i}{i ? '; ' : ''}{coach.displayName || coach.email}{:else}No coach assigned{/each}</span>
+								<span class="muted coach">Coach: {#each coachesFor(participation.schoolId) as coach, i}{i ? '; ' : ''}{coach.displayName || coach.email}{:else}No coach assigned{/each}</span>
 							</div>
 							<div class="actions">
 								<a href="/registration/{contest.id}/{participation.schoolId}">Open registration</a>

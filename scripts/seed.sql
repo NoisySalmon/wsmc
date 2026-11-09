@@ -58,17 +58,16 @@ INSERT INTO users (id, email, display_name, status) VALUES
   ('user-regional-coordinator', 'regional@wsmc.example', 'Region 1 Coordinator', 'active'),
   ('user-regional-coordinator-2', 'regional2@wsmc.example', 'Region 2 Coordinator', 'active');
 
-INSERT INTO statewide_assignments (id, user_id, season_id) VALUES ('assignment-state-2026', 'user-coordinator', 'season-2026');
-INSERT INTO statewide_assignments (id, user_id, season_id) VALUES ('assignment-system', 'user-coordinator', NULL);
-INSERT INTO regional_coordinator_assignments (user_id, contest_id) VALUES
-  ('user-regional-coordinator', 'contest-region-1'),
-  ('user-regional-coordinator-2', 'contest-region-2');
-INSERT INTO coach_assignments (user_id, season_id, school_id) VALUES
-  ('user-regional-coordinator', 'season-2026', 'school-alpha'),
-  ('user-coach-alpha-1', 'season-2026', 'school-alpha'),
-  ('user-coach-alpha-2', 'season-2026', 'school-alpha'),
-  ('user-coach-beta', 'season-2026', 'school-beta'),
-  ('user-coach-gamma', 'season-2026', 'school-gamma');
+INSERT INTO statewide_assignments (user_id) VALUES ('user-coordinator');
+INSERT INTO regional_coordinator_assignments (user_id, region_number) VALUES
+  ('user-regional-coordinator', 1),
+  ('user-regional-coordinator-2', 2);
+INSERT INTO coach_assignments (user_id, school_id) VALUES
+  ('user-regional-coordinator', 'school-alpha'),
+  ('user-coach-alpha-1', 'school-alpha'),
+  ('user-coach-alpha-2', 'school-alpha'),
+  ('user-coach-beta', 'school-beta'),
+  ('user-coach-gamma', 'school-gamma');
 INSERT INTO scorekeeper_assignments (user_id, contest_id) VALUES ('user-scorekeeper', 'contest-region-1');
 
 INSERT INTO annual_students (id, season_id, school_id, name, actual_grade) VALUES

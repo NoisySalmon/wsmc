@@ -128,7 +128,7 @@ only after its coordinator publishes it.
 Your state page becomes available when both of these are true:
 
 - your school has an active qualification in a published round;
-- your coach assignment is for the same season.
+- you have a current coach assignment for that school; it applies across seasons.
 
 Saving attendance additionally requires your school to have a participation
 record for the state contest. If the page opens but Save attendance reports

@@ -9,13 +9,7 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 	const principal = locals.principal;
 	if (!principal || !platform?.env.DB) return { principal, seasons: [], contests: [], regions: [] };
 	const db = getDb(platform.env.DB);
-	// Administrators see all seasons; others see seasons tied to their assignments.
-	const isCoordinator = canAdministerUsers(principal);
-	const seasonIds = new Set<string>();
-	for (const id of principal.statewideSeasonIds) if (id) seasonIds.add(id);
-	for (const assignment of principal.coachAssignments) seasonIds.add(assignment.seasonId);
 	let seasons = await db.select({ id: schema.seasons.id, year: schema.seasons.year, status: schema.seasons.status }).from(schema.seasons);
-	if (!isCoordinator && seasonIds.size > 0) seasons = seasons.filter((season) => seasonIds.has(season.id));
 	seasons = [...seasons].sort((a, b) => {
 		const order = (s: string) => (s === 'archived' ? 1 : 0);
 		return order(a.status) - order(b.status) || b.year - a.year;
@@ -34,7 +28,7 @@ function canManageSeason(locals: App.Locals, seasonId: string): boolean {
 }
 
 function requireCoordinator(locals: App.Locals): void {
-	if (!locals.principal || locals.principal.statewideSeasonIds.length === 0) throw error(403, 'Coordinator access required.');
+	if (!locals.principal || !locals.principal.isAdmin) throw error(403, 'Coordinator access required.');
 }
 
 function textValue(data: FormData, name: string): string {

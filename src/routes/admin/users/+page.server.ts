@@ -1,5 +1,6 @@
 import { error, fail } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
+import { defaultRegions } from '$lib/server/program/default-regions';
 import { qrActions } from '$lib/server/auth/qr';
 import { canAdministerUsers } from '$lib/server/auth/capabilities';
 import { createEmailProvider, resolveAppOrigin } from '$lib/server/auth/email';
@@ -33,9 +34,13 @@ function textValue(value: FormDataEntryValue | null): string {
 function readAssignment(data: FormData): InviteAssignment {
 	const role = requiredText(data.get('role'), 'Assignment');
 	switch (role) {
-		case 'statewide': return { kind: 'statewide', seasonId: null };
-		case 'regional': return { kind: 'regional', contestId: requiredText(data.get('contestId'), 'Contest') };
-		case 'coach': return { kind: 'coach', seasonId: requiredText(data.get('seasonId'), 'Season'), schoolId: requiredText(data.get('schoolId'), 'School') };
+		case 'statewide': return { kind: 'statewide' };
+		case 'regional': {
+			const regionNumber = Number(requiredText(data.get('regionNumber'), 'Region'));
+			if (!defaultRegions.some(region => region.number === regionNumber)) throw new AuthError('invalid_request', 'Choose a valid region.');
+			return { kind: 'regional', regionNumber };
+		}
+		case 'coach': return { kind: 'coach', schoolId: requiredText(data.get('schoolId'), 'School') };
 		case 'scorekeeper': return { kind: 'scorekeeper', contestId: requiredText(data.get('contestId'), 'Contest') };
 		default: throw new AuthError('invalid_request', 'Choose a valid assignment.');
 	}
@@ -45,9 +50,8 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 	requireUserAdmin(locals);
 	if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 	const db = getDb(platform.env.DB);
-	const [users, seasons, contests, schools, statewideAssignments, regionalAssignments, coachAssignments, scorekeeperAssignments] = await Promise.all([
+	const [users, contests, schools, statewideAssignments, regionalAssignments, coachAssignments, scorekeeperAssignments] = await Promise.all([
 		db.select({ id: schema.users.id, email: schema.users.email, displayName: schema.users.displayName, status: schema.users.status, createdAt: schema.users.createdAt }).from(schema.users),
-		db.select({ id: schema.seasons.id, year: schema.seasons.year }).from(schema.seasons),
 		db.select({ id: schema.contests.id, name: schema.contests.name, kind: schema.contests.kind }).from(schema.contests),
 		db.select({ id: schema.schools.id, name: schema.schools.name }).from(schema.schools).where(eq(schema.schools.active, true)),
 		db.select().from(schema.statewideAssignments),
@@ -55,7 +59,7 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 		db.select().from(schema.coachAssignments),
 		db.select().from(schema.scorekeeperAssignments),
 	]);
-	return { users, seasons, contests, schools, assignments: { statewide: statewideAssignments, regional: regionalAssignments, coach: coachAssignments, scorekeeper: scorekeeperAssignments } };
+	return { users, regions: defaultRegions, contests, schools, assignments: { statewide: statewideAssignments, regional: regionalAssignments, coach: coachAssignments, scorekeeper: scorekeeperAssignments } };
 };
 
 export const actions: Actions = {
@@ -68,6 +72,7 @@ export const actions: Actions = {
 			const email = requiredText(data.get('email'), 'Email');
 			const result = await addPerson(getDb(platform.env.DB), createEmailProvider(platform.env), {
 				email,
+				actorUserId: locals.principal!.id,
 				displayName: textValue(data.get('displayName')),
 				assignments: [readAssignment(data)],
 				origin: resolveAppOrigin(platform.env, url.origin),
@@ -124,13 +129,10 @@ export const actions: Actions = {
 		const kind = requiredText(data.get('assignmentKind'), 'Assignment');
 		if (userId === locals.principal?.id && kind === 'statewide') return fail(400, { error: 'You cannot remove your own administrator access.' });
 		try {
-			switch (kind) {
-				case 'statewide': await getDb(platform.env.DB).delete(schema.statewideAssignments).where(eq(schema.statewideAssignments.userId, userId)); break;
-				case 'regional': await removeAssignment(getDb(platform.env.DB), { kind, userId, contestId: requiredText(data.get('contestId'), 'Contest') }); break;
-				case 'coach': await removeAssignment(getDb(platform.env.DB), { kind, userId, seasonId: requiredText(data.get('seasonId'), 'Season'), schoolId: requiredText(data.get('schoolId'), 'School') }); break;
-				case 'scorekeeper': await removeAssignment(getDb(platform.env.DB), { kind, userId, contestId: requiredText(data.get('contestId'), 'Contest') }); break;
-				default: throw new AuthError('invalid_request', 'Choose a valid assignment.');
-			}
+			data.set('role', kind);
+			await removeAssignment(getDb(platform.env.DB), {
+				...readAssignment(data), userId,
+			}, locals.principal!.id);
 			return { success: 'Assignment removed.' };
 		} catch (cause) {
 			return fail(400, { error: cause instanceof AuthError ? cause.message : 'Assignment could not be removed.' });

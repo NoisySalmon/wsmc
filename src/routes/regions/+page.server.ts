@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { error, fail } from '@sveltejs/kit';
 import { canAdministerUsers, canCoordinateRegion, canCoordinateState } from '$lib/server/auth/capabilities';
 import { assignSchool, ParticipationError, withdrawSchool } from '$lib/server/program/participation';
@@ -6,7 +6,7 @@ import { getDb, schema } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
 
 function requireCoordinator(locals: App.Locals): void {
-	if (!locals.principal || (locals.principal.statewideSeasonIds.length === 0 && locals.principal.regionalContestIds.length === 0)) throw error(403, 'Coordinator access required.');
+	if (!locals.principal || (!locals.principal.isAdmin && locals.principal.regionalContestIds.length === 0)) throw error(403, 'Coordinator access required.');
 }
 
 function text(data: FormData, name: string): string {
@@ -41,13 +41,13 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 	const contestIds = contests.map((contest) => contest.id);
 	const participations = allParticipations.filter((row) => contestIds.includes(row.contestId));
 
-	const coachRows = contestIds.length ? await db.select({ userId: schema.coachAssignments.userId, schoolId: schema.coachAssignments.schoolId, seasonId: schema.coachAssignments.seasonId, displayName: schema.users.displayName, email: schema.users.email })
+	const coachRows = contestIds.length ? await db.select({ userId: schema.coachAssignments.userId, schoolId: schema.coachAssignments.schoolId, displayName: schema.users.displayName, email: schema.users.email })
 		.from(schema.coachAssignments)
 		.innerJoin(schema.users, eq(schema.users.id, schema.coachAssignments.userId))
 		.innerJoin(schema.schoolParticipations, eq(schema.schoolParticipations.schoolId, schema.coachAssignments.schoolId))
-		.innerJoin(schema.contests, and(eq(schema.contests.id, schema.schoolParticipations.contestId), eq(schema.contests.seasonId, schema.coachAssignments.seasonId)))
+		.innerJoin(schema.contests, eq(schema.contests.id, schema.schoolParticipations.contestId))
 		.where(inArray(schema.contests.id, contestIds)) : [];
-	const coachAssignments = [...new Map(coachRows.map((row) => [`${row.userId}/${row.schoolId}/${row.seasonId}`, row])).values()];
+	const coachAssignments = [...new Map(coachRows.map((row) => [`${row.userId}/${row.schoolId}`, row])).values()];
 	return { season, contests, schools, unmappedSchools, coachAssignments, participations, canAddSchools: canAdministerUsers(locals.principal!) };
 };
 

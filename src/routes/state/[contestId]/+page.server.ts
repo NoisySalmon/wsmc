@@ -15,7 +15,7 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 	const dashboard = await getStateDashboard(getDb(platform.env.DB), params.contestId);
 	if (canCoordinateState(locals.principal, dashboard.contest.seasonId)) return { ...dashboard, canManageContest: dashboard.seasonStatus !== 'archived' };
-	const schoolIds = new Set(locals.principal.coachAssignments.filter((assignment) => assignment.seasonId === dashboard.contest.seasonId).map((assignment) => assignment.schoolId));
+	const schoolIds = new Set(locals.principal.coachAssignments.map((assignment) => assignment.schoolId));
 	if (!dashboard.qualifiedSchools.some((school) => schoolIds.has(school.schoolId))) throw error(403, 'You cannot view this state contest.');
 	return { ...scopeStateDashboard(dashboard, schoolIds), canManageContest: false };
 };

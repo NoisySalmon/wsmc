@@ -79,8 +79,10 @@ describe('sign-in token policy', () => {
 		const inserted: Record<string, unknown>[] = [];
 		const sent: { to: string; url: string }[] = [];
 		const db = {
+			batch: async (queries: unknown[]) => Promise.all(queries),
 			select: () => ({ from: () => ({ where: async () => [] }) }),
 			insert: () => ({
+				select: async () => undefined,
 				values: (values: Record<string, unknown>) => {
 					inserted.push(values);
 					return {
@@ -95,9 +97,9 @@ describe('sign-in token policy', () => {
 		const result = await addPerson(db as never, provider, {
 			email: ' COACH@Example.COM ',
 			displayName: 'Coach',
-			origin: 'https://wsmc.example',
+			origin: 'https://wsmc.example', actorUserId: 'admin-1',
 			assignments: [
-				{ kind: 'coach', seasonId: 'season-2026', schoolId: 'school-alpha' },
+				{ kind: 'coach', schoolId: 'school-alpha' },
 				{ kind: 'scorekeeper', contestId: 'contest-region-1' },
 			],
 		});
@@ -114,13 +116,14 @@ describe('sign-in token policy', () => {
 		const user = { id: 'pending-user', email: 'pending@example.com', displayName: 'Original name', status: 'pending' };
 		const inserted: Record<string, unknown>[] = [];
 		const db = {
+			batch: async (queries: unknown[]) => Promise.all(queries),
 			select: () => ({ from: () => ({ where: async () => [user] }) }),
-			insert: () => ({ values: (values: Record<string, unknown>) => ({ onConflictDoNothing: async () => { inserted.push(values); } }) }),
+			insert: () => ({ select: async () => undefined, values: (values: Record<string, unknown>) => ({ onConflictDoNothing: async () => { inserted.push(values); } }) }),
 			update: () => { throw new Error('Adding access must not update account details or revoke tokens.'); },
 		};
 		const provider = { sendSignInLink: async () => { throw new Error('Adding access must not send email.'); } };
 		const result = await addPerson(db as never, provider, {
-			email: ' PENDING@example.com ', displayName: 'Replacement name', origin: 'https://wsmc.example',
+			email: ' PENDING@example.com ', displayName: 'Replacement name', origin: 'https://wsmc.example', actorUserId: 'admin-1',
 			assignments: [{ kind: 'scorekeeper', contestId: 'contest-2' }],
 		});
 		expect(result).toMatchObject({ invited: false, user: { displayName: 'Original name', status: 'pending' } });
@@ -130,31 +133,31 @@ describe('sign-in token policy', () => {
 	it('loads overlapping and multi-school assignments into one principal', async () => {
 		const rows = [
 			[{ session: { id: 'session-1' }, user: { id: 'user-1', email: 'coach@example.com', displayName: 'Coach' } }],
-			[{ seasonId: null }, { seasonId: 'season-2026' }],
+			[{ userId: 'user-1' }],
 			[{ contestId: 'contest-region-1' }],
-			[{ seasonId: 'season-2026', schoolId: 'school-alpha' }, { seasonId: 'season-2026', schoolId: 'school-beta' }],
+			[{ schoolId: 'school-alpha' }, { schoolId: 'school-beta' }],
 			[{ contestId: 'contest-region-1' }],
 		];
 		const db = {
 			select: () => ({
 				from: () => ({
-					innerJoin: () => ({ where: async () => rows.shift() ?? [] }),
+					innerJoin: () => ({ innerJoin: () => ({ where: async () => rows.shift() ?? [] }), where: async () => rows.shift() ?? [] }),
 					where: async () => rows.shift() ?? [],
 				}),
 			}),
 			update: () => ({ set: () => ({ where: async () => undefined }) }),
 		};
 		const principal = await loadPrincipal(db as never, 'session-1', 1000);
-		expect(principal?.statewideSeasonIds).toEqual([null, 'season-2026']);
+		expect(principal?.isAdmin).toBe(true);
 		expect(principal?.regionalContestIds).toEqual(['contest-region-1']);
-		expect(principal?.coachAssignments).toEqual([{ seasonId: 'season-2026', schoolId: 'school-alpha' }, { seasonId: 'season-2026', schoolId: 'school-beta' }]);
+		expect(principal?.coachAssignments).toEqual([{ schoolId: 'school-alpha' }, { schoolId: 'school-beta' }]);
 		expect(principal?.scorekeeperContestIds).toEqual(['contest-region-1']);
 	});
 
 	it('removes a scoped assignment without affecting another assignment type', async () => {
 		const deleted: unknown[] = [];
-		const db = { delete: (table: unknown) => ({ where: async (condition: unknown) => { deleted.push({ table, condition }); } }) };
-		await removeAssignment(db as never, { kind: 'regional', userId: 'user-1', contestId: 'contest-1' });
+		const db = { batch: async (queries: unknown[]) => Promise.all(queries), insert: () => ({ select: async () => undefined }), delete: (table: unknown) => ({ where: async (condition: unknown) => { deleted.push({ table, condition }); } }) };
+		await removeAssignment(db as never, { kind: 'regional', userId: 'user-1', regionNumber: 1 }, 'admin-1');
 		expect(deleted).toHaveLength(1);
 	});
 });

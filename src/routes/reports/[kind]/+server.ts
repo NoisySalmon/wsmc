@@ -12,7 +12,7 @@ type ReportKind = typeof reportKinds[number];
 
 function isReportKind(value: string): value is ReportKind { return reportKinds.includes(value as ReportKind); }
 function required(url: URL, name: string) { const value = url.searchParams.get(name)?.trim(); if (!value) throw error(400, `${name} is required.`); return value; }
-function accessToSeason(principal: App.Locals['principal'], seasonId: string) { return Boolean(principal && (canCoordinateState(principal, seasonId) || principal.coachAssignments.some((assignment) => assignment.seasonId === seasonId))); }
+function accessToSeason(principal: App.Locals['principal'], seasonId: string) { return Boolean(principal && (canCoordinateState(principal, seasonId) || principal.coachAssignments.length > 0)); }
 
 export const GET: RequestHandler = async ({ locals, platform, params, url }) => {
 	if (!locals.principal) throw error(401, 'Sign in required.');
@@ -23,7 +23,7 @@ export const GET: RequestHandler = async ({ locals, platform, params, url }) => 
 	let csv: string;
 
 	if (params.kind === 'schools') {
-		if (!locals.principal.statewideSeasonIds.length) throw error(403, 'Coordinator access required.');
+		if (!locals.principal.isAdmin) throw error(403, 'Coordinator access required.');
 		const schools = await db.select().from(schema.schools).orderBy(asc(schema.schools.name));
 		csv = exportReportCsv(['report_version', 'school_id', 'name', 'short_name', 'address', 'city', 'state', 'postal_code', 'contact_email', 'active'], schools.map((school) => ['wsmc.schools.v1', school.id, school.name, school.shortName, school.address, school.city, school.state, school.postalCode, school.contactEmail, school.active ? 'yes' : 'no']));
 	} else if (params.kind === 'results') {
@@ -31,7 +31,7 @@ export const GET: RequestHandler = async ({ locals, platform, params, url }) => 
 		const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, contestId));
 		if (!contest) throw error(404, 'Contest not found.');
 		const canReviewUnpublished = canScoreContest(locals.principal, contest.id, contest.seasonId);
-		const isCoach = locals.principal.coachAssignments.some((assignment) => assignment.seasonId === contest.seasonId);
+		const isCoach = locals.principal.coachAssignments.length > 0;
 		if (!canReviewUnpublished && !(isCoach && contest.resultsPublishedAt !== null)) throw error(403, 'You cannot export these results before publication.');
 		try {
 			const result = contest.kind === 'regional' ? await getRegionalRankings(db, contestId) : await getStateRankings(db, contestId);
@@ -59,7 +59,7 @@ export const GET: RequestHandler = async ({ locals, platform, params, url }) => 
 		const contestId = required(url, 'contestId');
 		const state = await getStateRosterRows(db, contestId);
 		const statewide = canCoordinateState(locals.principal, state.seasonId);
-		const schoolId = statewide ? undefined : state.qualifiedSchoolIds.find((candidate) => locals.principal!.coachAssignments.some((assignment) => assignment.seasonId === state.seasonId && assignment.schoolId === candidate));
+		const schoolId = statewide ? undefined : state.qualifiedSchoolIds.find((candidate) => locals.principal!.coachAssignments.some((assignment) => assignment.schoolId === candidate));
 		if (!statewide && !schoolId) throw error(403, 'You cannot export this state roster.');
 		const rows = schoolId ? (await getStateRosterRows(db, contestId, schoolId)).rows : state.rows;
 		csv = exportReportCsv(['report_version', 'contest_id', 'school_id', 'school_name', 'annual_student_id', 'student_name', 'actual_grade', 'admission_basis', 'qualification_id', 'state_entry_id'], rows.map((row) => ['wsmc.state-roster.v1', row.contestId, row.schoolId, row.schoolName, row.annualStudentId, row.studentName, row.actualGrade, row.admissionBasis, row.qualificationId, row.stateEntryId]));

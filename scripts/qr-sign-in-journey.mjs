@@ -48,7 +48,7 @@ await action('/contests/contest-region-1/staff', 'qr', regional, { userId: 'user
 await action(staffPath, 'qr', regional, { userId: 'user-coach-alpha-1' }, 403);
 
 // A coach/scorekeeper who is also privileged must not be impersonated by a coordinator.
-sql("INSERT INTO coach_assignments (user_id, season_id, school_id) VALUES ('user-coordinator', 'season-2026', 'school-gamma'), ('user-regional-coordinator-2', 'season-2026', 'school-gamma');");
+sql("INSERT INTO coach_assignments (user_id, school_id) VALUES ('user-coordinator', 'school-gamma'), ('user-regional-coordinator-2', 'school-gamma');");
 for (const userId of ['user-coordinator', 'user-regional-coordinator-2']) {
 	await action(staffPath, 'qr', regional, { userId }, 403);
 }

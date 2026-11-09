@@ -79,21 +79,19 @@ for each contest participation.
 
 ## 3. Invite and administer users
 
-Open **Users**. This page is available only to a system-wide coordinator.
+Open **Users & access**. This page is available only to an administrator.
 
-1. Enter the user's email and display name.
+1. Enter the user's email and, for a new account, display name.
 2. Choose one assignment:
-   - **System-wide coordinator** for all seasons and user administration;
-   - **Season coordinator** and a season;
-   - **Regional coordinator** and a contest;
-   - **School coach**, a season, and a school;
-   - **Scorekeeper** and a contest.
-3. Select **Send invitation**.
+   - **Administrator** for all seasons and user administration;
+   - **Regional coordinator** and a region, across seasons;
+   - **School coach** and a school, across seasons;
+   - **Scorekeeper** and an individual contest.
+3. Select **Add person**. Existing accounts receive access without an email or
+   changes to their name or sign-in links; new accounts receive an invitation.
 
-Use **Add access to an existing user** to give an account another role or
-scope. This does not send an email or replace the person's sign-in link. The
-invitation form is for a new account; if its email already belongs to a user,
-the page directs you to add access instead.
+Removing persistent access affects every season. Replacing a coordinator never
+changes the account attributed to past actions. Grants and removals are audited.
 
 In the user list you can:
 
@@ -103,7 +101,7 @@ In the user list you can:
 - **Remove** an individual assignment.
 
 The application prevents you from disabling yourself or removing your own
-system-wide coordinator assignment.
+administrator assignment.
 
 ## 4. Invite schools and coaches
 
@@ -111,7 +109,7 @@ Open **Participation**.
 
 1. Under **Invite a school**, select a contest and an active school, assign
    Division 1 or 2, and select **Send invitation**.
-2. Under **Invite a coach**, enter an email and name, then select the season and
+2. Under **Invite a coach**, enter an email and name, then select the
    school. This creates or updates the user and sends a sign-in link.
 3. To reuse an existing active user, use **Assign an active coach** instead.
 4. The **Participations** list shows the contest, division, and invitation

@@ -10,6 +10,7 @@ sqlite3 "$database_path" < drizzle/0002_knowdown_outcomes.sql
 sqlite3 "$database_path" < drizzle/0003_school_division.sql
 sqlite3 "$database_path" < drizzle/0004_program_stages.sql
 sqlite3 "$database_path" < drizzle/0005_season_year.sql
+sqlite3 "$database_path" < drizzle/0006_persistent_access.sql
 sqlite3 "$database_path" < scripts/seed.sql
 
 # Add 21 additional state-participating schools with 11 annual students each,
@@ -52,10 +53,9 @@ first_update="$(sqlite3 -noheader "$database_path" "UPDATE results SET score = 8
 second_update="$(sqlite3 -noheader "$database_path" "UPDATE results SET score = 87, version = version + 1, last_edited_by = 'user-scorekeeper' WHERE entry_id = 'entry-r1-team-alpha' AND version = 1; SELECT changes();")"
 [[ "$first_update" == "1" && "$second_update" == "0" ]] || { echo "stale scorekeeper edit was not rejected: ${first_update}/${second_update}" >&2; exit 1; }
 
-# Rehearse the documented recovery shape: an active system coordinator with a
-# NULL season assignment can recover administration without reusing a token.
-sqlite3 "$database_path" "INSERT INTO users (id, email, display_name, status) VALUES ('user-rehearsal-recovery', 'recovery@wsmc.example', 'Recovery Coordinator', 'active'); INSERT INTO statewide_assignments (id, user_id, season_id) VALUES ('assignment-rehearsal-recovery', 'user-rehearsal-recovery', NULL);"
-recovery_access="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM users JOIN statewide_assignments ON statewide_assignments.user_id = users.id WHERE users.id = 'user-rehearsal-recovery' AND users.status = 'active' AND statewide_assignments.season_id IS NULL;")"
+# Rehearse recovery with a persistent administrator assignment.
+sqlite3 "$database_path" "INSERT INTO users (id, email, display_name, status) VALUES ('user-rehearsal-recovery', 'recovery@wsmc.example', 'Recovery Coordinator', 'active'); INSERT INTO statewide_assignments (user_id) VALUES ('user-rehearsal-recovery');"
+recovery_access="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM users JOIN statewide_assignments ON statewide_assignments.user_id = users.id WHERE users.id = 'user-rehearsal-recovery' AND users.status = 'active';")"
 [[ "$recovery_access" == "1" ]] || { echo "coordinator recovery fixture failed" >&2; exit 1; }
 
 echo "dress rehearsal passed: 24 schools, 241 annual students, 2 scorekeepers, stale edit rejected, coordinator recovery verified"

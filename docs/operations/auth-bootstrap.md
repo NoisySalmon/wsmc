@@ -6,11 +6,11 @@ used. Run an authenticated administrative bootstrap from a trusted machine:
 
 1. Insert one active user with a generated UUID and the coordinator’s normalized
    email into `users`.
-2. Insert a statewide assignment for that user with `season_id` set to `NULL`
-   (system-wide) or to the target season ID.
+2. Insert a row in `statewide_assignments` with that account’s `user_id`.
+   Administrator access has no season.
 3. Request a sign-in link from `/login` using that exact email.
 4. After the first login, use the user administration flow to add the normal
-   season, regional, coach, or scorekeeper assignments and revoke the temporary
+   administrator, regional, coach, or scorekeeper assignments and revoke the temporary
    bootstrap authority if appropriate.
 
 Do not put a raw sign-in token in source control, logs, tickets, or shell history.

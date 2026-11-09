@@ -12,8 +12,9 @@ live season after the production email provider and D1 binding are configured.
    Enter the year; all 11 fixed regions, regional contests, and the state contest
    are created together. Active schools inherit regional placements from the most
    recent earlier season, with fresh invitations and current school divisions.
-   Active regional coordinators and coaches also carry forward (excluding coaches
-   of inactive schools). Review and adjust these assignments before registration.
+   Regional coordinator and coach access persists independently of seasons.
+   Review these assignments before registration; scorekeepers need new event
+   assignments each season.
 3. The homepage shows the season overview, contest statuses, and dates.
    Regional contest links appear only for users with access.
 4. Open each contest to set its date and manage people and contest stages.

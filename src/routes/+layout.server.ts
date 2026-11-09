@@ -1,4 +1,4 @@
-import { inArray } from 'drizzle-orm';
+import { and, eq, inArray, ne } from 'drizzle-orm';
 import { getDb, schema } from '$lib/server/db';
 import { canAdministerUsers } from '$lib/server/auth/capabilities';
 import type { LayoutServerLoad } from './$types';
@@ -15,10 +15,13 @@ export const load: LayoutServerLoad = async ({ locals, platform }) => {
 
 	const contestIds = [...new Set([...principal.regionalContestIds, ...principal.scorekeeperContestIds])];
 	const assignedContests = contestIds.length
-		? await db.select({ id: schema.contests.id, name: schema.contests.name, kind: schema.contests.kind, lifecycle: schema.contests.lifecycle, seasonId: schema.contests.seasonId }).from(schema.contests).where(inArray(schema.contests.id, contestIds))
+		? await db.select({ id: schema.contests.id, name: schema.contests.name, kind: schema.contests.kind, lifecycle: schema.contests.lifecycle, seasonId: schema.contests.seasonId }).from(schema.contests)
+			.innerJoin(schema.seasons, eq(schema.seasons.id, schema.contests.seasonId))
+			.where(and(inArray(schema.contests.id, contestIds), ne(schema.seasons.status, 'archived')))
 		: [];
 	const roleLinks: { href: string; label: string }[] = [];
-	// Regional coordinators: one Overview link per assigned regional contest, plus Scoring when relevant.
+	// Show assigned contests from the current season; archives remain accessible from Home.
+	// Regional coordinators get Overview and, when relevant, Scoring.
 	// Scorekeepers: just Scoring. No per-school registration spam — coaches use My schools.
 	for (const contest of assignedContests.filter((item) => item.kind === 'regional')) {
 		const isCoordinator = principal.regionalContestIds.includes(contest.id);

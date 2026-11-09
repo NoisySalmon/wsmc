@@ -31,8 +31,8 @@ npm run seed:new-season    # Archived 2026 showcase history; no current season
 For either season-creation scenario, sign in as `coordinator@wsmc.example`
 and open Home. Create 2026 for a first season, or 2027 after the archived season.
 The app creates the 11 regional contests and state contest. Active schools inherit their regional placements from the most recent earlier
-season, with fresh invitations and current school divisions. Active regional coordinators and coaches also carry forward; coaches of inactive
-schools are excluded. Students and scorekeeper assignments start fresh.
+season, with fresh invitations and current school divisions. Regional coordinator and coach access persists independently of seasons.
+Students start fresh, and scorekeepers need new event assignments.
 `first-season` has only the administrator account. `new-season` retains the
 showcase's fictional users and annual records as read-only history; its mixed
 contest states are demo history, not a fully completed competition.
@@ -123,3 +123,13 @@ Run the authenticated end-to-end preview after `npm run build`. It starts a
 separate listener on port 8791, creates and removes its own temporary D1,
 and tests role access, stage changes, finalization, and publication. If that
 port is occupied, set `WSMC_E2E_PORT` to a free port.
+
+## Persistent access schema transition
+
+Migration `0006_persistent_access.sql` replaces the pre-launch administrator,
+regional coordinator, and coach assignment tables. It clears those grants;
+accounts, competition history, audit records, and event-specific scorekeeper
+assignments remain intact. Recreate local fixture data with a seed scenario
+such as `npm run seed:showcase`, or re-establish administrator access with the
+[bootstrap procedure](auth-bootstrap.md) and assign the other roles in Users &
+access. No conversion of obsolete season-specific grants is performed.

@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull } from 'drizzle-orm';
+import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
 import { normalizeEmail, randomToken, sha256 } from './crypto';
@@ -10,9 +10,9 @@ export const SIGN_IN_TOKEN_TTL_MS = 20 * 60 * 1000;
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export type InviteAssignment =
-	| { kind: 'statewide'; seasonId: string | null }
-	| { kind: 'regional'; contestId: string }
-	| { kind: 'coach'; seasonId: string; schoolId: string }
+	| { kind: 'statewide' }
+	| { kind: 'regional'; regionNumber: number }
+	| { kind: 'coach'; schoolId: string }
 	| { kind: 'scorekeeper'; contestId: string };
 
 export class AuthError extends Error {
@@ -60,7 +60,7 @@ export async function sendSignInLink(
 export async function inviteUser(
 	db: Database,
 	provider: EmailProvider,
-	input: { email: string; displayName?: string; assignments: InviteAssignment[]; origin: string; now?: number },
+	input: { email: string; displayName?: string; assignments: InviteAssignment[]; actorUserId: string; origin: string; now?: number },
 ) {
 	const email = normalizeEmail(input.email);
 	const now = input.now ?? Date.now();
@@ -72,7 +72,7 @@ export async function inviteUser(
 		[user] = await db.update(schema.users).set({ displayName: input.displayName, updatedAt: now }).where(eq(schema.users.id, user.id)).returning();
 	}
 
-	await attachAssignments(db, user.id, input.assignments, now);
+	await attachAssignments(db, user.id, input.assignments, now, input.actorUserId);
 
 	const token = await sendSignInLink(db, provider, { userId: user.id, email: user.email, origin: input.origin, purpose: 'invite', now });
 	return { user, token };
@@ -81,12 +81,12 @@ export async function inviteUser(
 /** Add permissions to an existing account without sending or invalidating a sign-in link. */
 export async function addUserAssignments(
 	db: Database,
-	input: { userId: string; assignments: InviteAssignment[]; now?: number },
+	input: { userId: string; assignments: InviteAssignment[]; actorUserId: string; now?: number },
 ) {
 	const [user] = await db.select().from(schema.users).where(eq(schema.users.id, input.userId));
 	if (!user) throw new AuthError('user_not_found', 'User not found.');
 	if (user.status === 'disabled') throw new AuthError('user_disabled', 'Enable this user before adding access.');
-	await attachAssignments(db, user.id, input.assignments, input.now ?? Date.now());
+	await attachAssignments(db, user.id, input.assignments, input.now ?? Date.now(), input.actorUserId);
 	return { user };
 }
 
@@ -94,12 +94,12 @@ export async function addUserAssignments(
 export async function addPerson(
 	db: Database,
 	provider: EmailProvider,
-	input: { email: string; displayName?: string; assignments: InviteAssignment[]; origin: string },
+	input: { email: string; displayName?: string; assignments: InviteAssignment[]; actorUserId: string; origin: string },
 ) {
 	if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) throw new AuthError('invalid_request', 'Enter a valid email address.');
 	const existing = await findUserByEmail(db, input.email);
 	if (existing) {
-		const { user } = await addUserAssignments(db, { userId: existing.id, assignments: input.assignments });
+		const { user } = await addUserAssignments(db, { userId: existing.id, assignments: input.assignments, actorUserId: input.actorUserId });
 		return { user, invited: false };
 	}
 	if (!input.displayName?.trim()) throw new AuthError('invalid_request', 'Name is required for a new account.');
@@ -107,22 +107,24 @@ export async function addPerson(
 	return { user, invited: true };
 }
 
-async function attachAssignments(db: Database, userId: string, assignments: InviteAssignment[], now: number): Promise<void> {
+async function attachAssignments(db: Database, userId: string, assignments: InviteAssignment[], now: number, actorUserId: string): Promise<void> {
 	for (const assignment of assignments) {
+		let grant;
 		switch (assignment.kind) {
 			case 'statewide':
-				await db.insert(schema.statewideAssignments).values({ id: crypto.randomUUID(), userId, seasonId: assignment.seasonId, createdAt: now }).onConflictDoNothing();
+				grant = db.insert(schema.statewideAssignments).values({ userId, createdAt: now }).onConflictDoNothing();
 				break;
 			case 'regional':
-				await db.insert(schema.regionalCoordinatorAssignments).values({ userId, contestId: assignment.contestId, createdAt: now }).onConflictDoNothing();
+				grant = db.insert(schema.regionalCoordinatorAssignments).values({ userId, regionNumber: assignment.regionNumber, createdAt: now }).onConflictDoNothing();
 				break;
 			case 'coach':
-				await db.insert(schema.coachAssignments).values({ userId, seasonId: assignment.seasonId, schoolId: assignment.schoolId, createdAt: now }).onConflictDoNothing();
+				grant = db.insert(schema.coachAssignments).values({ userId, schoolId: assignment.schoolId, createdAt: now }).onConflictDoNothing();
 				break;
 			case 'scorekeeper':
-				await db.insert(schema.scorekeeperAssignments).values({ userId, contestId: assignment.contestId, createdAt: now }).onConflictDoNothing();
+				grant = db.insert(schema.scorekeeperAssignments).values({ userId, contestId: assignment.contestId, createdAt: now }).onConflictDoNothing();
 				break;
 		}
+		await db.batch([grant, assignmentAudit(db, userId, assignment, actorUserId, 'assignment_granted', now)]);
 	}
 }
 
@@ -167,27 +169,40 @@ export async function setUserStatus(db: Database, userId: string, status: 'pendi
 	}
 }
 
-export type AssignmentKey =
-	| { kind: 'statewide'; userId: string; seasonId: string | null }
-	| { kind: 'regional'; userId: string; contestId: string }
-	| { kind: 'coach'; userId: string; seasonId: string; schoolId: string }
-	| { kind: 'scorekeeper'; userId: string; contestId: string };
+export type AssignmentKey = InviteAssignment & { userId: string };
 
-export async function removeAssignment(db: Database, assignment: AssignmentKey): Promise<void> {
+/** Runs immediately after the assignment write in the same atomic D1 batch.
+ * changes() suppresses audit events for duplicate grants or absent revocations.
+ * SELECT order follows auditEvents' insert columns, including nullable context. */
+function assignmentAudit(db: Database, userId: string, assignment: InviteAssignment, actorUserId: string, action: string, now: number) {
+	const { kind } = assignment;
+	const scope = kind === 'regional' ? { regionNumber: assignment.regionNumber }
+		: kind === 'coach' ? { schoolId: assignment.schoolId }
+		: kind === 'scorekeeper' ? { contestId: assignment.contestId } : {};
+	return db.insert(schema.auditEvents).select(sql`SELECT ${crypto.randomUUID()}, ${actorUserId},
+		${kind === 'scorekeeper' ? assignment.contestId : null},
+		${kind === 'coach' ? assignment.schoolId : null},
+		'access_assignment', ${userId}, ${action}, ${JSON.stringify({ kind, ...scope })}, ${now}
+		WHERE changes() > 0`);
+}
+
+export async function removeAssignment(db: Database, assignment: AssignmentKey, actorUserId: string): Promise<void> {
+	let revoke;
 	switch (assignment.kind) {
 		case 'statewide':
-			await db.delete(schema.statewideAssignments).where(and(eq(schema.statewideAssignments.userId, assignment.userId), assignment.seasonId === null ? isNull(schema.statewideAssignments.seasonId) : eq(schema.statewideAssignments.seasonId, assignment.seasonId)));
+			revoke = db.delete(schema.statewideAssignments).where(eq(schema.statewideAssignments.userId, assignment.userId));
 			break;
 		case 'regional':
-			await db.delete(schema.regionalCoordinatorAssignments).where(and(eq(schema.regionalCoordinatorAssignments.userId, assignment.userId), eq(schema.regionalCoordinatorAssignments.contestId, assignment.contestId)));
+			revoke = db.delete(schema.regionalCoordinatorAssignments).where(and(eq(schema.regionalCoordinatorAssignments.userId, assignment.userId), eq(schema.regionalCoordinatorAssignments.regionNumber, assignment.regionNumber)));
 			break;
 		case 'coach':
-			await db.delete(schema.coachAssignments).where(and(eq(schema.coachAssignments.userId, assignment.userId), eq(schema.coachAssignments.seasonId, assignment.seasonId), eq(schema.coachAssignments.schoolId, assignment.schoolId)));
+			revoke = db.delete(schema.coachAssignments).where(and(eq(schema.coachAssignments.userId, assignment.userId), eq(schema.coachAssignments.schoolId, assignment.schoolId)));
 			break;
 		case 'scorekeeper':
-			await db.delete(schema.scorekeeperAssignments).where(and(eq(schema.scorekeeperAssignments.userId, assignment.userId), eq(schema.scorekeeperAssignments.contestId, assignment.contestId)));
+			revoke = db.delete(schema.scorekeeperAssignments).where(and(eq(schema.scorekeeperAssignments.userId, assignment.userId), eq(schema.scorekeeperAssignments.contestId, assignment.contestId)));
 			break;
 	}
+	await db.batch([revoke, assignmentAudit(db, assignment.userId, assignment, actorUserId, 'assignment_revoked', Date.now())]);
 }
 
 export async function loadPrincipal(db: Database, sessionId: string | undefined, now = Date.now()): Promise<Principal | null> {
@@ -199,16 +214,19 @@ export async function loadPrincipal(db: Database, sessionId: string | undefined,
 	await db.update(schema.sessions).set({ lastSeenAt: now }).where(eq(schema.sessions.id, sessionId));
 
 	const [statewide, regional, coach, scorekeeper] = await Promise.all([
-		db.select({ seasonId: schema.statewideAssignments.seasonId }).from(schema.statewideAssignments).where(eq(schema.statewideAssignments.userId, session.user.id)),
-		db.select({ contestId: schema.regionalCoordinatorAssignments.contestId }).from(schema.regionalCoordinatorAssignments).where(eq(schema.regionalCoordinatorAssignments.userId, session.user.id)),
-		db.select({ seasonId: schema.coachAssignments.seasonId, schoolId: schema.coachAssignments.schoolId }).from(schema.coachAssignments).where(eq(schema.coachAssignments.userId, session.user.id)),
+		db.select({ userId: schema.statewideAssignments.userId }).from(schema.statewideAssignments).where(eq(schema.statewideAssignments.userId, session.user.id)),
+		db.select({ contestId: schema.contests.id }).from(schema.regionalCoordinatorAssignments)
+			.innerJoin(schema.regions, eq(schema.regions.number, schema.regionalCoordinatorAssignments.regionNumber))
+			.innerJoin(schema.contests, and(eq(schema.contests.regionId, schema.regions.id), eq(schema.contests.kind, 'regional')))
+			.where(eq(schema.regionalCoordinatorAssignments.userId, session.user.id)),
+		db.select({ schoolId: schema.coachAssignments.schoolId }).from(schema.coachAssignments).where(eq(schema.coachAssignments.userId, session.user.id)),
 		db.select({ contestId: schema.scorekeeperAssignments.contestId }).from(schema.scorekeeperAssignments).where(eq(schema.scorekeeperAssignments.userId, session.user.id)),
 	]);
 	return {
 		id: session.user.id,
 		email: session.user.email,
 		displayName: session.user.displayName,
-		statewideSeasonIds: statewide.map((assignment) => assignment.seasonId),
+		isAdmin: statewide.length > 0,
 		regionalContestIds: regional.map((assignment) => assignment.contestId),
 		coachAssignments: coach,
 		scorekeeperContestIds: scorekeeper.map((assignment) => assignment.contestId),

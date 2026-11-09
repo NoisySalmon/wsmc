@@ -16,6 +16,8 @@ async function authorizeTarget(db: Database, actor: Principal | null, userId: st
 	if (contestId) {
 		const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, contestId));
 		if (!contest || contest.kind !== 'regional') throw error(403, 'Regional contest required.');
+		const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, contest.seasonId));
+		if (season?.status === 'archived') throw error(403, 'Use the current season or Users & access for sign-in codes.');
 		if (!admin) {
 			const [statewide, regional, scorekeeper, coach] = await Promise.all([
 				db.select().from(schema.statewideAssignments).where(eq(schema.statewideAssignments.userId, userId)),
@@ -23,7 +25,7 @@ async function authorizeTarget(db: Database, actor: Principal | null, userId: st
 				db.select().from(schema.scorekeeperAssignments).where(and(eq(schema.scorekeeperAssignments.userId, userId), eq(schema.scorekeeperAssignments.contestId, contestId))),
 				db.select().from(schema.coachAssignments)
 					.innerJoin(schema.schoolParticipations, eq(schema.schoolParticipations.schoolId, schema.coachAssignments.schoolId))
-					.where(and(eq(schema.coachAssignments.userId, userId), eq(schema.coachAssignments.seasonId, contest.seasonId), eq(schema.schoolParticipations.contestId, contestId))),
+					.where(and(eq(schema.coachAssignments.userId, userId), eq(schema.schoolParticipations.contestId, contestId))),
 			]);
 			if (statewide.length || regional.length) throw error(403, 'An administrator must generate sign-in codes for accounts with coordinator access.');
 			if (!scorekeeper.length && !coach.length) throw error(403, 'Person is not assigned here.');

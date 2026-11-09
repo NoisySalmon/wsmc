@@ -87,28 +87,21 @@ export const schools = sqliteTable('schools', {
 
 // ── Authorization assignments ───────────────────────────
 export const statewideAssignments = sqliteTable('statewide_assignments', {
-	id: text('id').primaryKey(),
-	userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-	seasonId: text('season_id').references(() => seasons.id, { onDelete: 'cascade' }),
+	userId: text('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
 	createdAt: integer('created_at').notNull().default(timestamp()),
-}, (table) => [
-	uniqueIndex('statewide_assignments_system_user_uq').on(table.userId).where(sql`${table.seasonId} IS NULL`),
-	uniqueIndex('statewide_assignments_season_user_uq').on(table.userId, table.seasonId).where(sql`${table.seasonId} IS NOT NULL`),
-	index('statewide_assignments_season_idx').on(table.seasonId),
-]);
+});
 
 export const regionalCoordinatorAssignments = sqliteTable('regional_coordinator_assignments', {
 	userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-	contestId: text('contest_id').notNull().references(() => contests.id, { onDelete: 'cascade' }),
+	regionNumber: integer('region_number').notNull(),
 	createdAt: integer('created_at').notNull().default(timestamp()),
-}, (table) => [primaryKey({ columns: [table.userId, table.contestId] }), index('regional_assignments_contest_idx').on(table.contestId)]);
+}, (table) => [primaryKey({ columns: [table.userId, table.regionNumber] }), index('regional_assignments_region_idx').on(table.regionNumber), check('regional_assignments_region_check', sql`${table.regionNumber} > 0`)]);
 
 export const coachAssignments = sqliteTable('coach_assignments', {
 	userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-	seasonId: text('season_id').notNull().references(() => seasons.id, { onDelete: 'cascade' }),
 	schoolId: text('school_id').notNull().references(() => schools.id, { onDelete: 'cascade' }),
 	createdAt: integer('created_at').notNull().default(timestamp()),
-}, (table) => [primaryKey({ columns: [table.userId, table.seasonId, table.schoolId] }), index('coach_assignments_school_idx').on(table.schoolId)]);
+}, (table) => [primaryKey({ columns: [table.userId, table.schoolId] }), index('coach_assignments_school_idx').on(table.schoolId)]);
 
 export const scorekeeperAssignments = sqliteTable('scorekeeper_assignments', {
 	userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),

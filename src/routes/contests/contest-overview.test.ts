@@ -4,15 +4,15 @@ import type { Principal } from '$lib/server/auth/capabilities';
 
 const regional: Principal = {
 	id: 'regional', email: 'regional@example.test', displayName: 'Regional',
-	statewideSeasonIds: [], regionalContestIds: ['region-1'], coachAssignments: [], scorekeeperContestIds: [],
+	isAdmin: false, regionalContestIds: ['region-1'], coachAssignments: [], scorekeeperContestIds: [],
 };
 const scorekeeper: Principal = {
 	id: 'scorer', email: 'scorer@example.test', displayName: 'Scorer',
-	statewideSeasonIds: [], regionalContestIds: [], coachAssignments: [], scorekeeperContestIds: ['region-1'],
+	isAdmin: false, regionalContestIds: [], coachAssignments: [], scorekeeperContestIds: ['region-1'],
 };
 const coach: Principal = {
 	id: 'coach', email: 'coach@example.test', displayName: 'Coach',
-	statewideSeasonIds: [], regionalContestIds: [], coachAssignments: [{ seasonId: 'season-1', schoolId: 'school-1' }], scorekeeperContestIds: [],
+	isAdmin: false, regionalContestIds: [], coachAssignments: [{ schoolId: 'school-1' }], scorekeeperContestIds: [],
 };
 
 describe('regional contest overview access', () => {

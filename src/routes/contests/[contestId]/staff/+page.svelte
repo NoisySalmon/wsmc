@@ -8,6 +8,7 @@
 	<p><a href="/contests/{data.contest.id}">← {data.contest.name}</a></p>
 	<h1>People · {data.contest.name}</h1>
 	<p>Add people by email. Existing accounts receive access without an email; new accounts receive a sign-in invitation. Disabled accounts must be re-enabled by an administrator.</p>
+	{#if data.contest.archived}<p>This season is archived. These lists show current coordinator and coach access. Manage access from the current season or Users &amp; access.</p>{/if}
 	{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
 
 	{#if form?.qr}<QrSignIn qr={form.qr} />{/if}
@@ -23,25 +24,25 @@
 	{/snippet}
 	{#snippet personRow(person: { userId: string; displayName: string; email: string; status: string; canGenerateQr: boolean }, role: string, schoolId = '', manageable = true)}
 		<li><div><strong>{person.displayName || person.email}</strong><span>{person.email} · {person.status}</span></div>
-		{#if manageable}<div class="actions">
+		{#if manageable && !data.contest.archived}<div class="actions">
 			{#if person.canGenerateQr}<form method="POST" action="?/qr"><input type="hidden" name="userId" value={person.userId} /><button type="submit">Show sign-in QR</button></form>{/if}
 			{#if person.status === 'pending'}<form method="POST" action="?/resend"><input type="hidden" name="role" value={role} /><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="userId" value={person.userId} /><button class="quiet" type="submit">Resend invitation</button></form>{/if}
 			<form method="POST" action="?/remove"><input type="hidden" name="role" value={role} /><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="userId" value={person.userId} /><button class="quiet" type="submit">{role === 'scorekeeper' ? 'Remove from this contest' : 'Remove access'}</button></form>
 		</div>{/if}</li>
 	{/snippet}
 
-	<section><h2>Regional coordinators</h2>
+	<section><h2>Regional coordinators</h2><p>Coordinator access applies to this region across seasons.</p>
 		<ul>{#each data.coordinators as person}{@render personRow(person, 'regional', '', data.canManageCoordinators)}{:else}<li>No regional coordinators assigned.</li>{/each}</ul>
-		{#if data.canManageCoordinators}{@render addForm('regional')}{/if}
+		{#if data.canManageCoordinators && !data.contest.archived}{@render addForm('regional')}{/if}
 	</section>
 	<section><h2>Scorekeepers</h2>
 		<ul>{#each data.scorekeepers as person}{@render personRow(person, 'scorekeeper')}{:else}<li>No scorekeepers assigned.</li>{/each}</ul>
-		{@render addForm('scorekeeper')}
+		{#if !data.contest.archived}{@render addForm('scorekeeper')}{/if}
 	</section>
-	<section><h2>School coaches</h2><p>Coach access belongs to the school for this season and stays with it when it moves between contests.</p>
+	<section><h2>School coaches</h2><p>Coach access belongs to the school across seasons and stays with it when it moves between contests. Adding or removing a coach here affects every season.</p>
 		{#each data.schools as school}<section id="school-{school.id}"><h3>{school.name}</h3>
 			<ul>{#each data.coaches.filter((coach) => coach.schoolId === school.id) as person}{@render personRow(person, 'coach', school.id)}{:else}<li>No coaches assigned.</li>{/each}</ul>
-			{@render addForm('coach', school.id)}
+			{#if !data.contest.archived}{@render addForm('coach', school.id)}{/if}
 		</section>{:else}<p>Assign a school through <a href="/regions">Regions</a> before adding its coaches.</p>{/each}
 	</section>
 </main>

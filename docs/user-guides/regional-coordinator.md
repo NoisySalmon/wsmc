@@ -24,7 +24,7 @@ email provider is configured.
 |---|---|
 | `/regions` | Assign unmapped schools to a region and open school registration. |
 | `/contests/<contest-id>` | Review all participating schools, rosters, entries, result coverage, and move from registration to roster lock and scoring. |
-| `/contests/<contest-id>/staff` | Invite or remove scorekeepers for this contest. Season coordinators also assign regional coordinators here. |
+| `/contests/<contest-id>/staff` | Invite or remove scorekeepers for this contest. Administrators also assign regional coordinators here. Coordinator and coach access applies across seasons; scorekeepers remain event-specific. |
 | `/registration/<contest-id>/<school-id>` | Edit any participating school's regional roster and entries. |
 | `/scoring/<contest-id>` | Enter scores, finalize, publish, or reopen the assigned contest. |
 | `/results/<contest-id>` | Review finalized regional rankings. |

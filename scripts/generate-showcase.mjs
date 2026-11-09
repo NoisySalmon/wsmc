@@ -28,15 +28,14 @@ const add = (table, row) => {
  if (scenario === 'first-season' && !(
   table === 'schools' ||
   (table === 'users' && row.id === 'user-coordinator') ||
-  (table === 'statewide_assignments' && row.season_id === null)
+  table === 'statewide_assignments'
  )) return;
  sql.push(insert(table, row));
 };
 const season = 'season-2026';
 add('seasons', { id: season, year: 2026, status: 'regional' });
 add('users', { id: 'user-coordinator', email: 'coordinator@wsmc.example', display_name: 'Morgan Ellis (Demo)', status: 'active' });
-add('statewide_assignments', { id: 'assignment-system', user_id: 'user-coordinator', season_id: null });
-add('statewide_assignments', { id: 'assignment-state-2026', user_id: 'user-coordinator', season_id: season });
+add('statewide_assignments', { user_id: 'user-coordinator' });
 const stages = ['finalized', 'registration_open', 'roster_locked', 'setup', 'scoring', 'registration_open', 'finalized', 'scoring', 'registration_open', 'setup', 'registration_open'];
 const contestId = (n) => n === 11 ? 'contest-virtual-2026' : `contest-region-${n}`;
 const regionId = (n) => n === 11 ? 'region-virtual-2026' : `region-${n}-2026`;
@@ -44,7 +43,7 @@ for (const { number, name } of directory.regions) {
  add('regions', { id: regionId(number), season_id: season, number, name });
  add('contests', { id: contestId(number), season_id: season, region_id: regionId(number), kind: 'regional', name: `${number === 11 ? 'Virtual' : `Region ${number} — ${name}`} Regional Contest`, starts_at: Date.parse('2026-03-11T09:00:00-07:00'), lifecycle: stages[number - 1], results_published_at: number === 1 ? Date.parse('2026-03-12T12:00:00-07:00') : null });
  add('users', { id: `user-regional-${number}`, email: `regional${number}@wsmc.example`, display_name: `${name} Coordinator (Demo)`, status: 'active' });
- add('regional_coordinator_assignments', { user_id: `user-regional-${number}`, contest_id: contestId(number) });
+ add('regional_coordinator_assignments', { user_id: `user-regional-${number}`, region_number: number });
 }
 add('contests', { id: 'contest-state-2026', season_id: season, region_id: null, kind: 'state', name: '2026 State Contest', starts_at: Date.parse('2026-04-18T09:30:00-07:00'), lifecycle: 'setup' });
 const firstNames = ['Avery', 'Jordan', 'Riley', 'Casey', 'Taylor', 'Quinn', 'Cameron', 'Sage'];
@@ -56,7 +55,7 @@ for (const [index, school] of directory.schools.entries()) {
  add('schools', { id, name, short_name: name, division, address: school.address ?? '', city: school.city ?? '', state: school.state ?? 'WA', postal_code: school.postalCode ?? '' });
  const uid = `user-coach-${slug}`, pid = `participation-${region}-${slug}`;
  add('users', { id: uid, email: `coach.${slug}@wsmc.example`, display_name: `${name} Coach (Demo)`, status: 'active' });
- add('coach_assignments', { user_id: uid, season_id: season, school_id: id });
+ add('coach_assignments', { user_id: uid, school_id: id });
  add('school_participations', { id: pid, contest_id: cid, school_id: id, division, invitation_status: stage === 'setup' ? 'invited' : 'accepted' });
  const students = [];
  for (let j = 0; j < 8; j++) {

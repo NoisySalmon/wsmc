@@ -34,17 +34,6 @@ export async function createSeason(db: Database, input: { year: number; now?: nu
 			eq(schema.contests.kind, 'regional'), eq(schema.schools.active, true),
 			eq(schema.contests.seasonId, priorSeasonId),
 		));
-	const coordinators = await db.select({ userId: schema.users.id, regionNumber: schema.regions.number })
-		.from(schema.regionalCoordinatorAssignments)
-		.innerJoin(schema.users, eq(schema.users.id, schema.regionalCoordinatorAssignments.userId))
-		.innerJoin(schema.contests, eq(schema.contests.id, schema.regionalCoordinatorAssignments.contestId))
-		.innerJoin(schema.regions, eq(schema.regions.id, schema.contests.regionId))
-		.where(and(eq(schema.contests.seasonId, priorSeasonId), eq(schema.contests.kind, 'regional'), eq(schema.users.status, 'active')));
-	const coaches = await db.select({ userId: schema.users.id, schoolId: schema.schools.id })
-		.from(schema.coachAssignments)
-		.innerJoin(schema.users, eq(schema.users.id, schema.coachAssignments.userId))
-		.innerJoin(schema.schools, eq(schema.schools.id, schema.coachAssignments.schoolId))
-		.where(and(eq(schema.coachAssignments.seasonId, priorSeasonId), eq(schema.users.status, 'active'), eq(schema.schools.active, true)));
 	const regionalContests = regions.map(region => ({
 		id: crypto.randomUUID(), seasonId, regionId: region.id, kind: 'regional' as const,
 		name: `Region ${region.number} — ${region.name}`, startsAt: null,
@@ -59,9 +48,6 @@ export async function createSeason(db: Database, input: { year: number; now?: nu
 		id: crypto.randomUUID(), contestId: contestForRegion(placement.regionNumber),
 		schoolId: placement.schoolId, division: placement.division, invitationStatus: 'invited' as const, createdAt: now, updatedAt: now,
 	}));
-	const coordinatorAssignments = coordinators.map(coordinator => ({
-		userId: coordinator.userId, contestId: contestForRegion(coordinator.regionNumber), createdAt: now,
-	}));
 	// D1 batches are atomic: a failed default cannot leave a partially created season.
 	const [[season]] = await db.batch([
 		db.insert(schema.seasons).values({
@@ -72,8 +58,6 @@ export async function createSeason(db: Database, input: { year: number; now?: nu
 		...regionalContests.map(contest => db.insert(schema.contests).values(contest)),
 		db.insert(schema.contests).values({ id: crypto.randomUUID(), seasonId, regionId: null, kind: 'state', name: `${input.year} State Contest`, startsAt: null, lifecycle: 'setup', createdAt: now, updatedAt: now }),
 		...participations.map(participation => db.insert(schema.schoolParticipations).values(participation)),
-		...coordinatorAssignments.map(assignment => db.insert(schema.regionalCoordinatorAssignments).values(assignment)),
-		...coaches.map(coach => db.insert(schema.coachAssignments).values({ ...coach, seasonId, createdAt: now })),
 	]);
 	return season;
 }

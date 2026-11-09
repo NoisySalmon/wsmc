@@ -11,7 +11,7 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	const db = getDb(platform.env.DB);
 	const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, params.seasonId));
 	if (!season) throw error(404, 'Season not found.');
-	const canView = canCoordinateState(locals.principal, season.id) || locals.principal.coachAssignments.some((assignment) => assignment.seasonId === season.id);
+	const canView = canCoordinateState(locals.principal, season.id) || locals.principal.coachAssignments.length > 0;
 	if (!canView) throw error(403, 'You cannot view reports for this season.');
 	const canReviewUnpublished = canCoordinateState(locals.principal, season.id);
 	const contests = await db.select().from(schema.contests).where(eq(schema.contests.seasonId, season.id)).orderBy(asc(schema.contests.startsAt));

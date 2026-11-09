@@ -2,9 +2,9 @@ export type Principal = {
 	id: string;
 	email: string;
 	displayName: string;
-	statewideSeasonIds: (string | null)[];
+	isAdmin: boolean;
 	regionalContestIds: string[];
-	coachAssignments: { seasonId: string; schoolId: string }[];
+	coachAssignments: { schoolId: string }[];
 	scorekeeperContestIds: string[];
 };
 
@@ -12,17 +12,17 @@ export function canCoordinateState(principal: Principal, _seasonId: string): boo
 	return canAdministerUsers(principal);
 }
 
-/** Both legacy statewide assignment forms grant administrator access. */
+/** Administrator access is independent of the competition season. */
 export function canAdministerUsers(principal: Principal): boolean {
-	return principal.statewideSeasonIds.length > 0;
+	return principal.isAdmin;
 }
 
 export function canCoordinateRegion(principal: Principal, contestId: string, seasonId?: string): boolean {
 	return (seasonId !== undefined && canCoordinateState(principal, seasonId)) || principal.regionalContestIds.includes(contestId);
 }
 
-export function canCoachSchool(principal: Principal, schoolId: string, seasonId?: string): boolean {
-	return principal.coachAssignments.some((assignment) => assignment.schoolId === schoolId && (seasonId === undefined || assignment.seasonId === seasonId));
+export function canCoachSchool(principal: Principal, schoolId: string, _seasonId?: string): boolean {
+	return principal.coachAssignments.some((assignment) => assignment.schoolId === schoolId);
 }
 
 export function canScoreContest(principal: Principal, contestId: string, seasonId?: string): boolean {

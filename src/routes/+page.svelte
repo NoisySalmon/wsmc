@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import SeasonOverview from '$lib/components/SeasonOverview.svelte';
 	let { data, form } = $props();
-	const isAdmin = $derived((data.principal?.statewideSeasonIds ?? []).length > 0);
+	const isAdmin = $derived((data.principal?.isAdmin ?? false));
 	const isCoach = $derived((data.principal?.coachAssignments ?? []).length > 0);
 	const current = $derived(data.seasons.find(s => s.status !== 'archived'));
 	const archived = $derived(data.seasons.filter(s => s.status === 'archived'));
@@ -23,7 +23,7 @@
 		{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
 		{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
 		{#if current}
-			<section class="card"><SeasonOverview season={current} contests={data.contests} regions={data.regions} canOpenState={isAdmin || data.principal.coachAssignments.some(a => a.seasonId === (current?.id ?? ''))} />
+			<section class="card"><SeasonOverview season={current} contests={data.contests} regions={data.regions} canOpenState={isAdmin || isCoach} />
 				{#if isAdmin}
 			<div class="advance">
 				{#if current.status === 'regional'}<p>Qualification management is not available yet.</p>{:else if current.status === 'qualifications'}<p>Open the state contest once administrators have settled who qualifies.</p>{:else}<p>Archiving permanently closes editing for this season. It cannot be reopened.</p>{/if}
@@ -36,7 +36,7 @@
 			<form class="create" use:enhance method="POST" action="?/createSeason"><label>Year <input type="number" name="year" min="2000" max="2200" required /></label><button type="submit">Create season</button></form>
 		</section>
 		{:else}<p>No active season.</p>{/if}
-		{#if archived.length}<details><summary>Archived seasons ({archived.length})</summary>{#each archived as season}<section class="card"><SeasonOverview {season} contests={data.contests} regions={data.regions} canOpenState={isAdmin || data.principal.coachAssignments.some(a => a.seasonId === season.id)} /></section>{/each}</details>{/if}
+		{#if archived.length}<details><summary>Archived seasons ({archived.length})</summary>{#each archived as season}<section class="card"><SeasonOverview {season} contests={data.contests} regions={data.regions} canOpenState={isAdmin || isCoach} /></section>{/each}</details>{/if}
 
 	{:else}
 		<p><a href="/login">Sign in</a> to continue.</p>

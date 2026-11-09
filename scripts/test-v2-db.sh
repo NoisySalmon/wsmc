@@ -11,6 +11,7 @@ sqlite3 "$database_path" < drizzle/0002_knowdown_outcomes.sql
 sqlite3 "$database_path" < drizzle/0003_school_division.sql
 sqlite3 "$database_path" < drizzle/0004_program_stages.sql
 sqlite3 "$database_path" < drizzle/0005_season_year.sql
+sqlite3 "$database_path" < drizzle/0006_persistent_access.sql
 sqlite3 "$database_path" < scripts/seed.sql
 
 counts="$(sqlite3 -noheader -separator '|' "$database_path" "SELECT (SELECT COUNT(*) FROM seasons), (SELECT COUNT(*) FROM regions), (SELECT COUNT(*) FROM contests), (SELECT COUNT(*) FROM schools), (SELECT COUNT(*) FROM annual_students), (SELECT COUNT(*) FROM entries), (SELECT COUNT(*) FROM entry_members);")"
@@ -39,7 +40,7 @@ team_grade_collisions="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FRO
 topical_overlap="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM entry_members tm JOIN entries te ON te.id = tm.entry_id JOIN entries ie ON ie.contest_id = te.contest_id AND ie.owner_school_id = te.owner_school_id AND ie.category = 'topical_individual' JOIN entry_members im ON im.entry_id = ie.id AND im.annual_student_id = tm.annual_student_id WHERE te.category = 'topical_team';")"
 [[ "$topical_overlap" == "0" ]] || { echo "seed enters a student in both Topical Team and Topical Individual" >&2; exit 1; }
 
-coach_registration="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM coach_assignments ca JOIN contests c ON c.season_id = ca.season_id JOIN school_participations p ON p.contest_id = c.id AND p.school_id = ca.school_id WHERE ca.user_id = 'user-coach-gamma' AND c.id = 'contest-region-2' AND c.lifecycle = 'registration_open';")"
+coach_registration="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM coach_assignments ca JOIN school_participations p ON p.school_id = ca.school_id JOIN contests c ON c.id = p.contest_id WHERE ca.user_id = 'user-coach-gamma' AND c.id = 'contest-region-2' AND c.lifecycle = 'registration_open';")"
 [[ "$coach_registration" == "1" ]] || { echo "demo coach cannot reach the open regional registration" >&2; exit 1; }
 
 cross_school_count="$(sqlite3 -noheader "$database_path" "SELECT COUNT(DISTINCT annual_students.school_id) FROM entry_members JOIN entries ON entries.id = entry_members.entry_id JOIN annual_students ON annual_students.id = entry_members.annual_student_id WHERE entries.id = 'entry-state-cross-school-team';")"
@@ -85,8 +86,8 @@ VALUES
   ('token-disabled', 'user-auth-fixture', '528016dea2d2e5c3c8e68a56dbe9dd1e49e80d1b51d4b3ad7ccae9bfc2d740c5', 'sign_in', 3000, 1000);
 INSERT INTO sessions (id, user_id, expires_at, created_at, last_seen_at)
 VALUES ('session-disabled', 'user-auth-fixture', 900000, 1000, 1000);
-INSERT INTO coach_assignments (user_id, season_id, school_id)
-VALUES ('user-coach-alpha-1', 'season-2026', 'school-beta');
+INSERT INTO coach_assignments (user_id, school_id)
+VALUES ('user-coach-alpha-1', 'school-beta');
 SQL
 
 sqlite3 "$database_path" "UPDATE sign_in_tokens SET used_at = 1500 WHERE id = 'token-replay' AND used_at IS NULL AND revoked_at IS NULL;"
@@ -100,16 +101,16 @@ sqlite3 "$database_path" "UPDATE users SET status = 'disabled' WHERE id = 'user-
 disabled_access="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM users JOIN sessions ON sessions.user_id = users.id WHERE users.id = 'user-auth-fixture' AND users.status = 'active' AND sessions.revoked_at IS NULL;")"
 [[ "$disabled_access" == "0" ]] || { echo "disabled user retained active access" >&2; exit 1; }
 
-multi_school_coach="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM coach_assignments WHERE user_id = 'user-coach-alpha-1' AND season_id = 'season-2026';")"
+multi_school_coach="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM coach_assignments WHERE user_id = 'user-coach-alpha-1';")"
 [[ "$multi_school_coach" == "2" ]] || { echo "multi-school coach assignment was not preserved" >&2; exit 1; }
 
 state_coordinator_regional_assignments="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM regional_coordinator_assignments WHERE user_id = 'user-coordinator';")"
 [[ "$state_coordinator_regional_assignments" == "0" ]] || { echo "state coordinator has regional assignments" >&2; exit 1; }
 
-distinct_regional_coordinators="$(sqlite3 -noheader "$database_path" "SELECT COUNT(DISTINCT user_id) FROM regional_coordinator_assignments WHERE contest_id IN ('contest-region-1', 'contest-region-2');")"
+distinct_regional_coordinators="$(sqlite3 -noheader "$database_path" "SELECT COUNT(DISTINCT user_id) FROM regional_coordinator_assignments WHERE region_number IN (1, 2);")"
 [[ "$distinct_regional_coordinators" == "2" ]] || { echo "regional contests do not have distinct coordinators" >&2; exit 1; }
 
-regional_coach_assignment="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM coach_assignments WHERE user_id = 'user-regional-coordinator' AND season_id = 'season-2026' AND school_id = 'school-alpha';")"
+regional_coach_assignment="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM coach_assignments WHERE user_id = 'user-regional-coordinator' AND school_id = 'school-alpha';")"
 [[ "$regional_coach_assignment" == "1" ]] || { echo "Region 1 coordinator is not also assigned as a coach" >&2; exit 1; }
 
 echo "v2 D1 integration checks passed"

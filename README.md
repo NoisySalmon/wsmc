@@ -20,9 +20,11 @@ and [implementation progress](docs/implementation-progress.md).
 
 ## People and access
 
-Administrators manage accounts and assignments in **Users & access**. Legacy
-system-wide and season coordinator assignments both grant administrator access
-across seasons; new administrators receive one system-wide assignment.
+Administrators manage accounts and assignments in **Users & access**.
+Administrator access is global, regional coordinators are assigned to a region
+across seasons, and coaches are assigned to a school across seasons. Scorekeepers
+are assigned to individual events and do not carry into a new season. Role
+changes preserve historical account attribution and are recorded in the audit log.
 
 Use **Add person** with an email address to grant access. Existing accounts keep
 their name and sign-in links; new accounts receive an invitation. Pending

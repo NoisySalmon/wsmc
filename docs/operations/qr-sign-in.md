@@ -36,7 +36,8 @@ sign-in credential.
 
 - Administrators can generate codes for any enabled account.
 - Regional coordinators can generate codes for scorekeepers assigned to their
-  contest and coaches of schools participating in that contest for its season.
+  contest and coaches of schools participating in that contest. Coach access
+  applies across seasons.
 - Regional coordinators cannot generate codes for anyone who also holds an
   administrator or regional coordinator assignment, even in another contest.
   An administrator must help these users.

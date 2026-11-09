@@ -3,7 +3,7 @@ import { actions } from './+page.server';
 
 const scorekeeper = {
 	id: 'user-scorekeeper', email: 'scorekeeper@example.com', displayName: 'Scorekeeper',
-	statewideSeasonIds: [], regionalContestIds: [], coachAssignments: [], scorekeeperContestIds: ['contest-1'],
+	isAdmin: false, regionalContestIds: [], coachAssignments: [], scorekeeperContestIds: ['contest-1'],
 };
 
 function inviteEvent(principal: object) {

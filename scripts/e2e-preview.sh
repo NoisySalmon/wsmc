@@ -32,11 +32,12 @@ d1 --file=drizzle/0002_knowdown_outcomes.sql
 d1 --file=drizzle/0003_school_division.sql
 d1 --file=drizzle/0004_program_stages.sql
 d1 --file=drizzle/0005_season_year.sql
+d1 --file=drizzle/0006_persistent_access.sql
 d1 --file=scripts/seed.sql
 
 # Exercise scoring in the open state while retaining the seeded regional and
 # qualification records needed by the end-to-end handoff.
-d1 --command="DELETE FROM statewide_assignments WHERE user_id = 'user-coordinator' AND season_id IS NULL; UPDATE contests SET lifecycle = 'scoring' WHERE id = 'contest-region-1'; INSERT INTO users (id, email, display_name, status) VALUES ('user-scorekeeper-2', 'scorekeeper2@wsmc.example', 'Region 2 Scorekeeper', 'active'); INSERT INTO scorekeeper_assignments (user_id, contest_id) VALUES ('user-scorekeeper-2', 'contest-region-2'); INSERT INTO sessions (id, user_id, expires_at, created_at, last_seen_at) VALUES ('e2e-coordinator-session', 'user-coordinator', 4102444800000, 1700000000000, 1700000000000), ('e2e-scorekeeper-session', 'user-scorekeeper', 4102444800000, 1700000000000, 1700000000000), ('e2e-scorekeeper-2-session', 'user-scorekeeper-2', 4102444800000, 1700000000000, 1700000000000), ('e2e-coach-session', 'user-coach-alpha-1', 4102444800000, 1700000000000, 1700000000000), ('e2e-gamma-coach-session', 'user-coach-gamma', 4102444800000, 1700000000000, 1700000000000), ('e2e-regional-session', 'user-regional-coordinator-2', 4102444800000, 1700000000000, 1700000000000);"
+d1 --command="UPDATE contests SET lifecycle = 'scoring' WHERE id = 'contest-region-1'; INSERT INTO users (id, email, display_name, status) VALUES ('user-scorekeeper-2', 'scorekeeper2@wsmc.example', 'Region 2 Scorekeeper', 'active'); INSERT INTO scorekeeper_assignments (user_id, contest_id) VALUES ('user-scorekeeper-2', 'contest-region-2'); INSERT INTO sessions (id, user_id, expires_at, created_at, last_seen_at) VALUES ('e2e-coordinator-session', 'user-coordinator', 4102444800000, 1700000000000, 1700000000000), ('e2e-scorekeeper-session', 'user-scorekeeper', 4102444800000, 1700000000000, 1700000000000), ('e2e-scorekeeper-2-session', 'user-scorekeeper-2', 4102444800000, 1700000000000, 1700000000000), ('e2e-coach-session', 'user-coach-alpha-1', 4102444800000, 1700000000000, 1700000000000), ('e2e-gamma-coach-session', 'user-coach-gamma', 4102444800000, 1700000000000, 1700000000000), ('e2e-regional-session', 'user-regional-coordinator-2', 4102444800000, 1700000000000, 1700000000000);"
 
 npx wrangler pages dev .svelte-kit/cloudflare --d1 DB=5c5a8cb8-f2b9-489a-8a2d-b32a87c70cce --local --persist-to "$persist_dir" --port "$port" >"$persist_dir/server.log" 2>&1 &
 server_pid=$!
@@ -242,8 +243,8 @@ assert_status POST '/contests/contest-region-2/staff?/remove' 200 "$regional" --
 assert_status GET /scoring/contest-region-2 403 "$scorekeeper2"
 assert_status GET /scoring/contest-region-1 200 "$scorekeeper"
 
-# Account administration is available to legacy season administrators, while
-# regional coordinators can only grant contest-local staff and school access.
+# Administrators grant persistent roles; regional coordinators grant event
+# scorekeepers and persistent coach access only for participating schools.
 assert_page_contains GET /admin/users "$coordinator" 'Add person'
 assert_status GET /admin/users 403 "$regional"
 assert_status POST '/admin/users?/add' 403 "$regional" --data 'email=scorekeeper2%40wsmc.example&role=statewide'
@@ -252,15 +253,15 @@ assert_status POST '/contests/contest-region-2/staff?/add' 403 "$regional" --dat
 assert_status POST '/contests/contest-region-2/staff?/add' 200 "$regional" --data 'email=scorekeeper2%40wsmc.example&displayName=Do+not+rename&role=coach&schoolId=school-gamma'
 assert_page_contains GET /contests/contest-region-2/staff "$regional" 'Region 2 Scorekeeper'
 assert_status POST '/admin/users?/add' 200 "$coordinator" --data 'email=scorekeeper2%40wsmc.example&role=scorekeeper&contestId=contest-region-2'
-existing_access="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT (SELECT COUNT(*) FROM coach_assignments WHERE user_id = 'user-scorekeeper-2' AND school_id = 'school-gamma' AND season_id = 'season-2026') AS coaches, (SELECT COUNT(*) FROM sign_in_tokens WHERE user_id = 'user-scorekeeper-2') AS tokens, (SELECT display_name FROM users WHERE id = 'user-scorekeeper-2') AS name;")"
+existing_access="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT (SELECT COUNT(*) FROM coach_assignments WHERE user_id = 'user-scorekeeper-2' AND school_id = 'school-gamma') AS coaches, (SELECT COUNT(*) FROM sign_in_tokens WHERE user_id = 'user-scorekeeper-2') AS tokens, (SELECT display_name FROM users WHERE id = 'user-scorekeeper-2') AS name;")"
 node -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"))[0].results[0]; if(r.coaches!==1 || r.tokens!==0 || r.name!=="Region 2 Scorekeeper") throw new Error("Adding access changed identity or sign-in tokens");' <<< "$existing_access"
 assert_status POST '/contests/contest-region-2/staff?/remove' 200 "$regional" --data 'role=coach&schoolId=school-gamma&userId=user-scorekeeper-2'
 assert_status POST '/admin/users?/disable' 200 "$coordinator" --data 'userId=user-scorekeeper-2'
 assert_action_failure POST '/contests/contest-region-2/staff?/add' 400 "$regional" --data 'email=scorekeeper2%40wsmc.example&role=coach&schoolId=school-gamma'
 assert_status POST '/admin/users?/enable' 200 "$coordinator" --data 'userId=user-scorekeeper-2'
 
-# Legacy and new administrator grants appear as one role and are removed together.
-d1 --command="INSERT INTO statewide_assignments (id, user_id, season_id) VALUES ('legacy-admin-test', 'user-scorekeeper-2', 'season-2026');"
+# Repeated administrator grants are idempotent; removal preserves other roles.
+d1 --command="INSERT INTO statewide_assignments (user_id) VALUES ('user-scorekeeper-2');"
 assert_status POST '/admin/users?/add' 200 "$coordinator" --data 'email=scorekeeper2%40wsmc.example&role=statewide'
 assert_status POST '/admin/users?/removeAssignment' 200 "$coordinator" --data 'userId=user-scorekeeper-2&assignmentKind=statewide'
 admin_removal="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT (SELECT COUNT(*) FROM statewide_assignments WHERE user_id = 'user-scorekeeper-2') AS admins, (SELECT COUNT(*) FROM scorekeeper_assignments WHERE user_id = 'user-scorekeeper-2') AS scorekeepers;")"
@@ -278,8 +279,11 @@ node scripts/qr-sign-in-journey.mjs "$base_url" "$persist_dir"
 # One current season; archiving is permanent, then the next season bootstraps all contests.
 assert_action_failure POST '/?/createSeason' 400 "$coordinator" --data 'year=2027'
 assert_status POST '/?/setSeasonStatus' 403 "$regional" --data 'seasonId=season-2026&status=archived'
-# Disabled historical staff must not gain assignments in the new season.
-d1 --command="INSERT INTO users (id, email, display_name, status) VALUES ('disabled-rollover', 'disabled.rollover@wsmc.example', 'Disabled historical staff', 'disabled'); INSERT INTO regional_coordinator_assignments (user_id, contest_id) VALUES ('disabled-rollover', 'contest-region-2'); INSERT INTO coach_assignments (user_id, season_id, school_id) VALUES ('disabled-rollover', 'season-2026', 'school-alpha');"
+# Disabled accounts retain assignments but cannot sign in in any season.
+d1 --command="INSERT INTO users (id, email, display_name, status) VALUES ('disabled-rollover', 'disabled.rollover@wsmc.example', 'Disabled historical staff', 'disabled'); INSERT INTO regional_coordinator_assignments (user_id, region_number) VALUES ('disabled-rollover', 2); INSERT INTO coach_assignments (user_id, school_id) VALUES ('disabled-rollover', 'school-alpha');"
+# Creating a season must leave all persistent and event assignment rows untouched.
+assignment_snapshot_sql="SELECT 'admin' AS role, user_id, '' AS scope, created_at FROM statewide_assignments UNION ALL SELECT 'regional', user_id, CAST(region_number AS TEXT), created_at FROM regional_coordinator_assignments UNION ALL SELECT 'coach', user_id, school_id, created_at FROM coach_assignments UNION ALL SELECT 'scorekeeper', user_id, contest_id, created_at FROM scorekeeper_assignments ORDER BY role, user_id, scope;"
+assignments_before="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="$assignment_snapshot_sql" | node -e 'process.stdout.write(JSON.stringify(JSON.parse(require("fs").readFileSync(0,"utf8"))[0].results))')"
 # Directory changes should govern the new invitations, without changing history.
 d1 --command="UPDATE schools SET active = 0 WHERE id = 'school-beta'; UPDATE schools SET division = 2 WHERE id = 'school-alpha';"
 assert_status POST '/?/setSeasonStatus' 200 "$coordinator" --data 'seasonId=season-2026&status=archived'
@@ -313,31 +317,45 @@ SELECT (SELECT COUNT(*) FROM missing) + (SELECT COUNT(*) FROM extra) +
  (SELECT COUNT(*) FROM annual_students a JOIN seasons s ON s.id = a.season_id WHERE s.year = 2027) AS rollover_errors;")"
 [[ "$rollover_check" =~ \"rollover_errors\"[[:space:]]*:[[:space:]]*0 ]] || { echo "school-region rollover failed: $rollover_check" >&2; exit 1; }
 
-# Compare complete assignment sets, including multiple coaches and disabled staff.
-role_rollover_check="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="
-WITH expected AS (
- SELECT 'regional' AS role, a.user_id, CAST(r.number AS TEXT) AS scope
- FROM regional_coordinator_assignments a JOIN users u ON u.id = a.user_id
- JOIN contests c ON c.id = a.contest_id JOIN regions r ON r.id = c.region_id
- WHERE c.season_id = 'season-2026' AND c.kind = 'regional' AND u.status = 'active'
- UNION ALL
- SELECT 'coach', a.user_id, a.school_id FROM coach_assignments a
- JOIN users u ON u.id = a.user_id JOIN schools school ON school.id = a.school_id
- WHERE a.season_id = 'season-2026' AND u.status = 'active' AND school.active = 1
-), actual AS (
- SELECT 'regional' AS role, a.user_id, CAST(r.number AS TEXT) AS scope
- FROM regional_coordinator_assignments a JOIN contests c ON c.id = a.contest_id
- JOIN regions r ON r.id = c.region_id JOIN seasons s ON s.id = c.season_id WHERE s.year = 2027
- UNION ALL
- SELECT 'coach', a.user_id, a.school_id FROM coach_assignments a
- JOIN seasons s ON s.id = a.season_id WHERE s.year = 2027
-), missing AS (SELECT * FROM expected EXCEPT SELECT * FROM actual),
-extra AS (SELECT * FROM actual EXCEPT SELECT * FROM expected)
-SELECT (SELECT COUNT(*) FROM missing) + (SELECT COUNT(*) FROM extra) AS role_errors;")"
-[[ "$role_rollover_check" =~ \"role_errors\"[[:space:]]*:[[:space:]]*0 ]] || { echo "staff rollover failed: $role_rollover_check" >&2; exit 1; }
+assignments_after="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="$assignment_snapshot_sql" | node -e 'process.stdout.write(JSON.stringify(JSON.parse(require("fs").readFileSync(0,"utf8"))[0].results))')"
+[[ "$assignments_before" == "$assignments_after" ]] || { echo "season creation changed access assignments" >&2; exit 1; }
 assert_page_contains GET /my-schools "$coach" '2027'
+# QR disable/enable exercised earlier revoked Gamma's original sessions.
+# Start with a valid session so this denial proves assignment removal.
+d1 --command="INSERT INTO sessions (id, user_id, expires_at, created_at, last_seen_at) VALUES ('persistent-coach-session', 'user-coach-gamma', 4102444800000, 1700000000000, 1700000000000);"
+gamma_coach='persistent-coach-session'
+assert_page_contains GET /my-schools "$gamma_coach" '2027'
+assert_status POST '/admin/users?/removeAssignment' 200 "$coordinator" --data 'userId=user-coach-gamma&assignmentKind=coach&schoolId=school-gamma'
+assert_status GET /my-schools 403 "$gamma_coach"
+assert_status POST '/admin/users?/add' 200 "$coordinator" --data 'email=coach%40gamma.example&role=coach&schoolId=school-gamma'
+assert_page_contains GET /my-schools "$gamma_coach" '2027'
+
 new_regional_contest="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT c.id FROM contests c JOIN regions r ON r.id = c.region_id JOIN seasons s ON s.id = c.season_id WHERE s.year = 2027 AND r.number = 2;" | node -e 'let s="";process.stdin.on("data",x=>s+=x);process.stdin.on("end",()=>process.stdout.write(JSON.parse(s)[0].results[0].id));')"
 assert_page_contains GET "/contests/$new_regional_contest" "$regional" 'Region 2'
+assert_status POST '/contests/contest-region-2/staff?/remove' 403 "$regional" --data 'role=coach&schoolId=school-gamma&userId=user-coach-gamma'
+assert_status POST '/contests/contest-region-2/staff?/qr' 403 "$regional" --data 'userId=user-coach-gamma'
+
+# A scorekeeper's old Region 2 event assignment grants no access to the new one.
+d1 --command="INSERT INTO sessions (id, user_id, expires_at, created_at, last_seen_at) VALUES ('replacement-session', 'user-scorekeeper-2', 4102444800000, 1700000000000, 1700000000000);"
+replacement='replacement-session'
+assert_status GET "/scoring/$new_regional_contest" 403 "$replacement"
+assert_status GET "/contests/$new_regional_contest" 403 "$replacement"
+# Reassignment changes access immediately for existing sessions, across seasons,
+# and leaves every existing audit event and result editor untouched.
+history_sql="SELECT id, actor_user_id, details_json FROM audit_events WHERE entity_type <> 'access_assignment' ORDER BY id; SELECT entry_id, last_edited_by FROM results ORDER BY entry_id;"
+history_before="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="$history_sql" | node -e 'process.stdout.write(JSON.stringify(JSON.parse(require("fs").readFileSync(0,"utf8")).map(x=>x.results)))')"
+assert_status POST '/admin/users?/removeAssignment' 200 "$coordinator" --data 'userId=user-regional-coordinator-2&assignmentKind=regional&regionNumber=2'
+assert_status GET "/contests/$new_regional_contest" 403 "$regional"
+assert_status GET /contests/contest-region-2 403 "$regional"
+assert_status POST '/admin/users?/add' 200 "$coordinator" --data 'email=scorekeeper2%40wsmc.example&role=regional&regionNumber=2'
+assert_page_contains GET "/contests/$new_regional_contest" "$replacement" 'Region 2'
+assert_page_contains GET /contests/contest-region-2 "$replacement" 'Region 2'
+assert_status GET /contests/contest-region-1 403 "$replacement"
+history_after="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="$history_sql" | node -e 'process.stdout.write(JSON.stringify(JSON.parse(require("fs").readFileSync(0,"utf8")).map(x=>x.results)))')"
+[[ "$history_before" == "$history_after" ]] || { echo "reassignment changed historical attribution" >&2; exit 1; }
+access_audit="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT action, entity_id, actor_user_id, details_json FROM audit_events WHERE entity_type = 'access_assignment' AND json_extract(details_json, '$.kind') = 'regional' AND json_extract(details_json, '$.regionNumber') = 2 ORDER BY created_at;")"
+node -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"))[0].results; if(r.length!==2 || r[0].action!=="assignment_revoked" || r[0].entity_id!=="user-regional-coordinator-2" || r[1].action!=="assignment_granted" || r[1].entity_id!=="user-scorekeeper-2" || r.some(x=>x.actor_user_id!=="user-coordinator")) throw new Error("Reassignment audit is incomplete");' <<< "$access_audit"
+
 
 # Season progression is administrator-controlled and shared with the homepage.
 new_season_id="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT id FROM seasons WHERE year = 2027;" | node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(0,"utf8"))[0].results[0].id)')"
