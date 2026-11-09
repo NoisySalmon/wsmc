@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ContestSettings from '$lib/components/ContestSettings.svelte';
 	let { data, form } = $props();
 	const categories = [
 		['project', 'Project'],
@@ -20,15 +21,17 @@
 <svelte:head><title>{data.contest.name} state administration — WSMC</title></svelte:head>
 
 <main>
-	<p><a href="/program">← Program setup</a></p>
+	<p><a href="/">← Home</a></p>
 	<h1>{data.contest.name}</h1>
 	<p class="subheading">State administration · {data.contest.lifecycle}{#if data.contest.lifecycle === 'scoring' || data.contest.lifecycle === 'finalized'} · <a href="/scoring/{data.contest.id}">Open state scoring</a>{/if}{#if data.contest.lifecycle === 'finalized' && data.contest.resultsPublishedAt} · <a href="/state/{data.contest.id}/results">View published results</a>{/if}</p>
 	{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
 	{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
 
+	<ContestSettings contest={data.contest} canManage={data.canManageContest} />
+	{#if data.seasonStatus !== 'state'}<p class="help">{data.seasonStatus === 'archived' ? 'This season is permanently read-only.' : 'State rosters open after administrators settle qualifications and open the state contest.'}</p>{/if}
+	<fieldset disabled={data.seasonStatus !== 'state' || data.contest.lifecycle !== 'registration_open'}>
 	<section class="readiness" aria-label="State administration summary">
 		<strong>{data.qualifiedSchools.length} qualified schools · {data.roster.length} rostered students · {data.entries.length} state entries</strong>
-		<span>Topical Individual: {data.settings.topicalIndividualAllowed ? 'allowed' : 'not allowed'} · Cross-school Topical Teams: {data.settings.crossSchoolTopicalTeamsAllowed ? 'allowed' : 'not allowed'}</span>
 	</section>
 
 	<section>
@@ -69,7 +72,7 @@
 
 	<section>
 		<h2>State entries</h2>
-		<p class="help">Entries are explicit and contest-scoped. A blank owner creates a mixed-school Team Contest only; mixed-school Topical Teams require the configured policy.</p>
+		<p class="help">Entries are explicit and contest-scoped. A blank owner creates a mixed-school Team Contest only; mixed-school Topical Teams are not allowed.</p>
 		<form class="form-grid" method="POST" action="?/createEntry">
 			<label>Category <select name="category">{#each categories as category}<option value={category[0]}>{category[1]}</option>{/each}</select></label>
 			<label>Owner school <select name="ownerSchoolId"><option value="">Cross-school Team Contest</option>{#each data.qualifiedSchools as school}<option value={school.schoolId}>{school.schoolName}</option>{/each}</select></label>
@@ -93,13 +96,15 @@
 		<p class="help">A coordinator can create the state team entry for a published team qualification. The berth ID is retained as the source record for later substitutions.</p>
 		<div class="berth-list">{#each data.teamBerths as item}<div class="berth-row"><span><strong>{item.berth.id}</strong> · {categoryLabel(item.berth.category)} · {schoolName(item.berth.schoolId)}</span>{#if item.berth.stateEntryId}<span>State entry {item.berth.stateEntryId}</span>{:else}<form method="POST" action="?/createTeam"><input type="hidden" name="berthId" value={item.berth.id} /><button type="submit">Create team from berth</button></form>{/if}</div>{/each}</div>
 	</section>
+	</fieldset>
 </main>
 
 <style>
+	fieldset { border:0; padding:0; margin:0; min-width:0; }
 	main { max-width: 900px; margin: 0 auto; padding: 1rem; overflow-wrap: anywhere; }
 	h1 { margin-bottom: 0.25rem; } h2 { margin-bottom: 0.35rem; } h3 { margin: 0; font-size: 1rem; } .subheading, .help { color: #666; } .help { margin-top: 0; }
 	section { margin-top: 1.5rem; border-top: 1px solid #ddd; padding-top: 1rem; }
-	.readiness { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 1rem; padding: 0.8rem; border-radius: 6px; background: #eef3ff; } .readiness span { color: #445; }
+	.readiness { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 1rem; padding: 0.8rem; border-radius: 6px; background: #eef3ff; }
 	.school-list, .entry-list { display: grid; gap: 0.7rem; } .school-card, .entry-card { padding: 0.8rem; border: 1px solid #ddd; border-radius: 6px; } .school-card { display: flex; justify-content: space-between; align-items: center; gap: 1rem; } .school-card > div, .entry-card header div { display: flex; flex-direction: column; gap: 0.2rem; } .school-card span, .entry-card header span { color: #666; font-size: 0.85rem; }
 	.form-grid { display: grid; grid-template-columns: repeat(3, 1fr); align-items: end; gap: 0.65rem; margin-top: 0.8rem; } .roster-form { grid-template-columns: repeat(3, 1fr); } .berth-list { display: grid; gap: 0.35rem; } .berth-row { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.55rem 0; border-bottom: 1px solid #eee; } .berth-row > span { color: #666; }
 	.roster-list { display: grid; gap: 0.35rem; } .roster-row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; padding: 0.55rem 0; border-bottom: 1px solid #eee; } .entry-card ul { list-style: none; padding: 0; margin: 0.7rem 0; } .entry-card li { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0; border-bottom: 1px solid #eee; } .entry-card li form { margin-left: auto; }

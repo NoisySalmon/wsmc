@@ -27,7 +27,7 @@ viewport.
   horizontal document overflow:
 
   - `/login`
-  - `/program`
+  - `/`
   - `/registration/contest-region-2/school-gamma`
   - `/scoring/contest-region-1`
   - `/qualifications/season-2026`

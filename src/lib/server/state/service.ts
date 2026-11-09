@@ -10,17 +10,11 @@ export class StateError extends Error {
 	constructor(public readonly code: string, message: string) { super(message); this.name = 'StateError'; }
 }
 
-function stateSettings(settingsJson: string): { topicalIndividualAllowed: boolean; crossSchoolTopicalTeamsAllowed: boolean } {
-	try {
-		const settings = JSON.parse(settingsJson) as Record<string, unknown>;
-		if (typeof settings.topicalIndividualAllowed !== 'boolean' || typeof settings.crossSchoolTopicalTeamsAllowed !== 'boolean') throw new Error();
-		return { topicalIndividualAllowed: settings.topicalIndividualAllowed, crossSchoolTopicalTeamsAllowed: settings.crossSchoolTopicalTeamsAllowed };
-	} catch { throw new StateError('invalid_settings', 'State contest policies must be configured explicitly.'); }
-}
-
 async function requireStateContest(db: Database, contestId: string, writable = false) {
 	const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, contestId));
 	if (!contest || contest.kind !== 'state') throw new StateError('not_found', 'State contest not found.');
+	const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, contest.seasonId));
+	if (writable && season?.status !== 'state') throw new StateError('locked', 'State rosters open after administrators finish qualifications and move the season to the state contest.');
 	if (writable && contest.lifecycle !== 'registration_open') throw new StateError('locked', 'State attendance and entries are locked for this contest.');
 	return contest;
 }
@@ -56,7 +50,7 @@ export async function getStateDashboard(db: Database, contestId: string) {
 		.where(and(eq(schema.qualificationRounds.seasonId, contest.seasonId), eq(schema.qualificationRounds.status, 'published'), eq(schema.qualifications.active, true)));
 	const entryIds = entries.map((entry) => entry.id);
 	const members = entryIds.length ? await db.select({ member: schema.entryMembers, student: schema.annualStudents }).from(schema.entryMembers).innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.entryMembers.annualStudentId)).where(inArray(schema.entryMembers.entryId, entryIds)) : [];
-	return { contest, settings: stateSettings(contest.settingsJson), participations, qualifiedSchools, stateQualifications, teamBerths, attendance, roster, entries, members, students: students.map(({ student, schoolName }) => ({ ...student, schoolName: schoolName || student.schoolId })) };
+	return { contest, seasonStatus: (await db.select().from(schema.seasons).where(eq(schema.seasons.id, contest.seasonId)))[0]?.status, participations, qualifiedSchools, stateQualifications, teamBerths, attendance, roster, entries, members, students: students.map(({ student, schoolName }) => ({ ...student, schoolName: schoolName || student.schoolId })) };
 }
 
 export async function getStateRosterRows(db: Database, contestId: string, schoolId?: string) {
@@ -154,12 +148,9 @@ export async function removeStateRosterMember(db: Database, input: { contestId: 
 
 export async function createStateEntry(db: Database, input: { contestId: string; ownerSchoolId?: string | null; category: StateCategory; entryNumber?: number | null; division: number; actorUserId: string; now?: number }) {
 	const contest = await requireStateContest(db, input.contestId, true);
-	const settings = stateSettings(contest.settingsJson);
 	if (!['project', 'team_contest', 'topical_team', 'topical_individual', 'knowdown'].includes(input.category)) throw new StateError('invalid_category', 'Choose a valid state category.');
-	if (input.category === 'topical_individual' && !settings.topicalIndividualAllowed) throw new StateError('policy_blocked', 'This state contest does not allow Topical Individual.');
 	if (!Number.isInteger(input.division) || (input.division !== 1 && input.division !== 2)) throw new StateError('invalid_division', 'Division must be 1 or 2.');
 	if (!input.ownerSchoolId && input.category !== 'team_contest') throw new StateError('school_required', 'Only cross-school Team Contest entries may omit an owner school.');
-	if (!input.ownerSchoolId && input.category === 'topical_team' && !settings.crossSchoolTopicalTeamsAllowed) throw new StateError('policy_blocked', 'This state contest does not allow cross-school Topical Teams.');
 	if (input.ownerSchoolId) {
 		await requireQualifiedSchool(db, contest.id, input.ownerSchoolId);
 		const [participation] = await db.select().from(schema.schoolParticipations).where(and(eq(schema.schoolParticipations.contestId, contest.id), eq(schema.schoolParticipations.schoolId, input.ownerSchoolId)));
@@ -183,9 +174,7 @@ export async function addStateEntryMember(db: Database, input: { contestId: stri
 	if (!student) throw new StateError('student_out_of_scope', 'Student does not belong to this state season.');
 	const [roster] = await db.select().from(schema.stateRosterMembers).where(and(eq(schema.stateRosterMembers.contestId, contest.id), eq(schema.stateRosterMembers.annualStudentId, student.id)));
 	if (!roster) throw new StateError('student_not_rostered', 'Student must be on the confirmed state roster first.');
-	const settings = stateSettings(contest.settingsJson);
 	if (entry.ownerSchoolId && entry.ownerSchoolId !== student.schoolId) throw new StateError('school_out_of_scope', 'School-owned state entries may only include students from that school.');
-	if (!entry.ownerSchoolId && entry.category === 'topical_team' && !settings.crossSchoolTopicalTeamsAllowed) throw new StateError('policy_blocked', 'Cross-school Topical Teams are disabled for this state contest.');
 	const existingEntries = await db.select({ entry: schema.entries }).from(schema.entryMembers).innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId)).where(and(eq(schema.entries.contestId, contest.id), eq(schema.entryMembers.annualStudentId, student.id)));
 	const existingMembers = await db.select().from(schema.entryMembers).where(eq(schema.entryMembers.entryId, entry.id));
 	const competingGrade = input.competingGrade ?? null;

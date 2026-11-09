@@ -38,10 +38,10 @@ export const seasons = sqliteTable('seasons', {
 	id: text('id').primaryKey(),
 	year: integer('year').notNull().unique(),
 	name: text('name').notNull(),
-	status: text('status', { enum: ['setup', 'active', 'archived'] }).notNull().default('setup'),
+	status: text('status', { enum: ['regional', 'qualifications', 'state', 'archived'] }).notNull().default('regional'),
 	createdAt: integer('created_at').notNull().default(timestamp()),
 	updatedAt: integer('updated_at').notNull().default(timestamp()),
-}, (table) => [check('seasons_year_check', sql`${table.year} >= 2000 AND ${table.year} <= 2200`)]);
+}, (table) => [uniqueIndex('seasons_one_current_uq').on(sql`(1)`).where(sql`${table.status} <> 'archived'`), check('seasons_year_check', sql`${table.year} >= 2000 AND ${table.year} <= 2200`)]);
 
 export const regions = sqliteTable('regions', {
 	id: text('id').primaryKey(),
@@ -59,7 +59,6 @@ export const contests = sqliteTable('contests', {
 	startsAt: integer('starts_at'),
 	lifecycle: text('lifecycle', { enum: ['setup', 'registration_open', 'roster_locked', 'scoring', 'finalized'] }).notNull().default('setup'),
 	resultsPublishedAt: integer('results_published_at'),
-	settingsJson: text('settings_json').notNull().default('{}'),
 	createdAt: integer('created_at').notNull().default(timestamp()),
 	updatedAt: integer('updated_at').notNull().default(timestamp()),
 }, (table) => [

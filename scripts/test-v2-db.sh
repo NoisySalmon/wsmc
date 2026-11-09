@@ -9,6 +9,7 @@ sqlite3 "$database_path" < drizzle/0000_woozy_bruce_banner.sql
 sqlite3 "$database_path" < drizzle/0001_v2_baseline.sql
 sqlite3 "$database_path" < drizzle/0002_knowdown_outcomes.sql
 sqlite3 "$database_path" < drizzle/0003_school_division.sql
+sqlite3 "$database_path" < drizzle/0004_program_stages.sql
 sqlite3 "$database_path" < scripts/seed.sql
 
 counts="$(sqlite3 -noheader -separator '|' "$database_path" "SELECT (SELECT COUNT(*) FROM seasons), (SELECT COUNT(*) FROM regions), (SELECT COUNT(*) FROM contests), (SELECT COUNT(*) FROM schools), (SELECT COUNT(*) FROM annual_students), (SELECT COUNT(*) FROM entries), (SELECT COUNT(*) FROM entry_members);")"
@@ -111,3 +112,5 @@ regional_coach_assignment="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*)
 [[ "$regional_coach_assignment" == "1" ]] || { echo "Region 1 coordinator is not also assigned as a coach" >&2; exit 1; }
 
 echo "v2 D1 integration checks passed"
+
+python scripts/test-program-migration.py

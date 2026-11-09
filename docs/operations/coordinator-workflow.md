@@ -7,16 +7,16 @@ live season after the production email provider and D1 binding are configured.
 
 ## 1. Set up a season
 
-1. Sign in with the coordinator invitation.
-2. Open **Program** and create the season (system-wide coordinator only;
-   season coordinators carry over from the prior season).
-3. Add every numbered region with **Add region + contest**. Each region gets
-   its one regional contest automatically; correct names inline.
-4. Use **Ensure state contest** for the single state contest, then choose its
-   Topical Individual and cross-school Topical Team policies explicitly.
-5. Assign each regional contest's coordinator from its **Manage staff** page.
-6. Use the readiness cards to resolve missing regional contests and outstanding
-   invitations.
+1. Sign in as an administrator. Only one season may be active at a time.
+2. Open **Home** and create a season after the prior season is archived.
+   All 11 fixed regions, regional contests, and the state contest are created together.
+3. The homepage shows the season overview, contest statuses, and dates.
+   Regional contest links appear only for users with access.
+4. Open each contest to set its date and manage people and contest stages.
+5. After regional contests are finalized, advance the season to **Qualifications**.
+   Administrators settle qualifications, then open the **State contest** stage.
+   State roster editing stays closed until that stage and open state registration.
+6. Archive the season when finished. Archiving is permanent and read-only.
 
 ## 2. Invite schools and coaches
 
@@ -47,7 +47,7 @@ For each school and regional contest:
 6. Optionally download the versioned registration CSV, edit it in a
    spreadsheet, preview it, and import it. Preview does not write data, and an
    invalid file is rejected atomically.
-7. When registration is complete, return to **Program** and move the contest
+7. When registration is complete, open the contest page and move the contest
    to **Roster locked**. Reopening requires a coordinator and an auditable
    reason.
 
@@ -88,7 +88,7 @@ For each school and regional contest:
 3. A statewide coordinator can exercise qualified team berths, replace or add
    same-school members, and create cross-school Team Contests. Mixed-school
    entries require explicit division confirmation; cross-school Topical Teams
-   follow the state policy.
+   are not allowed.
 4. Add state category entries and members only after they are on the confirmed
    state roster. Each student can occur at most once per state category.
 5. Lock the state roster, move the state contest to **Scoring**, and use the

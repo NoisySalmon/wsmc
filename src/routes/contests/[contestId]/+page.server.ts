@@ -1,8 +1,8 @@
-import { and, eq } from 'drizzle-orm';
-import { error, fail } from '@sveltejs/kit';
+import { eq } from 'drizzle-orm';
+import { error } from '@sveltejs/kit';
 import { canCoordinateRegion, canScoreContest } from '$lib/server/auth/capabilities';
 import { getDb, schema } from '$lib/server/db';
-import { ProgramError, setContestLifecycle, type ContestLifecycle } from '$lib/server/program/service';
+import { contestAction } from '$lib/server/program/contest-actions';
 import { canManageRegionalContestStaff } from '../contest-staff-access';
 import type { Actions, PageServerLoad } from './$types';
 import type { Principal } from '$lib/server/auth/capabilities';
@@ -63,9 +63,10 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 		const students = studentsBySchool.get(participation.schoolId) ?? [];
 		return { id: participation.schoolId, name: schoolShortName || schoolName, division: participation.division, status: participation.invitationStatus, students };
 	}).sort((a, b) => a.name.localeCompare(b.name));
+	const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, contest.seasonId));
 	return {
 		contest,
-		canAdvanceLifecycle: canCoordinateRegion(locals.principal, contest.id, contest.seasonId),
+		canManageContest: season.status !== 'archived' && canCoordinateRegion(locals.principal, contest.id, contest.seasonId),
 		canManageStaff: canManageRegionalContestStaff(locals.principal, contest),
 		schools,
 		entries,
@@ -79,22 +80,6 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 };
 
 export const actions: Actions = {
-	advanceLifecycle: async ({ locals, platform, params, request }) => {
-		if (!locals.principal) throw error(401, 'Sign in required.');
-		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
-		const db = getDb(platform.env.DB);
-		const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, params.contestId));
-		if (!contest) throw error(404, 'Contest not found.');
-		if (contest.kind !== 'regional' || !canCoordinateRegion(locals.principal, contest.id, contest.seasonId)) throw error(403, 'Regional coordinator access required.');
-		const data = await request.formData();
-		const next = typeof data.get('lifecycle') === 'string' ? String(data.get('lifecycle')) : '';
-		const allowed: Partial<Record<string, ContestLifecycle>> = { registration_open: 'roster_locked', roster_locked: 'scoring' };
-		if (allowed[contest.lifecycle] !== next) return fail(400, { error: 'Use the next available contest stage.' });
-		try {
-			await setContestLifecycle(db, contest.id, contest.seasonId, next as ContestLifecycle);
-			return { success: `Contest moved to ${next}.` };
-		} catch (cause) {
-			return fail(400, { error: cause instanceof ProgramError ? cause.message : 'Contest stage could not be updated.' });
-		}
-	}
+	updateDate: (event) => contestAction(event, 'regional', 'date'),
+	advanceLifecycle: (event) => contestAction(event, 'regional', 'stage'),
 };

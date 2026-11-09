@@ -38,7 +38,7 @@ sign-in links to the terminal. Sign out before switching accounts.
 
 | Role | Email | Starting point |
 |---|---|---|
-| Statewide coordinator | `coordinator@wsmc.example` | `/program` |
+| Statewide coordinator | `coordinator@wsmc.example` | `/` |
 | Spokane coordinator | `regional1@wsmc.example` | `/results/contest-region-1`, finalized and published |
 | Tri Cities coordinator | `regional2@wsmc.example` | `/contests/contest-region-2`, registration |
 | Northwest coordinator | `regional5@wsmc.example` | `/scoring/contest-region-5`, partial scoring |

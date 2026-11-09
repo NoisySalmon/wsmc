@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { contestDate } from '$lib/contest-date';
+	import ContestSettings from '$lib/components/ContestSettings.svelte';
 	let { data, form } = $props();
 </script>
 
@@ -8,14 +8,9 @@
 	<p><a href="/participation">← Participation</a></p>
 	<h1>{data.contest.name}</h1>
 	<p class="subheading">Regional contest · {data.contest.lifecycle}{#if data.contest.resultsPublishedAt} · results published{/if}</p>
-	<p>Contest date: {contestDate(data.contest.startsAt)}</p>
+	<ContestSettings contest={data.contest} canManage={data.canManageContest} />
 	{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
 	<nav aria-label="Contest tools"><a href="/participation">Participation</a>{#if ['roster_locked', 'scoring', 'finalized'].includes(data.contest.lifecycle)}<a href="/scoring/{data.contest.id}">Scoring</a>{/if}{#if data.contest.lifecycle === 'finalized'}<a href="/results/{data.contest.id}">Results</a>{/if}{#if data.canManageStaff}<a href="/contests/{data.contest.id}/staff">People</a>{/if}</nav>
-	{#if data.canAdvanceLifecycle && ['registration_open', 'roster_locked'].includes(data.contest.lifecycle)}
-		<section class="stage"><h2>Contest stage</h2><p>{data.contest.lifecycle === 'registration_open' ? 'Registration is open. Lock rosters when schools are ready for scoring.' : 'Rosters are locked. Start scoring when the contest is ready.'}</p>
-			<form method="POST" action="?/advanceLifecycle"><input type="hidden" name="lifecycle" value={data.contest.lifecycle === 'registration_open' ? 'roster_locked' : 'scoring'} /><button type="submit">{data.contest.lifecycle === 'registration_open' ? 'Lock rosters' : 'Start scoring'}</button></form>
-		</section>
-	{/if}
 
 	<section class="summary" aria-label="Contest summary">
 		<div><strong>{data.acceptedSchoolCount}</strong><span>accepted schools</span></div>
@@ -60,6 +55,5 @@
 	.entries th, .entries td { white-space: nowrap; }
 	.entries td:nth-child(5) { white-space: normal; min-width: 16rem; }
 	ul { margin: 0; padding-left: 1.2rem; }
-	.stage form { margin: .5rem 0; }.stage button { min-height: 2.75rem; padding: .55rem .8rem; border: 0; border-radius: 4px; background: #1a1a2e; color: #fff; cursor: pointer; }
 	.error, .success { padding: .6rem; border-radius: 4px; }.error { background: #fbe3e3; color: #9a2020; }.success { background: #e2f5e8; color: #176b35; }
 </style>

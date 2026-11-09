@@ -1,22 +1,14 @@
 <script lang="ts">
-	let { data } = $props();
-	function statusLabel(status: string): string {
-		const label = status.replaceAll('_', ' ');
-		return label.charAt(0).toUpperCase() + label.slice(1);
-	}
-	type ContestRow = { id: string; seasonId: string; regionId: string | null; name: string; kind: string; lifecycle: string };
-	type RegionRow = { id: string; seasonId: string; number: number; name: string };
-	type SeasonRow = { id: string; year: number; name: string; status: string };
+	import { enhance } from '$app/forms';
+	import SeasonOverview from '$lib/components/SeasonOverview.svelte';
+	let { data, form } = $props();
 	const isAdmin = $derived((data.principal?.statewideSeasonIds ?? []).length > 0);
 	const isCoach = $derived((data.principal?.coachAssignments ?? []).length > 0);
-	function stateContestFor(seasonId: string): ContestRow | undefined { return (data.contests as ContestRow[]).find((c) => c.seasonId === seasonId && c.kind === 'state'); }
-	function regionalContestsFor(seasonId: string): (ContestRow & { region: RegionRow | null })[] {
-		const regionById = new Map((data.regions as RegionRow[]).map((r) => [r.id, r]));
-		return (data.contests as ContestRow[])
-			.filter((c) => c.seasonId === seasonId && c.kind === 'regional')
-			.map((c) => ({ ...c, region: c.regionId ? (regionById.get(c.regionId) ?? null) : null }))
-			.sort((a, b) => (a.region?.number ?? 99) - (b.region?.number ?? 99));
-	}
+	const current = $derived(data.seasons.find(s => s.status !== 'archived'));
+	const archived = $derived(data.seasons.filter(s => s.status === 'archived'));
+	const nextStage: Record<string, string> = { regional:'qualifications', qualifications:'state', state:'archived' };
+	const nextLabel: Record<string, string> = { regional:'Begin qualifications', qualifications:'Open state contest', state:'Archive season permanently' };
+
 </script>
 
 <svelte:head><title>WSMC</title></svelte:head>
@@ -28,40 +20,36 @@
 		{#if isCoach && !isAdmin}
 			<p>Start with <a href="/my-schools">My schools</a> to manage your roster.</p>
 		{/if}
-		{#if (data.seasons as SeasonRow[]).length}
-			<h2>Seasons</h2>
-			{#each data.seasons as season (season.id)}
-				{@const stateContest = stateContestFor(season.id)}
-				<section class="card">
-					<div class="card-head"><h3>{season.year} — {season.name}</h3><span class="status">{statusLabel(season.status)}</span></div>
-					{#if isAdmin}
-						<p><a href="/program">Set up regions + state contest</a> · <a href="/reports/season/{season.id}">Statewide reports</a> · <a href="/qualifications/{season.id}">Qualifications</a></p>
-					{/if}
-					<h4>Regions</h4>
-					<ul>
-					{#each regionalContestsFor(season.id) as contest (contest.id)}
-						<li><a href="/contests/{contest.id}">{contest.region ? `Region ${contest.region.number}${contest.region.name ? ` — ${contest.region.name}` : ''}` : contest.name}</a> <span>· {statusLabel(contest.lifecycle)}</span></li>
-					{/each}
-					</ul>
-					{#if stateContest}<p><a href="/state/{stateContest.id}">Open state contest</a> <span>· {statusLabel(stateContest.lifecycle)}</span></p>{/if}
-				</section>
-			{/each}
-		{:else if isCoach}
-			<p>Your account is active, but no responsibilities are assigned yet. Ask a WSMC coordinator to grant access.</p>
-		{:else}
-			<p>No seasons are available yet.</p>
-		{/if}
+		{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
+		{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
+		{#if current}
+			<section class="card"><SeasonOverview season={current} contests={data.contests} regions={data.regions} canOpenState={isAdmin || data.principal.coachAssignments.some(a => a.seasonId === (current?.id ?? ''))} />
+				{#if isAdmin}
+			<div class="advance">
+				{#if current.status === 'regional'}<p>Qualification management is not available yet.</p>{:else if current.status === 'qualifications'}<p>Open the state contest once administrators have settled who qualifies.</p>{:else}<p>Archiving permanently closes editing for this season. It cannot be reopened.</p>{/if}
+				<form use:enhance method="POST" action="?/setSeasonStatus"><input type="hidden" name="seasonId" value={current.id} /><input type="hidden" name="status" value={nextStage[current.status]} /><button type="submit" disabled={current.status === 'regional'}>{nextLabel[current.status]}</button></form>
+			</div>
+				{/if}
+			</section>
+		{:else if isAdmin}
+		<section class="card"><h2>New season</h2><p>Creates the 11 fixed regional contests and the state contest.</p>
+			<form class="create" use:enhance method="POST" action="?/createSeason"><label>Year <input type="number" name="year" min="2000" max="2200" required /></label><label>Season name <input name="name" placeholder="2027 WSMC" required /></label><button type="submit">Create season</button></form>
+		</section>
+		{:else}<p>No active season.</p>{/if}
+		{#if archived.length}<details><summary>Archived seasons ({archived.length})</summary>{#each archived as season}<section class="card"><SeasonOverview {season} contests={data.contests} regions={data.regions} canOpenState={isAdmin || data.principal.coachAssignments.some(a => a.seasonId === season.id)} /></section>{/each}</details>{/if}
+
 	{:else}
 		<p><a href="/login">Sign in</a> to continue.</p>
 	{/if}
 </main>
 
 <style>
-	main { max-width: 800px; margin: 0 auto; padding: 2rem; }
-	.card { border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin: 1rem 0; }
-	.card-head { display: flex; gap: 0.7rem; align-items: baseline; }
-	.card-head h3 { margin: 0; }
-	.status { background: #eee; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.8rem; }
-	ul { padding-left: 1.2rem; }
-	li span { color: #666; }
+	main { max-width:900px; margin:auto; padding:2rem 1rem; } h1 { margin-bottom:.4rem; }
+	.card { border:1px solid #dce1e8; border-radius:8px; padding:1.5rem; margin:1rem 0; } .card h2 { margin-top:0; }
+	.advance { border-top:1px solid #dce1e8; margin-top:1.5rem; padding-top:.5rem; } .advance p { color:#596273; line-height:1.5; }
+	.create { display:flex; flex-wrap:wrap; gap:1rem; align-items:end; } label { display:flex; flex-direction:column; gap:.4rem; font-weight:600; } input { padding:.6rem; font:inherit; border:1px solid #aeb6c2; border-radius:4px; max-width:100%; box-sizing:border-box; }
+	button { min-height:2.75rem; padding:.65rem 1rem; border:0; border-radius:4px; background:#1a1a2e; color:white; cursor:pointer; font:inherit; }
+	button:disabled { background:#e5e7eb; color:#596273; cursor:not-allowed; }
+	summary { cursor:pointer; font-weight:600; } .error,.success { padding:.8rem; border-radius:4px; } .error { background:#fbe3e3; color:#9a2020; } .success { background:#e2f5e8; color:#176b35; }
+
 </style>

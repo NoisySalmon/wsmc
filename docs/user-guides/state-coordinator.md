@@ -36,40 +36,31 @@ raw sign-in link in source control or a test report.
 
 | Navigation | Purpose |
 |---|---|
-| **Program** | Create seasons, regions, and contests; advance lifecycle; open qualifications, reports, scoring, and state administration. |
+| **Home** | View the current season and contests, advance season stages, archive, and create the next season. |
 | **Schools** | Maintain the statewide school directory. |
 | **Participation** | Invite schools, assign divisions, invite/assign coaches, and open school registration. |
 | **Users** | Invite users and manage assignments, sessions, and account status. System-wide coordinators only. |
 
 ## 1. Set up a season
 
-Open **Program**.
+Open **Home**.
 
-1. Under **New season**, enter a year and name, then select **Create season**.
-   Only a system-wide coordinator can do this. A new season starts with the
-   [WSMC contest regions](https://www.wsmc.net/hs-contest-locations) 1–10 and
-   Virtual (region 11), with one setup contest per region. It copies season
-   coordinators from the most recent season; regional coordinators are
-   assigned per contest below. Dates and sites are configured separately.
-2. If you need additional regions, under **Add region**, select the season, enter the positive region number
-   and optional name, then select **Add region + contest**. Each region gets
-   its one regional contest automatically — there is no separate contest form.
-   Date and coordinator come later.
-3. Under **State contest**, select the season and select **Ensure state
-   contest**. There is one state contest per season.
-4. On the season card, correct a region number/name or contest name inline,
-   and make an explicit Yes/No choice for both state policies:
-   - whether every state-rostered student may enter Topical Individual;
-   - whether cross-school Topical Teams are allowed.
-5. Review the season card. It reports whether every configured region has a
-   regional contest, whether a state contest exists, and how many invitations
-   are outstanding.
-6. Assign each regional contest's coordinator from its **Manage staff** page
-   (linked on the season card), then change the season status from `setup`
-   to `active` when appropriate.
+1. Archive the current season before creating another. Only one season can be active.
+2. Under **New season**, enter a year and name. Creation automatically includes all
+   11 fixed regions, their regional contests, and one state contest.
+3. The homepage shows season stages, contest statuses, and dates. Regional contest
+   links appear only for users with access to that contest.
+   Open a contest to edit its date, manage people, or advance its lifecycle.
+4. Once all regional contests are finalized, select **Begin qualifications**.
+   Administrators settle who qualifies before selecting **Open state contest**.
+   Coaches can then prepare state rosters when state registration is open.
+   Regional coordinators have no state contest responsibilities.
+5. When the season is finished, select **Archive season permanently**. Archived
+   seasons remain available for viewing, are read-only, and cannot be reopened.
 
-Season status values are `setup`, `active`, and `archived`. Archiving is
-one-way in the current implementation and makes the season read-only.
+The stages are **Regional contests → Qualifications → State contest → Archived**.
+There are no per-season policy switches. Topical Individual is allowed; Topical
+Teams remain within one school.
 
 ## 2. Maintain the school directory
 
@@ -162,14 +153,13 @@ The intended contest sequence is:
 
 `setup` → `registration_open` → `roster_locked` → `scoring` → `finalized`
 
-Open **Program** and use the lifecycle selector to advance through the first
-four states. The general selector does not move backward or finalize results.
-An assigned regional coordinator can also lock rosters and start scoring from
-the regional contest overview.
+Open the contest page and use its stage controls to advance through the first
+four states. These controls do not move backward or finalize results.
+Regional coordinators manage their own contests; administrators manage state.
 
 For scoring:
 
-1. Open **Program** and select **Open scoring** on the regional contest.
+1. Open the regional contest and select **Scoring**.
 2. Confirm the contest is in `scoring`. Save buttons are disabled otherwise.
 3. Filter by category, division, or **Missing only**.
 4. Enter one score for Project and Team Contest; enter Part 1 and Part 2 for
@@ -195,7 +185,7 @@ only after publication.
 
 ## 7. Publish state qualifications
 
-From the season card on **Program**, select **Open qualifications**.
+Open `/qualifications/[seasonId]` to review qualifications.
 
 ### Regional placement round
 
@@ -231,7 +221,7 @@ verification.
 
 ## 8. Administer the state contest
 
-From **Program**, select **Open state administration**.
+From **Home**, select **State contest**.
 
 All attendance and state-entry changes require the state contest to be
 `registration_open`.
@@ -248,7 +238,7 @@ All attendance and state-entry changes require the state contest to be
 5. For team members, choose competing grades that are at least their actual
    grades and distinct within the team.
 6. Download the state roster CSV as a review artifact.
-7. Advance the state contest to `roster_locked`, then `scoring` on Program.
+7. Use the state contest page to lock rosters, then start scoring.
 8. Return to state administration and select **Open state scoring**. Score,
    finalize, review, and publish using the same process as a regional contest.
 
@@ -256,14 +246,11 @@ A blank owner currently creates a mixed-school Team Contest entry.
 School-owned entries must use the division recorded on the school's state
 participation.
 
-**Current implementation note:** The state policy for cross-school Topical
-Teams is stored and displayed, but the current entry service permits a blank
-owner only for Team Contest. A cross-school Topical Team cannot yet be created
-through this page even when its policy is enabled.
+Topical Individual is allowed. Cross-school Topical Teams are not allowed.
 
 ## 9. Review and export reports
 
-From a season card on **Program**, select **Open statewide reports**. The page
+Open `/reports/season/[seasonId]` for statewide reports. The page
 collects finalized contest results and each published qualification round.
 
 Available CSV downloads include:
@@ -282,7 +269,7 @@ do not require sign-in.
 - [ ] A system-wide coordinator sees Program, Schools, Participation, and Users.
 - [ ] A season coordinator sees the assigned season but not Users.
 - [ ] Similar school names trigger a duplicate suggestion before creation.
-- [ ] A contest cannot move backward through the Program lifecycle selector.
+- [ ] A contest cannot move backward through its stage controls.
 - [ ] Registration edits work only in `registration_open`.
 - [ ] Score save buttons work only in `scoring`.
 - [ ] Finalization is disabled while any result is missing.

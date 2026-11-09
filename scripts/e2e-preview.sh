@@ -30,6 +30,7 @@ d1 --file=drizzle/0000_woozy_bruce_banner.sql
 d1 --file=drizzle/0001_v2_baseline.sql
 d1 --file=drizzle/0002_knowdown_outcomes.sql
 d1 --file=drizzle/0003_school_division.sql
+d1 --file=drizzle/0004_program_stages.sql
 d1 --file=scripts/seed.sql
 
 # Exercise scoring in the open state while retaining the seeded regional and
@@ -132,13 +133,36 @@ gamma_coach="e2e-gamma-coach-session"
 regional="e2e-regional-session"
 
 # Anonymous and exact public-route boundaries.
-assert_status GET /program 303
+assert_status GET / 303
 assert_status GET /state/contest-state-2026/results 404
 assert_status GET /state/contest-state-2026/results/details 303
 
+# Homepage links match the contest overview permissions for each role.
+assert_regional_links() {
+	local session_id="$1"
+	local expected_ids="$2"
+	assert_status GET / 200 "$session_id"
+	node - "$response_file" "$expected_ids" <<'JS'
+const fs = require('node:fs');
+const html = fs.readFileSync(process.argv[2], 'utf8');
+const actual = [...new Set([...html.matchAll(/href="\/contests\/([^"/?#]+)"/g)].map(match => match[1]))].sort();
+const expected = process.argv[3].split(',').filter(Boolean).sort();
+if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`Homepage contest access: ${actual}; expected ${expected}`);
+JS
+}
+assert_regional_links "$coordinator" 'contest-region-1,contest-region-2,contest-region-3,contest-region-4,contest-region-5,contest-region-6,contest-region-7,contest-region-8,contest-region-9,contest-region-10,contest-virtual-2026'
+assert_regional_links "$regional" 'contest-region-2'
+assert_regional_links "$scorekeeper" 'contest-region-1'
+assert_regional_links "$scorekeeper2" 'contest-region-2'
+assert_regional_links "$coach" ''
+# Inaccessible contests remain visible as progress information.
+assert_page_contains GET / "$coach" 'Region 2 — Tri Cities'
+assert_page_contains GET / "$coach" 'Registration open'
+
 # A statewide coordinator can traverse the operational handoff and execute a
 # real mutation against the isolated database.
-assert_status GET /program 200 "$coordinator"
+assert_status GET / 200 "$coordinator"
+assert_status GET /program 404 "$coordinator"
 assert_status GET /contests/contest-region-2 200 "$coordinator"
 assert_status GET /registration/contest-region-2/school-gamma 200 "$coordinator"
 assert_status GET /my-schools 200 "$gamma_coach"
@@ -236,15 +260,32 @@ assert_status GET /state/contest-state-2026 403 "$scorekeeper"
 attendance_check="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT intent FROM state_attendances WHERE contest_id = 'contest-state-2026' AND school_id = 'school-alpha';")"
 [[ "$attendance_check" == *attending* ]] || { echo "attendance mutation was not persisted: $attendance_check" >&2; exit 1; }
 
-# New seasons bootstrap all eleven editable regions and their setup contests in D1.
-assert_status POST '/program?/createSeason' 200 "$coordinator" --data 'year=2027&name=2027+WSMC'
+# QR credentials use the same worker and disposable D1; no email is sent.
+node scripts/qr-sign-in-journey.mjs "$base_url" "$persist_dir"
+
+# One current season; archiving is permanent, then the next season bootstraps all contests.
+assert_action_failure POST '/?/createSeason' 400 "$coordinator" --data 'year=2027&name=2027+WSMC'
+assert_status POST '/?/setSeasonStatus' 403 "$regional" --data 'seasonId=season-2026&status=archived'
+assert_status POST '/?/setSeasonStatus' 200 "$coordinator" --data 'seasonId=season-2026&status=archived'
+assert_action_failure POST '/?/setSeasonStatus' 400 "$coordinator" --data 'seasonId=season-2026&status=regional'
+assert_action_failure POST '/state/contest-state-2026?/setAttendance' 400 "$coordinator" --data 'schoolId=school-alpha&intent=attending'
+assert_status POST '/?/createSeason' 200 "$coordinator" --data 'year=2027&name=2027+WSMC'
 grep --fixed-strings --quiet 'Season created.' "$response_file" || { cat "$response_file" >&2; exit 1; }
 bootstrap_check="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT COUNT(*) AS bootstrapped_regions FROM regions r JOIN seasons s ON s.id = r.season_id JOIN contests c ON c.region_id = r.id AND c.season_id = s.id WHERE s.year = 2027 AND c.kind = 'regional' AND c.lifecycle = 'setup' AND c.starts_at IS NULL;")"
 [[ "$bootstrap_check" =~ \"bootstrapped_regions\"[[:space:]]*:[[:space:]]*11 ]] || { echo "season bootstrap did not persist eleven regions and contests: $bootstrap_check" >&2; exit 1; }
-assert_page_contains GET /program "$coordinator" 'Region 11 — Virtual'
+assert_page_contains GET / "$coordinator" 'Region 11 — Virtual'
+assert_page_contains GET / "$coordinator" 'Regional contests are in progress.'
+state_bootstrap="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT COUNT(*) AS state_contests FROM contests c JOIN seasons s ON s.id = c.season_id WHERE s.year = 2027 AND c.kind = 'state';")"
+[[ "$state_bootstrap" =~ \"state_contests\"[[:space:]]*:[[:space:]]*1 ]] || { echo "season must create exactly one state contest: $state_bootstrap" >&2; exit 1; }
 
-
-# QR credentials use the same worker and disposable D1; no email is sent.
-node scripts/qr-sign-in-journey.mjs "$base_url" "$persist_dir"
+# Season progression is administrator-controlled and shared with the homepage.
+new_season_id="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT id FROM seasons WHERE year = 2027;" | node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(0,"utf8"))[0].results[0].id)')"
+assert_action_failure POST '/?/setSeasonStatus' 400 "$coordinator" --data "seasonId=$new_season_id&status=state"
+assert_action_failure POST '/?/setSeasonStatus' 400 "$coordinator" --data "seasonId=$new_season_id&status=qualifications"
+d1 --command="UPDATE contests SET lifecycle = 'finalized' WHERE season_id = '$new_season_id' AND kind = 'regional';"
+assert_status POST '/?/setSeasonStatus' 200 "$coordinator" --data "seasonId=$new_season_id&status=qualifications"
+assert_page_contains GET / "$coordinator" 'Administrators are settling state qualifications.'
+assert_status POST '/?/setSeasonStatus' 200 "$coordinator" --data "seasonId=$new_season_id&status=state"
+assert_page_contains GET / "$coordinator" 'Qualifications are settled.'
 
 echo "authenticated Pages end-to-end preview passed"

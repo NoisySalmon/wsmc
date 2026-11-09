@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ProgramError, createContest, createRegionWithContest, createSeason, ensureStateContest, setContestLifecycle, updateRegion, updateStateSettings } from './service';
+import { ProgramError, createSeason, setContestLifecycle, setSeasonStatus, updateContestDate } from './service';
 import { schema } from '$lib/server/db';
 
 describe('program setup rules', () => {
@@ -11,6 +11,7 @@ describe('program setup rules', () => {
 	it('atomically creates a season with all known regions and a setup contest for each', async () => {
 		const operations: { table: unknown; values: any }[] = [];
 		const db = {
+			select: () => ({ from: () => ({ where: async () => [] }) }),
 			insert: (table: unknown) => ({ values: (values: unknown) => {
 				const operation = { table, values };
 				return {
@@ -26,7 +27,7 @@ describe('program setup rules', () => {
 		const season = await createSeason(db as never, {
 			year: 2027, name: '  2027 WSMC  ', now: 1234,
 		});
-		expect(operations.map((operation) => operation.table)).toEqual([schema.seasons, schema.regions, ...Array(11).fill(schema.contests)]);
+		expect(operations.map((operation) => operation.table)).toEqual([schema.seasons, schema.regions, ...Array(12).fill(schema.contests)]);
 		expect(season).toMatchObject({ year: 2027, name: '2027 WSMC', createdAt: 1234 });
 		const regions = operations[1].values;
 		expect(regions.map(({ number, name }: { number: number; name: string }) => [number, name])).toEqual([
@@ -36,7 +37,8 @@ describe('program setup rules', () => {
 		]);
 		expect(new Set(regions.map((region: { id: string }) => region.id)).size).toBe(11);
 		const contests = operations.slice(2).map((operation) => operation.values);
-		expect(contests).toHaveLength(11);
+		expect(contests).toHaveLength(12);
+		expect(contests.filter(c => c.kind === 'state')).toEqual([expect.objectContaining({ seasonId: season.id, regionId: null, lifecycle: 'setup' })]);
 		for (const region of regions) {
 			expect(region.seasonId).toBe(season.id);
 			expect(contests).toContainEqual(expect.objectContaining({
@@ -48,30 +50,11 @@ describe('program setup rules', () => {
 
 	it('reports a failed season bootstrap instead of returning a partially configured season', async () => {
 		const db = {
+			select: () => ({ from: () => ({ where: async () => [] }) }),
 			insert: () => ({ values: () => ({ returning: () => ({}) }) }),
 			batch: async () => { throw new Error('bootstrap failed'); },
-			select: () => { throw new Error('Assignments must only be cloned after bootstrap succeeds.'); },
 		};
 		await expect(createSeason(db as never, { year: 2027, name: '2027 WSMC' })).rejects.toThrow('bootstrap failed');
-	});
-
-	it('requires a region only for regional contests', async () => {
-		const select = () => ({ from: () => ({ where: async () => [{ id: 'season-1', status: 'setup' }] }) });
-		const db = { select, insert: () => ({ values: () => ({ returning: async () => [] }) }) };
-		await expect(createContest(db as never, { seasonId: 'season-1', kind: 'state', regionId: 'region-1', name: 'State' })).rejects.toMatchObject({ code: 'invalid_region' });
-		await expect(createContest(db as never, { seasonId: 'season-1', kind: 'regional', name: 'Regional' })).rejects.toMatchObject({ code: 'invalid_region' });
-	});
-
-	it('rejects a regional contest whose selected region belongs to another season', async () => {
-		const rows = [[{ id: 'season-1', status: 'setup' }], []];
-		const db = { select: () => ({ from: () => ({ where: async () => rows.shift() ?? [] }) }) };
-		await expect(createContest(db as never, { seasonId: 'season-1', kind: 'regional', regionId: 'region-from-season-2', name: 'Regional' }))
-			.rejects.toMatchObject({ code: 'invalid_region', message: 'Region does not belong to this season.' });
-	});
-
-	it('requires explicit state contest policies', async () => {
-		const db = { select: () => ({ from: () => ({ where: async () => [{ id: 'season-1', status: 'setup' }] }) }) };
-		await expect(createContest(db as never, { seasonId: 'season-1', kind: 'state', name: 'State' })).rejects.toMatchObject({ code: 'invalid_settings' });
 	});
 
 	it('does not allow lifecycle rollback', async () => {
@@ -92,39 +75,24 @@ describe('program setup rules', () => {
 		const db = { select: () => ({ from: () => ({ where: async () => [] }) }) };
 		await expect(setContestLifecycle(db as never, 'contest-1', 'other-season', 'registration_open')).rejects.toMatchObject({ code: 'not_found' });
 	});
-
-	it('creates a region and its regional contest together', async () => {
-		const calls: string[] = [];
-		const db = {
-			select: () => ({ from: () => ({ where: async () => [{ id: 'season-1', status: 'setup' }] }) }),
-			insert: (table: unknown) => ({ values: (values: unknown) => ({ returning: async () => { calls.push(JSON.stringify(values)); return [{ id: `new-${calls.length}`, number: 3, name: 'East', seasonId: 'season-1', ...(values as object) }]; } }) }),
-			delete: () => ({ where: async () => [] }),
-		};
-		const result = await createRegionWithContest(db as never, { seasonId: 'season-1', number: 3, name: 'East' });
-		expect(result.region).toMatchObject({ seasonId: 'season-1' });
-		expect(result.contest).toMatchObject({ kind: 'regional', seasonId: 'season-1' });
-		expect(calls.length).toBe(2);
+	it('requires archiving the existing season before another can be created', async () => {
+		const db = { select: () => ({ from: () => ({ where: async () => [{ id: 'current' }] }) }) };
+		await expect(createSeason(db as never, { year: 2027, name: '2027 WSMC' })).rejects.toMatchObject({ code: 'active_season' });
 	});
 
-	it('returns the existing state contest instead of creating a second one', async () => {
-		const db = { select: () => ({ from: () => ({ where: async () => [{ id: 'contest-state', kind: 'state' }] }) }) };
-		const contest = await ensureStateContest(db as never, { seasonId: 'season-1' });
-		expect(contest).toMatchObject({ id: 'contest-state' });
+	it.each([
+		['regional', 'state', 'invalid_transition'],
+		['state', 'qualifications', 'invalid_transition'],
+		['archived', 'regional', 'archived'],
+		['regional', 'qualifications', 'incomplete'],
+	])('rejects season progression from %s to %s', async (from, to, code) => {
+		const rows = [[{ id:'season-1', status:from }], [{ lifecycle:'scoring' }]];
+		const db = { select: () => ({ from: () => ({ where: async () => rows.shift() }) }) };
+		await expect(setSeasonStatus(db as never, 'season-1', to as never)).rejects.toMatchObject({ code });
 	});
 
-	it('rejects state policy updates for non-state contests', async () => {
-		const db = {
-			select: () => ({ from: () => ({ where: async () => [{ id: 'contest-1', kind: 'regional' }] }) }),
-		};
-		await expect(updateStateSettings(db as never, { contestId: 'contest-1', topicalIndividualAllowed: true, crossSchoolTopicalTeamsAllowed: false }))
-			.rejects.toMatchObject({ code: 'invalid_request' });
+	it.each(['2026-02-30', 'not-a-date'])('rejects invalid calendar date %s', async date => {
+		await expect(updateContestDate({} as never, 'contest', date)).rejects.toMatchObject({ code:'invalid_date' });
 	});
 
-	it('rejects region updates that would duplicate a number only at the database layer', async () => {
-		const db = {
-			select: (table: unknown) => ({ from: () => ({ where: async () => [{ id: 'region-1', seasonId: 'season-1', number: 1, name: 'Old' }] }) }),
-			update: () => ({ set: () => ({ where: () => ({ returning: async () => { throw new Error('UNIQUE constraint failed'); } }) }) }),
-		};
-		await expect(updateRegion(db as never, { regionId: 'region-1', number: 2 })).rejects.toMatchObject({ code: 'duplicate_region' });
-	});
 });

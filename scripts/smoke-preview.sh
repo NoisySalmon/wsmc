@@ -26,8 +26,8 @@ assert_status() {
 }
 
 assert_status GET /login 200
-assert_status GET /program 303
-assert_status POST /program 401
+assert_status GET / 303
+assert_status POST / 401
 assert_status GET "/state/${state_contest_id}/results" "$public_results_status"
 assert_status GET "/state/${state_contest_id}/results/details" 303
 

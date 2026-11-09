@@ -6,7 +6,7 @@
 PRAGMA foreign_keys = ON;
 
 INSERT INTO seasons (id, year, name, status) VALUES
-  ('season-2026', 2026, '2026 WSMC', 'active');
+  ('season-2026', 2026, '2026 WSMC', 'state');
 
 INSERT INTO regions (id, season_id, number, name) VALUES
   ('region-1-2026', 'season-2026', 1, 'Spokane area'),
@@ -21,19 +21,19 @@ INSERT INTO regions (id, season_id, number, name) VALUES
   ('region-10-2026', 'season-2026', 10, 'Peninsula'),
   ('region-virtual-2026', 'season-2026', 11, 'Virtual');
 
-INSERT INTO contests (id, season_id, region_id, kind, name, starts_at, lifecycle, settings_json) VALUES
-  ('contest-region-1', 'season-2026', 'region-1-2026', 'regional', 'Region 1 Regional Contest', 1760000000000, 'finalized', '{}'),
-  ('contest-region-2', 'season-2026', 'region-2-2026', 'regional', 'Region 2 Regional Contest', 1760086400000, 'registration_open', '{}'),
-  ('contest-region-3', 'season-2026', 'region-3-2026', 'regional', 'Region 3 — North Central', NULL, 'setup', '{}'),
-  ('contest-region-4', 'season-2026', 'region-4-2026', 'regional', 'Region 4 — Yakima area', NULL, 'setup', '{}'),
-  ('contest-region-5', 'season-2026', 'region-5-2026', 'regional', 'Region 5 — Northwest', NULL, 'setup', '{}'),
-  ('contest-region-6', 'season-2026', 'region-6-2026', 'regional', 'Region 6 — Seattle area', NULL, 'setup', '{}'),
-  ('contest-region-7', 'season-2026', 'region-7-2026', 'regional', 'Region 7 — Tacoma area', NULL, 'setup', '{}'),
-  ('contest-region-8', 'season-2026', 'region-8-2026', 'regional', 'Region 8 — Southwest', NULL, 'setup', '{}'),
-  ('contest-region-9', 'season-2026', 'region-9-2026', 'regional', 'Region 9 — Olympia Area', NULL, 'setup', '{}'),
-  ('contest-region-10', 'season-2026', 'region-10-2026', 'regional', 'Region 10 — Peninsula', NULL, 'setup', '{}'),
-  ('contest-virtual-2026', 'season-2026', 'region-virtual-2026', 'regional', 'Virtual Regional Contest', 1760086400000, 'registration_open', '{}'),
-  ('contest-state-2026', 'season-2026', NULL, 'state', '2026 State Contest', 1765000000000, 'registration_open', '{"topicalIndividualAllowed":true,"crossSchoolTopicalTeamsAllowed":false}');
+INSERT INTO contests (id, season_id, region_id, kind, name, starts_at, lifecycle) VALUES
+  ('contest-region-1', 'season-2026', 'region-1-2026', 'regional', 'Region 1 Regional Contest', 1760000000000, 'finalized'),
+  ('contest-region-2', 'season-2026', 'region-2-2026', 'regional', 'Region 2 Regional Contest', 1760086400000, 'registration_open'),
+  ('contest-region-3', 'season-2026', 'region-3-2026', 'regional', 'Region 3 — North Central', NULL, 'setup'),
+  ('contest-region-4', 'season-2026', 'region-4-2026', 'regional', 'Region 4 — Yakima area', NULL, 'setup'),
+  ('contest-region-5', 'season-2026', 'region-5-2026', 'regional', 'Region 5 — Northwest', NULL, 'setup'),
+  ('contest-region-6', 'season-2026', 'region-6-2026', 'regional', 'Region 6 — Seattle area', NULL, 'setup'),
+  ('contest-region-7', 'season-2026', 'region-7-2026', 'regional', 'Region 7 — Tacoma area', NULL, 'setup'),
+  ('contest-region-8', 'season-2026', 'region-8-2026', 'regional', 'Region 8 — Southwest', NULL, 'setup'),
+  ('contest-region-9', 'season-2026', 'region-9-2026', 'regional', 'Region 9 — Olympia Area', NULL, 'setup'),
+  ('contest-region-10', 'season-2026', 'region-10-2026', 'regional', 'Region 10 — Peninsula', NULL, 'setup'),
+  ('contest-virtual-2026', 'season-2026', 'region-virtual-2026', 'regional', 'Virtual Regional Contest', 1760086400000, 'registration_open'),
+  ('contest-state-2026', 'season-2026', NULL, 'state', '2026 State Contest', 1765000000000, 'registration_open');
 
 INSERT INTO schools (id, name, short_name, address, city, state, postal_code, contact_email, division) VALUES
   ('school-alpha', 'Alpha High School', 'Alpha', '100 Main St', 'Seattle', 'WA', '98101', 'office@alpha.example', 1),

@@ -2,7 +2,6 @@
 	let { children, data } = $props();
 	const nav = $derived(data?.nav as { isAdmin: boolean; isRegional: boolean; isCoach: boolean; isScorekeeper: boolean } | null | undefined);
 	const principal = $derived(data?.principal);
-	const showProgram = $derived(Boolean(nav?.isAdmin));
 	// Administrators have the school directory; regional coordinators
 	// manage schools through their contest Overview / Participation scope instead.
 	const showDirectory = $derived(Boolean(nav?.isAdmin));
@@ -16,7 +15,6 @@
 <a class="skip-link" href="#main-content">Skip to main content</a>
 <nav aria-label="Primary navigation">
 	<a href="/">WSMC</a>
-	{#if showProgram}<a href="/program">Program</a>{/if}
 	{#if showDirectory}<a href="/schools">Schools</a>{/if}
 	{#if showDirectory || nav?.isRegional}<a href="/participation">Participation</a>{/if}
 	{#if nav?.isCoach}<a href="/my-schools">My schools</a>{/if}

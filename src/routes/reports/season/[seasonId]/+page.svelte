@@ -5,7 +5,7 @@
 
 <svelte:head><title>{data.season.name} statewide reports — WSMC</title></svelte:head>
 <main>
-	<p><a href={data.canReviewUnpublished ? '/program' : '/'}>← {data.canReviewUnpublished ? 'Program' : 'Home'}</a></p>
+	<p><a href="/">← Home</a></p>
 	<h1>{data.season.name} statewide reports</h1>
 	<p class="subheading">Published results and frozen qualification decisions are available to assigned coaches and coordinators. Coordinators can also review finalized regional results before publication.</p>
 	<p><a href="/reports/qualifications?seasonId={data.season.id}">Download qualification CSV</a></p>
