@@ -127,27 +127,24 @@ and pull requests.
 
 ## Deployment
 
-The project is configured for Cloudflare Pages.
+The `wsmc` project uses Cloudflare Pages Direct Upload, without Git integration.
+Its configured production branch label is `production`; uploading with
+`--branch main` currently creates a preview deployment. Use explicit branch
+labels when deploying.
 
-The production D1 already has the v2 demo fixture. Before deploying these
-local changes, back it up, apply the Knowdown outcome migration, and follow
-the production checks in the [D1 runbook](docs/operations/d1-runbook.md).
+Follow the [production and isolated preview rollout plan](docs/operations/cloudflare-preview.md)
+before deploying. Production needs three pending schema migrations and access
+grant restoration. Its existing synthetic showcase can remain in place,
+preserving accounts and sessions. The preview branch configures a separate D1
+for the private 2026 replay, which must never be imported into the production DB.
 
-1. Build the project:
-   ```bash
-   npm run build
-   ```
+After the runbook's database preparation, deploy the tested main build with:
 
-2. Deploy:
-   ```bash
-   npx wrangler pages deploy .svelte-kit/cloudflare
-   ```
-
-3. Run the post-deploy smoke test with the real state contest ID and expected
-   publication status:
-   ```bash
-   npm run smoke:preview -- https://wsmc.pages.dev
-   ```
+```bash
+npm run build
+npx wrangler pages deploy .svelte-kit/cloudflare --project-name wsmc --branch production
+npm run smoke:preview -- https://wsmc.pages.dev
+```
 
 ## License
 
