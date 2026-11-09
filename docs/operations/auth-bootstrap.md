@@ -21,3 +21,8 @@ trusted public `APP_ORIGIN`.
 Set `ENVIRONMENT=production` in the deployed Pages environment. Production
 fails closed when the email provider is not configured, so raw sign-in links
 cannot be emitted by an accidental development fallback.
+
+For an existing account whose invitation email is blocked, an administrator
+can instead show a five-minute, single-use QR sign-in code from **Users &
+access**. Regional coordinators can assist eligible coaches and scorekeepers
+from their contest's **People** page. See [In-person QR sign-in](qr-sign-in.md).

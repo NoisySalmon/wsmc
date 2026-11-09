@@ -117,6 +117,11 @@ Regional roster visibility/edit restrictions between coordinators are not a prod
 
 - Coordinators invite users by email and attach the intended assignments.
 - Sign-in uses time-limited, single-use email links.
+- For in-person assistance, administrators can show a five-minute, single-use
+  sign-in QR code for an enabled user. Regional coordinators can do so for
+  their contest's coaches and scorekeepers, excluding accounts with any
+  coordinator assignment. Scanning requires no email delivery. See the
+  [QR sign-in guide](operations/qr-sign-in.md) for scope and revocation behavior.
 - Invitations can be resent or revoked.
 - Inviting an existing email adds or updates assignments rather than creating a duplicate user.
 - User administration shows pending, active, and disabled users.
