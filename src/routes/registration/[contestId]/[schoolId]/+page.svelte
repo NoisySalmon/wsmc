@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { tick, untrack } from 'svelte';
+	let studentNameInput: HTMLInputElement;
+	let feedbackVisible = $state(true);
 	let { data, form } = $props();
-	let dirty = $state(false);
 	let saving = $state(false);
 	let editing = $state(false);
 	const grades = [9, 10, 11, 12];
@@ -78,7 +80,12 @@
 	];
 	let sortKey = $state<SortKey>('name');
 	let sortDirection = $state<'ascending' | 'descending'>('ascending');
+	function worksheetSnapshot(value: Row[]) {
+		return JSON.stringify([...value].sort((a, b) => a.id.localeCompare(b.id)));
+	}
 	let rows = $state<Row[]>(makeRows());
+	let savedRows = $state(worksheetSnapshot(makeRows()));
+	const dirty = $derived(worksheetSnapshot(rows) !== savedRows);
 	function sortRows(
 		key: SortKey,
 		direction: 'ascending' | 'descending' = key === sortKey && sortDirection === 'ascending'
@@ -107,15 +114,42 @@
 		});
 	}
 	$effect(() => {
-		rows = makeRows();
-		sortKey = 'name';
-		sortDirection = 'ascending';
-		dirty = false;
+		const freshRows = makeRows();
+		rows = freshRows;
+		savedRows = worksheetSnapshot(freshRows);
+		untrack(() => sortRows(sortKey, sortDirection));
 	});
 	const attending = $derived(rows.filter((r) => r.attending === 'yes'));
 	const teamCount = $derived(
 		new Set(attending.map((r) => r.team).filter(Boolean)).size,
 	);
+	const topicalTeams = $derived(new Set(attending.map((r) => r.topical).filter((t) => t && t !== 'individual')).size);
+	const topicalIndividuals = $derived(attending.filter((r) => r.topical === 'individual').length);
+	const projectTeams = $derived(new Set(attending.map((r) => r.project).filter(Boolean)).size);
+	const cellErrors = $derived.by(() => {
+		const errors: Record<string, string> = {};
+		for (const category of ['team', 'topical', 'project'] as const) {
+			const groups = new Map<string, Row[]>();
+			for (const row of attending) {
+				const team = row[category];
+				if (!team || team === 'individual') continue;
+				const group = groups.get(team) ?? [];
+				group.push(row);
+				groups.set(team, group);
+			}
+			for (const [team, group] of groups) {
+				const gradeKey = `${category}Grade` as 'teamGrade' | 'topicalGrade' | 'projectGrade';
+				for (const row of group) {
+					const messages = [];
+					if (group.length > 3) messages.push(`Team ${team} has ${group.length} students; maximum 3.`);
+					if (group.filter((r) => r[gradeKey] === row[gradeKey]).length > 1) messages.push(`Team ${team} has more than one student competing in grade ${row[gradeKey]}.`);
+					if (Number(row[gradeKey]) < row.actualGrade) messages.push('Competing grade cannot be below actual grade.');
+					if (messages.length) errors[`${category}_${row.id}`] = messages.join(' ');
+				}
+			}
+		}
+		return errors;
+	});
 	const nominees = $derived(attending.filter((r) => r.knowdown).length);
 	const teamNumbers = $derived(
 		Array.from(
@@ -131,10 +165,10 @@
 		),
 	);
 	function cancelContestChanges() {
-		rows = makeRows();
-		sortKey = 'name';
-		sortDirection = 'ascending';
-		dirty = false;
+		const freshRows = makeRows();
+		rows = freshRows;
+		savedRows = worksheetSnapshot(freshRows);
+		untrack(() => sortRows(sortKey, sortDirection));
 	}
 	function guardNavigation(event: MouseEvent) {
 		if (
@@ -198,10 +232,7 @@
 			This contest is read-only ({data.contest.lifecycle.replaceAll('_', ' ')}).
 			Contact your coordinator for corrections.
 		</p>{/if}
-	{#if form?.error}<p class="error" role="alert">
-			{form.error} Your changes have not been saved.
-		</p>{/if}
-	{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
+
 	<section class="worksheet" aria-label="Contest assignments">
 		<div class="section-heading">
 			<div>
@@ -212,12 +243,6 @@
 					“Not attending”.
 				</p>
 			</div>
-			<button
-				class="secondary"
-				type="button"
-				onclick={() => (editing = !editing)}
-				>{editing ? 'Close student details' : 'Edit student details'}</button
-			>
 		</div>
 		<div class="counts">
 			<span><strong>{rows.length}</strong> students</span><span
@@ -226,7 +251,8 @@
 				><strong>{teamCount}</strong> Team Contest {teamCount === 1
 					? 'team'
 					: 'teams'}</span
-			><span class:over={nominees > 3}
+			><span><strong>{topicalTeams}</strong> Topical {topicalTeams === 1 ? 'team' : 'teams'} · <strong>{topicalIndividuals}</strong> {topicalIndividuals === 1 ? 'individual' : 'individuals'}</span
+			>{#if projectTeams}<span><strong>{projectTeams}</strong> Project {projectTeams === 1 ? 'team' : 'teams'}</span>{/if}<span class:over={nominees > 3}
 				><strong>{nominees}/3</strong> Knowdown nominees</span
 			>
 		</div>
@@ -241,13 +267,15 @@
 		<form
 			method="POST"
 			action="?/saveWorksheet"
-			oninput={() => (dirty = true)}
-			onchange={() => (dirty = true)}
+			oninput={() => { feedbackVisible = false; }}
+			onchange={() => { feedbackVisible = false; }}
 			use:enhance={() => {
 				saving = true;
+				feedbackVisible = false;
 				return async ({ update }) => {
 					await update({ reset: false });
 					saving = false;
+					feedbackVisible = true;
 				};
 			}}
 		>
@@ -289,10 +317,12 @@
 										></select
 									></td
 								>
-								<td data-label="Team Contest"
+								<td data-label="Team Contest" class:invalid-cell={Boolean(cellErrors[`team_${row.id}`])}
 									><div class="assignment">
 										<select
 											name={`team_${row.id}`}
+											aria-invalid={Boolean(cellErrors[`team_${row.id}`])}
+											aria-describedby={cellErrors[`team_${row.id}`] ? `team-error-${row.id}` : undefined}
 											aria-label={`Team Contest team for ${row.name}`}
 											bind:value={row.team}
 											disabled={data.readOnly || row.attending === 'no'}
@@ -302,6 +332,8 @@
 												>{/each}</select
 										><select
 											name={`teamGrade_${row.id}`}
+											aria-invalid={Boolean(cellErrors[`team_${row.id}`])}
+											aria-describedby={cellErrors[`team_${row.id}`] ? `team-error-${row.id}` : undefined}
 											aria-label={`Team Contest grade for ${row.name}`}
 											bind:value={row.teamGrade}
 											disabled={data.readOnly ||
@@ -311,12 +343,14 @@
 													value={String(grade)}>{grade}</option
 												>{/each}</select
 										>
-									</div></td
+									</div>{#if cellErrors[`team_${row.id}`]}<small class="cell-error" id={`team-error-${row.id}`}>{cellErrors[`team_${row.id}`]}</small>{/if}</td
 								>
-								<td data-label="Topical"
+								<td data-label="Topical" class:invalid-cell={Boolean(cellErrors[`topical_${row.id}`])}
 									><div class="assignment">
 										<select
 											name={`topical_${row.id}`}
+											aria-invalid={Boolean(cellErrors[`topical_${row.id}`])}
+											aria-describedby={cellErrors[`topical_${row.id}`] ? `topical-error-${row.id}` : undefined}
 											aria-label={`Topical event for ${row.name}`}
 											bind:value={row.topical}
 											disabled={data.readOnly || row.attending === 'no'}
@@ -327,6 +361,8 @@
 												>{/each}</select
 										><select
 											name={`topicalGrade_${row.id}`}
+											aria-invalid={Boolean(cellErrors[`topical_${row.id}`])}
+											aria-describedby={cellErrors[`topical_${row.id}`] ? `topical-error-${row.id}` : undefined}
 											aria-label={`Topical grade for ${row.name}`}
 											bind:value={row.topicalGrade}
 											disabled={data.readOnly ||
@@ -337,12 +373,14 @@
 													value={String(grade)}>{grade}</option
 												>{/each}</select
 										>
-									</div></td
+									</div>{#if cellErrors[`topical_${row.id}`]}<small class="cell-error" id={`topical-error-${row.id}`}>{cellErrors[`topical_${row.id}`]}</small>{/if}</td
 								>
-								<td data-label="Project"
+								<td data-label="Project" class:invalid-cell={Boolean(cellErrors[`project_${row.id}`])}
 									><div class="assignment">
 										<select
 											name={`project_${row.id}`}
+											aria-invalid={Boolean(cellErrors[`project_${row.id}`])}
+											aria-describedby={cellErrors[`project_${row.id}`] ? `project-error-${row.id}` : undefined}
 											aria-label={`Project team for ${row.name}`}
 											bind:value={row.project}
 											disabled={data.readOnly || row.attending === 'no'}
@@ -352,6 +390,8 @@
 												>{/each}</select
 										><select
 											name={`projectGrade_${row.id}`}
+											aria-invalid={Boolean(cellErrors[`project_${row.id}`])}
+											aria-describedby={cellErrors[`project_${row.id}`] ? `project-error-${row.id}` : undefined}
 											aria-label={`Project grade for ${row.name}`}
 											bind:value={row.projectGrade}
 											disabled={data.readOnly ||
@@ -361,9 +401,9 @@
 													value={String(grade)}>{grade}</option
 												>{/each}</select
 										>
-									</div></td
+									</div>{#if cellErrors[`project_${row.id}`]}<small class="cell-error" id={`project-error-${row.id}`}>{cellErrors[`project_${row.id}`]}</small>{/if}</td
 								>
-								<td class="knowdown-col" data-label="Knowdown"
+								<td class="knowdown-col" data-label="Knowdown" class:invalid-cell={row.knowdown && row.attending === 'yes' && nominees > 3}
 									><input
 										type="checkbox"
 										name={`knowdown_${row.id}`}
@@ -380,6 +420,11 @@
 					</tbody>
 				</table>
 			</div>
+			<div class="worksheet-feedback">	{#if feedbackVisible && form?.error}<p class="error" role="alert">
+			{form.error} Your changes have not been saved.
+		</p>{/if}
+	{#if feedbackVisible && form?.success}<p class="success" role="status">{form.success}</p>{/if}
+			</div>
 			<div class="save-bar">
 				<p>
 					{#if dirty}<span class="dot"></span> Unsaved changes{:else}All
@@ -389,13 +434,27 @@
 				</p>
 				<div class="save-actions">
 					<button class="secondary" type="button" onclick={cancelContestChanges} disabled={!dirty || saving}>Cancel</button>
-				<button type="submit" disabled={data.readOnly || saving || nominees > 3}
+				<button type="submit" disabled={data.readOnly || !dirty || saving || nominees > 3}
 					>{saving ? 'Saving…' : 'Save contest'}</button
 				>
 				</div>
 			</div>
 		</form>
-		<form class="add-student" method="POST" action="?/addStudent" use:enhance>
+		<form class="add-student" method="POST" action="?/addStudent" use:enhance={() => {
+			feedbackVisible = false;
+			return async ({ result, update }) => {
+				await update();
+				feedbackVisible = true;
+				if (result.type === 'success') {
+					await tick();
+					// SvelteKit queues selection cleanup after applying a successful action.
+					// Restore the input caret after that cleanup, not just its focus ring.
+					await new Promise<void>((resolve) => setTimeout(resolve, 0));
+					studentNameInput?.focus();
+					studentNameInput?.setSelectionRange(0, 0);
+				}
+			};
+		}}>
 			<div>
 				<strong>Add a student</strong><small
 					>Included in this contest · available all season</small
@@ -403,6 +462,7 @@
 			</div>
 			<label class="sr-only" for="student-name">Student name</label><input
 				id="student-name"
+				bind:this={studentNameInput}
 				name="name"
 				placeholder="Full name"
 				required
@@ -426,6 +486,14 @@
 		grades. Students can compete at their actual grade or above. Team Contest, Topical,
 		and Project teams are independent.
 	</p>
+	<div class="details-toggle">
+			<button
+				class="secondary"
+				type="button"
+				onclick={() => (editing = !editing)}
+				>{editing ? 'Close student details' : 'Edit student details'}</button
+			>
+	</div>
 	{#if editing}<section class="details-panel">
 			<h2>Student details</h2>
 			<p class="intro">Names and actual grades are shared across the season.</p>
@@ -755,6 +823,15 @@
 	input:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
+	}
+	.worksheet-feedback { padding: 0 26px; }
+	.invalid-cell { background: #fff0f0; }
+	.invalid-cell select { border-color: #bc3636; }
+	.cell-error { color: #972929; max-width: 230px; line-height: 1.5; }
+	.details-toggle { margin: 20px 0 0; }
+	@media (max-width: 650px) {
+		td.invalid-cell { flex-wrap: wrap; padding: 10px 6px; }
+		.cell-error { flex-basis: 100%; max-width: none; }
 	}
 	.save-bar {
 		display: flex;
