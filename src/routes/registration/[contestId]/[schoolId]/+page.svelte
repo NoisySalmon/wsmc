@@ -67,9 +67,49 @@
 			})
 			.sort((a, b) => a.name.localeCompare(b.name));
 	}
+	type SortKey = 'name' | 'attending' | 'team' | 'topical' | 'project' | 'knowdown';
+	const sortColumns: { key: SortKey; label: string; detail?: string }[] = [
+		{ key: 'name', label: 'Student' },
+		{ key: 'attending', label: 'Attendance' },
+		{ key: 'team', label: 'Team Contest', detail: 'Team · competing grade' },
+		{ key: 'topical', label: 'Topical', detail: 'Team or individual · grade' },
+		{ key: 'project', label: 'Project', detail: 'Optional team · grade' },
+		{ key: 'knowdown', label: 'Knowdown', detail: 'Up to 3 students' },
+	];
+	let sortKey = $state<SortKey>('name');
+	let sortDirection = $state<'ascending' | 'descending'>('ascending');
 	let rows = $state<Row[]>(makeRows());
+	function sortRows(
+		key: SortKey,
+		direction: 'ascending' | 'descending' = key === sortKey && sortDirection === 'ascending'
+			? 'descending'
+			: 'ascending',
+	) {
+		sortKey = key;
+		sortDirection = direction;
+		const sign = direction === 'ascending' ? 1 : -1;
+		// Sort only on request so changing an assignment never moves a focused row.
+		rows.sort((a, b) => {
+			const byName = a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+			if (key === 'name') return sign * byName;
+			if (key === 'attending') return sign * b.attending.localeCompare(a.attending) || byName;
+			if (key === 'knowdown') return sign * (Number(b.knowdown) - Number(a.knowdown)) || byName;
+			// Only attendees have active event assignments. Keep unassigned rows last
+			// in either direction, and individual topical entrants after teams.
+			const left = a.attending === 'yes' ? a[key] : '';
+			const right = b.attending === 'yes' ? b[key] : '';
+			if (!left || !right) return Number(!left) - Number(!right) || byName;
+			if (left === 'individual' || right === 'individual') {
+				return Number(left === 'individual') - Number(right === 'individual') || byName;
+			}
+			const gradeKey = `${key}Grade` as 'teamGrade' | 'topicalGrade' | 'projectGrade';
+			return sign * (Number(left) - Number(right)) || Number(a[gradeKey]) - Number(b[gradeKey]) || byName;
+		});
+	}
 	$effect(() => {
 		rows = makeRows();
+		sortKey = 'name';
+		sortDirection = 'ascending';
 		dirty = false;
 	});
 	const attending = $derived(rows.filter((r) => r.attending === 'yes'));
@@ -92,6 +132,8 @@
 	);
 	function cancelContestChanges() {
 		rows = makeRows();
+		sortKey = 'name';
+		sortDirection = 'ascending';
 		dirty = false;
 	}
 	function guardNavigation(event: MouseEvent) {
@@ -188,6 +230,14 @@
 				><strong>{nominees}/3</strong> Knowdown nominees</span
 			>
 		</div>
+		<p class="sort-hint">Sort by an event to review teams in competing-grade order. Click again to reverse team order.</p>
+		<div class="mobile-sort">
+			<label for="roster-sort">Sort students by</label>
+			<select id="roster-sort" value={sortKey} onchange={(event) => sortRows(event.currentTarget.value as SortKey, 'ascending')}>
+				{#each sortColumns as column}<option value={column.key}>{column.label}</option>{/each}
+			</select>
+			<button type="button" class="secondary" onclick={() => sortRows(sortKey)} aria-label="Reverse student sort order">{sortDirection === 'ascending' ? '↑' : '↓'}</button>
+		</div>
 		<form
 			method="POST"
 			action="?/saveWorksheet"
@@ -203,17 +253,19 @@
 		>
 			<div class="table-scroll">
 				<table>
-					<thead
-						><tr
-							><th class="student-col">Student</th><th>Attendance</th><th
-								>Team Contest<small>Team · competing grade</small></th
-							><th>Topical<small>Team or individual · grade</small></th><th
-								>Project<small>Optional team · grade</small></th
-							><th class="knowdown-col"
-								>Knowdown<small>Up to 3 students</small></th
-							></tr
-						></thead
-					><tbody>
+					<thead>
+						<tr>
+							{#each sortColumns as column}
+								<th scope="col" class:student-col={column.key === 'name'} class:knowdown-col={column.key === 'knowdown'} aria-sort={sortKey === column.key ? sortDirection : 'none'}>
+									<button type="button" class="sort-button" onclick={() => sortRows(column.key)}>
+										{column.label} <span class="sort-icon" aria-hidden="true">{sortKey === column.key ? (sortDirection === 'ascending' ? '↑' : '↓') : '↕'}</span>
+									</button>
+									{#if column.detail}<small>{column.detail}</small>{/if}
+								</th>
+							{/each}
+						</tr>
+					</thead>
+					<tbody>
 						{#each rows as row (row.id)}<tr
 								class:absent={row.attending === 'no'}
 							>
@@ -578,6 +630,28 @@
 	.counts .over strong {
 		color: #a12929;
 	}
+	.sort-hint {
+		margin: -8px 26px 18px;
+		color: #68738a;
+		font-size: 12px;
+		line-height: 1.5;
+	}
+	.mobile-sort { display: none; }
+	button.sort-button {
+		min-height: 32px;
+		padding: 4px 0;
+		border: 0;
+		border-radius: 3px;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+	}
+	.sort-button:hover { color: #30477f; text-decoration: underline; }
+	.sort-button:focus-visible { outline: 2px solid #30477f; outline-offset: 4px; }
+	.sort-icon { margin-left: 5px; color: #7b8496; }
+	th[aria-sort='ascending'] .sort-icon,
+	th[aria-sort='descending'] .sort-icon { color: #30477f; }
+
 	.table-scroll {
 		overflow-x: auto;
 	}
@@ -840,6 +914,15 @@
 		}
 	}
 	@media (max-width: 650px) {
+		.mobile-sort {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 0 20px 18px;
+			font-size: 12px;
+		}
+		.mobile-sort select { flex: 1; min-width: 0; }
+		.sort-hint { margin-left: 20px; margin-right: 20px; }
 		.page-heading {
 			align-items: flex-start;
 		}
