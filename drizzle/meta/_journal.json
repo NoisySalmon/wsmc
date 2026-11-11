@@ -57,6 +57,13 @@
       "when": 1794355200000,
       "tag": "0007_participation_withdrawal",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1794441600000,
+      "tag": "0008_contest_knowdown_limit",
+      "breakpoints": true
     }
   ]
 }

@@ -36,6 +36,7 @@ export async function loadRegistrationCsvSnapshot(db: Database, contestId: strin
 	const entries = await db.select().from(schema.entries).where(and(eq(schema.entries.contestId, contestId), eq(schema.entries.ownerSchoolId, schoolId)));
 	const members = entries.length ? await db.select().from(schema.entryMembers).where(inArray(schema.entryMembers.entryId, entries.map((entry) => entry.id))) : [];
 	return {
+		knowdownLimit: contest.knowdownLimit,
 		students: students.map(({ id, name, actualGrade }) => ({ id, name, actualGrade })),
 		rosterIds: roster.map(({ annualStudentId }) => annualStudentId),
 		entries: entries.map(({ id, category, entryNumber, entryKind, ownerSchoolId }) => ({ id, category: category as RegistrationCsvCategory, entryNumber, entryKind, ownerSchoolId })),

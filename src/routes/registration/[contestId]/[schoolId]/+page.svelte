@@ -79,14 +79,14 @@
 			.sort((a, b) => a.name.localeCompare(b.name));
 	}
 	type SortKey = 'name' | 'attending' | 'team' | 'topical' | 'project' | 'knowdown';
-	const sortColumns: { key: SortKey; label: string; detail?: string }[] = [
+	const sortColumns: { key: SortKey; label: string; detail?: string }[] = $derived([
 		{ key: 'name', label: 'Student' },
 		{ key: 'attending', label: 'Attendance' },
 		{ key: 'team', label: 'Team Contest', detail: 'Team · competing grade' },
 		{ key: 'topical', label: 'Topical', detail: 'Team or individual · grade' },
 		{ key: 'project', label: 'Project', detail: 'Optional team · grade' },
-		{ key: 'knowdown', label: 'Knowdown', detail: 'Up to 3 students' },
-	];
+		{ key: 'knowdown', label: 'Knowdown', detail: `Up to ${data.contest.knowdownLimit} students` },
+	]);
 	let sortKey = $state<SortKey>('name');
 	let sortDirection = $state<'ascending' | 'descending'>('ascending');
 	function worksheetSnapshot(value: Row[]) {
@@ -271,8 +271,8 @@
 					? 'team'
 					: 'teams'}</span
 			><span><strong>{topicalTeams}</strong> Topical {topicalTeams === 1 ? 'team' : 'teams'} · <strong>{topicalIndividuals}</strong> {topicalIndividuals === 1 ? 'individual' : 'individuals'}</span
-			>{#if projectTeams}<span><strong>{projectTeams}</strong> Project {projectTeams === 1 ? 'team' : 'teams'}</span>{/if}<span class:over={nominees > 3}
-				><strong>{nominees}/3</strong> Knowdown nominees</span
+			>{#if projectTeams}<span><strong>{projectTeams}</strong> Project {projectTeams === 1 ? 'team' : 'teams'}</span>{/if}<span class:over={nominees > data.contest.knowdownLimit}
+				><strong>{nominees}/{data.contest.knowdownLimit}</strong> Knowdown nominees</span
 			>
 		</div>
 		<p class="sort-hint">Sort by an event to review teams in competing-grade order. Click again to reverse team order.</p>
@@ -441,7 +441,7 @@
 										>
 									</div>{#if cellErrors[`project_${row.id}`]}<small class="cell-error" id={`project-error-${row.id}`}>{cellErrors[`project_${row.id}`]}</small>{/if}</td
 								>
-								<td class="knowdown-col" data-label="Knowdown" class:invalid-cell={row.knowdown && row.attending === 'yes' && nominees > 3}
+								<td class="knowdown-col" data-label="Knowdown" class:invalid-cell={row.knowdown && row.attending === 'yes' && nominees > data.contest.knowdownLimit}
 									><input
 										type="checkbox"
 										name={`knowdown_${row.id}`}
@@ -472,7 +472,7 @@
 				</p>
 				<div class="save-actions">
 					<button class="secondary" type="button" onclick={cancelContestChanges} disabled={!dirty || saving}>Cancel</button>
-				<button type="submit" disabled={readOnly || !dirty || saving || nominees > 3 || (showRemovalReview && !confirmRemoval)}
+				<button type="submit" disabled={readOnly || !dirty || saving || nominees > data.contest.knowdownLimit || (showRemovalReview && !confirmRemoval)}
 					>{saving ? 'Saving…' : 'Save contest'}</button
 				>
 				</div>

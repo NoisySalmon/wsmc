@@ -34,6 +34,7 @@ d1 --file=drizzle/0004_program_stages.sql
 d1 --file=drizzle/0005_season_year.sql
 d1 --file=drizzle/0006_persistent_access.sql
 d1 --file=drizzle/0007_participation_withdrawal.sql
+d1 --file=drizzle/0008_contest_knowdown_limit.sql
 d1 --file=scripts/seed.sql
 
 # Exercise scoring in the open state while retaining the seeded regional and

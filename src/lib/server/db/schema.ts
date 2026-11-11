@@ -56,6 +56,7 @@ export const contests = sqliteTable('contests', {
 	kind: text('kind', { enum: ['regional', 'state'] }).notNull(),
 	name: text('name').notNull(),
 	startsAt: integer('starts_at'),
+	knowdownLimit: integer('knowdown_limit').notNull().default(3),
 	lifecycle: text('lifecycle', { enum: ['setup', 'registration_open', 'roster_locked', 'scoring', 'finalized'] }).notNull().default('setup'),
 	resultsPublishedAt: integer('results_published_at'),
 	createdAt: integer('created_at').notNull().default(timestamp()),

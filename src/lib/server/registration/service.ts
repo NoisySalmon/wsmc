@@ -138,7 +138,7 @@ export async function setKnowdownNominees(db: Database, input: { contestId: stri
 	const contest = await requireEditableRegistration(db, input.contestId);
 	const participation = await requireParticipation(db, input.contestId, input.schoolId);
 	const uniqueIds = [...new Set(input.studentIds.filter(Boolean))];
-	if (uniqueIds.length > 3) throw new RegistrationError('knowdown_limit', 'A school may designate at most 3 Knowdown competitors.');
+	if (uniqueIds.length > contest.knowdownLimit) throw new RegistrationError('knowdown_limit', `A school may designate at most ${contest.knowdownLimit} Knowdown competitors.`);
 	if (uniqueIds.length > 0) {
 		const roster = await db.select({ annualStudentId: schema.contestRosterMembers.annualStudentId }).from(schema.contestRosterMembers).where(eq(schema.contestRosterMembers.contestId, input.contestId));
 		const rostered = new Set(roster.map((row) => row.annualStudentId));
@@ -302,7 +302,7 @@ export async function createProjectTeam(db: Database, input: { contestId: string
 	const participation = await requireParticipation(db, input.contestId, input.schoolId);
 	const uniqueIds = [...new Set(input.members.map((member) => member.studentId).filter(Boolean))];
 	if (uniqueIds.length === 0) throw new RegistrationError('empty_team', 'Select at least one student for the project team.');
-	if (uniqueIds.length > 3) throw new RegistrationError('team_too_large', 'A team may have at most 3 members.');
+	if (uniqueIds.length > contest.knowdownLimit) throw new RegistrationError('team_too_large', 'A team may have at most 3 members.');
 	const studentsById = await loadStudentGrades(db, contest.seasonId, input.schoolId);
 	const rostered = await loadRosteredIds(db, input.contestId);
 	const seenGrades = new Set<number>();
@@ -353,7 +353,7 @@ export async function addCategoryMember(db: Database, input: { contestId: string
 	if (entry.ownerSchoolId !== participation.schoolId) throw new RegistrationError('entry_out_of_scope', 'Entry does not belong to this school.');
 	if (entry.category === 'knowdown') {
 		const knowdownMembers = await db.select({ studentId: schema.entryMembers.annualStudentId }).from(schema.entryMembers).innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId)).where(and(eq(schema.entries.contestId, input.contestId), eq(schema.entries.ownerSchoolId, input.schoolId), eq(schema.entries.category, 'knowdown')));
-		if (!knowdownMembers.some((member) => member.studentId === input.studentId) && knowdownMembers.length >= 3) throw new RegistrationError('knowdown_limit', 'A school may designate at most 3 Knowdown competitors.');
+		if (!knowdownMembers.some((member) => member.studentId === input.studentId) && knowdownMembers.length >= contest.knowdownLimit) throw new RegistrationError('knowdown_limit', `A school may designate at most ${contest.knowdownLimit} Knowdown competitors.`);
 	}
 	try {
 		return await addEntryMember(db, { contestId: input.contestId, entryId: input.entryId, annualStudentId: input.studentId, competingGrade: input.competingGrade });
@@ -474,10 +474,10 @@ export async function saveContestWorksheet(
 		})),
 	);
 	const knowdown = attending.filter((s) => s.knowdown).map((s) => s.studentId);
-	if (knowdown.length > 3)
+	if (knowdown.length > contest.knowdownLimit)
 		throw new RegistrationError(
 			'knowdown_limit',
-			'Choose at most 3 Knowdown competitors.',
+			`Choose at most ${contest.knowdownLimit} Knowdown competitors.`,
 		);
 	const existing = await db
 		.select()

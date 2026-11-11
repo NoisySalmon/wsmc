@@ -44,6 +44,16 @@ describe('registration CSV format', () => {
 		expect(rows[1].entries.knowdown.selected).toBe(true);
 	});
 
+	it.each([3, 5, 6])('limits CSV Knowdown nominees across separate entries to the contest setting %i', (limit) => {
+		const empty = { ...snapshot, students: [], entries: [], members: [], rosterIds: [], knowdownLimit: limit };
+		const rows = Array.from({ length: limit + 1 }, (_, i) => {
+			const row = parseRegistrationCsv(fixture)[0];
+			return { ...row, rowNumber: i + 2, studentName: `Student ${i}`, entries: { ...row.entries, knowdown: { selected: true, entryId: null, entryNumber: i + 1, competingGrade: null } } };
+		});
+		const errors = validateRegistrationCsv(rows, empty).errors.filter(error => error.field === 'knowdown_selected');
+		expect(errors).toEqual([{ rowNumber: limit + 2, field: 'knowdown_selected', message: `A school may designate at most ${limit} Knowdown competitors.` }]);
+	});
+
 	it('protects and restores formula-looking student names', () => {
 		const csv = exportRegistrationCsv({ ...snapshot, students: [{ ...snapshot.students[0], name: '=HYPERLINK("https://example.test")' }] });
 		expect(csv).toContain("'=HYPERLINK");

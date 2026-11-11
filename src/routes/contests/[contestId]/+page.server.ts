@@ -17,7 +17,7 @@ const categoryLabels: Record<(typeof categories)[number], string> = {
 
 export function _hasCompleteResult(category: string, result: { part1?: number | null; part2?: number | null; score?: number | null; placement?: number | null; knowdownOutcome?: string | null } | null | undefined): boolean {
 	if (category === 'topical_team' || category === 'topical_individual') return result?.part1 != null && result?.part2 != null;
-	if (category === 'knowdown') return result?.knowdownOutcome === 'eliminated' || (result?.knowdownOutcome === 'placed' && result.placement != null);
+	if (category === 'knowdown') return result?.placement != null && result.placement >= 1 && result.placement <= 4;
 	return result?.score != null;
 }
 
@@ -45,17 +45,11 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 			.from(schema.entries).leftJoin(schema.schools, eq(schema.schools.id, schema.entries.ownerSchoolId))
 			.leftJoin(schema.results, eq(schema.results.entryId, schema.entries.id)).where(eq(schema.entries.contestId, contest.id))
 	]);
-	const members = entryRows.length ? await db.select({ entryId: schema.entryMembers.entryId, studentName: schema.annualStudents.name, actualGrade: schema.annualStudents.actualGrade, competingGrade: schema.entryMembers.competingGrade })
-		.from(schema.entryMembers).innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.entryMembers.annualStudentId))
-		.innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId)).where(eq(schema.entries.contestId, contest.id)) : [];
-	const membersByEntry = new Map<string, typeof members>();
-	for (const member of members) membersByEntry.set(member.entryId, [...(membersByEntry.get(member.entryId) ?? []), member]);
 	const studentsBySchool = new Map<string, typeof rosterRows>();
 	for (const student of rosterRows) studentsBySchool.set(student.schoolId, [...(studentsBySchool.get(student.schoolId) ?? []), student]);
 	const entries = entryRows.map(({ entry, schoolName, schoolShortName, result }) => ({
 		id: entry.id, schoolId: entry.ownerSchoolId, category: entry.category, categoryLabel: categoryLabels[entry.category], division: entry.division,
 		entryNumber: entry.entryNumber, schoolName: schoolShortName || schoolName || 'School not assigned',
-		members: membersByEntry.get(entry.id) ?? [],
 		complete: _hasCompleteResult(entry.category, result),
 	}));
 	const activeSchoolIds = new Set(participations.filter(p => p.participation.withdrawnAt == null).map(p => p.participation.schoolId));
@@ -63,7 +57,9 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	const readiness = await getRegistrationReadiness(db, contest.id);
 	const categoryCoverage = categories.map((category) => {
 		const categoryEntries = activeEntries.filter((entry) => entry.category === category);
-		return { category, label: categoryLabels[category], total: categoryEntries.length, complete: categoryEntries.filter((entry) => entry.complete).length };
+		const required = category === 'knowdown' ? Math.min(4, categoryEntries.length) : categoryEntries.length;
+		const complete = categoryEntries.filter((entry) => entry.complete).length;
+		return { category, label: categoryLabels[category], total: categoryEntries.length, complete, missing: Math.max(0, required - complete), required };
 	});
 	const schools = participations.map(({ participation, schoolName, schoolShortName }) => {
 		const students = studentsBySchool.get(participation.schoolId) ?? [];
@@ -84,7 +80,8 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 		entries: activeEntries,
 		categoryCoverage,
 		rosteredStudentCount: new Set(rosterRows.filter(s => activeSchoolIds.has(s.schoolId)).map((student) => student.studentId)).size,
-		completedEntryCount: activeEntries.filter((entry) => entry.complete).length,
+		completedEntryCount: categoryCoverage.reduce((sum, row) => sum + row.complete, 0),
+		requiredResultCount: categoryCoverage.reduce((sum, row) => sum + row.required, 0),
 	};
 };
 

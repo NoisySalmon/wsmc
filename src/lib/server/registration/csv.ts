@@ -17,6 +17,7 @@ const categories: RegistrationCsvCategory[] = ['project', 'team_contest', 'topic
 const teamCategories = new Set<TeamCategory>(['project', 'team_contest', 'topical_team']);
 
 export type RegistrationCsvSnapshot = {
+	knowdownLimit?: number;
 	students: { id: string; name: string; actualGrade: number }[];
 	rosterIds: string[];
 	entries: { id: string; category: RegistrationCsvCategory; entryNumber: number | null; entryKind: 'team' | 'individual'; ownerSchoolId: string | null }[];
@@ -220,7 +221,7 @@ export function validateRegistrationCsv(rows: RegistrationCsvRow[], snapshot: Re
 	const seenIds = new Set<string>();
 	const seenNewNames = new Set<string>();
 	const teamGroups = new Map<string, { rowNumber: number; competingGrade: number | null }[]>();
-	const knowdownGroups = new Map<string, number[]>();
+	const knowdownRows: number[] = [];
 	let newStudents = 0;
 	let updatedStudents = 0;
 	let rosterSelections = 0;
@@ -288,15 +289,11 @@ export function validateRegistrationCsv(rows: RegistrationCsvRow[], snapshot: Re
 		if (topicalTeam && topicalIndividual) addError(errors, row.rowNumber, 'topical_team_entry_id', 'A student cannot compete in both Topical Team and Topical Individual.');
 		const knowdown = row.entries.knowdown;
 		const key = resolvedEntryKey(knowdown, 'knowdown', snapshot);
-		if (knowdown.selected && key) {
-			const group = knowdownGroups.get(key) ?? [];
-			group.push(row.rowNumber); knowdownGroups.set(key, group);
-		}
+		if (knowdown.selected && key) knowdownRows.push(row.rowNumber);
 	}
-	for (const [key, group] of knowdownGroups) {
-		const [, , entryId] = key.split(':');
-		const existingCount = entryId ? snapshot.members.filter((member) => member.entryId === entryId && !importedStudentIds.has(member.annualStudentId)).length : 0;
-		for (const rowNumber of group.slice(Math.max(0, 3 - existingCount))) addError(errors, rowNumber, 'knowdown_selected', 'A school may designate at most 3 Knowdown competitors.');
-	}
+	const knowdownEntryIds = new Set(snapshot.entries.filter(entry => entry.category === 'knowdown').map(entry => entry.id));
+	const existingCount = snapshot.members.filter(member => knowdownEntryIds.has(member.entryId) && !importedStudentIds.has(member.annualStudentId)).length;
+	const limit = snapshot.knowdownLimit ?? 3;
+	for (const rowNumber of knowdownRows.slice(Math.max(0, limit - existingCount))) addError(errors, rowNumber, 'knowdown_selected', `A school may designate at most ${limit} Knowdown competitors.`);
 	return { rows, errors, newStudents, updatedStudents, rosterSelections, categorySelections };
 }

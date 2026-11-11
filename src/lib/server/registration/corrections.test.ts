@@ -2,6 +2,8 @@ import { Miniflare } from 'miniflare';
 import { readFileSync, readdirSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import { getDb } from '$lib/server/db';
+import { actions as contestActions, load as loadOverview } from '../../../routes/contests/[contestId]/+page.server';
+import { getRegistrationReadiness } from './readiness';
 import { saveContestWorksheet } from './service';
 import { reopenContest } from '$lib/server/scoring/service';
 import { actions, load } from '../../../routes/registration/[contestId]/[schoolId]/+page.server';
@@ -34,6 +36,45 @@ async function fixture() {
 
 // Real D1 startup, seeding and multi-stage journeys need more than 5s on CI.
 describe('contest-day registration corrections', { timeout: 15_000 }, () => {
+	it('saves the regional Knowdown limit with the date and enforces it through registration and finalization', async () => {
+		const { db, d1, event } = await fixture();
+		await d1.prepare("INSERT INTO annual_students (id, season_id, school_id, name, actual_grade) VALUES ('fourth', 'season-2026', 'school-alpha', 'Fourth Student', 9)").run();
+		const rows = [...students().map(row => ({ ...row, knowdown: true })), student('fourth', null, 'individual', true)];
+		await expect(saveContestWorksheet(db, { ...scope, students: rows })).rejects.toMatchObject({ code: 'knowdown_limit' });
+		await d1.prepare('UPDATE contests SET starts_at = NULL WHERE id = ?').bind(scope.contestId).run();
+		const data = new FormData();
+		data.set('startsAt', '2026-03-12'); data.set('knowdownLimit', '5');
+		expect(await contestActions.updateDate!(event(principal, data))).toMatchObject({ success: expect.any(String) });
+		expect(await d1.prepare('SELECT knowdown_limit, starts_at FROM contests WHERE id = ?').bind(scope.contestId).first()).toMatchObject({ knowdown_limit: 5, starts_at: Date.parse('2026-03-12') });
+		await saveContestWorksheet(db, { ...scope, students: rows });
+		expect((await getRegistrationReadiness(db, scope.contestId)).find(s => s.schoolId === scope.schoolId)?.status).toBe('Valid');
+		data.set('knowdownLimit', '2.5');
+		expect(await contestActions.updateDate!(event(principal, data))).toMatchObject({ status: 400 });
+		await d1.prepare("UPDATE contests SET lifecycle = 'finalized' WHERE id = ?").bind(scope.contestId).run();
+		data.set('knowdownLimit', '6');
+		expect(await contestActions.updateDate!(event(principal, data))).toMatchObject({ status: 400 });
+		expect(await d1.prepare('SELECT knowdown_limit FROM contests WHERE id = ?').bind(scope.contestId).first()).toMatchObject({ knowdown_limit: 5 });
+	});
+
+	it('requires only the Knowdown leaderboard in overview coverage, including small and empty fields', async () => {
+		const { d1, event } = await fixture();
+		const coverage = async () => {
+			const overview = await loadOverview(event()) as any;
+			return overview.categoryCoverage.find((row: any) => row.category === 'knowdown');
+		};
+		const ids = (await d1.prepare("SELECT id FROM entries WHERE contest_id = ? AND category = 'knowdown' ORDER BY id").bind(scope.contestId).all()).results.map(row => String(row.id));
+		expect(ids.length).toBeGreaterThan(4);
+		expect(await coverage()).toMatchObject({ total: ids.length, complete: 0, missing: 4 });
+		for (const [index, id] of ids.entries()) await d1.prepare('INSERT INTO results (entry_id, placement, knowdown_outcome) VALUES (?, ?, ?)').bind(id, index < 4 ? index + 1 : null, index < 4 ? 'placed' : 'eliminated').run();
+		expect(await coverage()).toMatchObject({ complete: 4, missing: 0 });
+		for (const id of ids.slice(2)) await d1.prepare('DELETE FROM entries WHERE id = ?').bind(id).run();
+		expect(await coverage()).toMatchObject({ total: 2, complete: 2, missing: 0 });
+		await d1.prepare('DELETE FROM results WHERE entry_id = ?').bind(ids[0]).run();
+		expect(await coverage()).toMatchObject({ missing: 1 });
+		for (const id of ids.slice(0, 2)) await d1.prepare('DELETE FROM entries WHERE id = ?').bind(id).run();
+		expect(await coverage()).toMatchObject({ total: 0, complete: 0, missing: 0 });
+	});
+
 	it('keeps team scores with teams and individual scores with students when the worksheet changes order and membership', async () => {
 		const { d1, event } = await fixture();
 		const entries = (await d1.prepare("SELECT e.id, e.category, e.entry_number, m.annual_student_id FROM entries e JOIN entry_members m ON m.entry_id = e.id WHERE e.contest_id = ? AND e.owner_school_id = ?").bind(scope.contestId, scope.schoolId).all()).results;
