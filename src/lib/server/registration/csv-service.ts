@@ -22,6 +22,7 @@ export async function loadRegistrationCsvScope(db: Database, contestId: string, 
 	if (!contest || contest.kind !== 'regional') throw new RegistrationCsvError('not_found', 'Regional contest not found.');
 	if (!school || !school.active) throw new RegistrationCsvError('not_found', 'Active school not found.');
 	if (!participation) throw new RegistrationCsvError('not_found', 'School participation not found.');
+	if (participation.withdrawnAt != null) throw new RegistrationCsvError('withdrawn', 'This school has withdrawn. Restore participation from the contest page before editing.');
 	if (contest.lifecycle !== 'registration_open') throw new RegistrationCsvError('locked', 'Registration is locked for this contest.');
 	const [season] = await db.select({ status: schema.seasons.status }).from(schema.seasons).where(eq(schema.seasons.id, contest.seasonId));
 	if (!season || season.status === 'archived') throw new RegistrationCsvError('locked', 'This season is archived and cannot be edited.');

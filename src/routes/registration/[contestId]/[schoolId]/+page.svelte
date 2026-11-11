@@ -214,7 +214,7 @@
 				><strong>Regional contest</strong><small>{data.contest.name}</small
 				></span
 			><span class="status"
-				>{data.readOnly ? 'Read only' : 'Registration open'}</span
+				>{data.participation.withdrawnAt != null ? 'Withdrawn' : data.readOnly ? 'Read only' : 'Registration open'}</span
 			></a
 		>{#if data.stateContest}<a
 				href={`/state/${data.stateContest.id}`}
@@ -232,7 +232,7 @@
 				>
 			</div>{/if}
 	</nav>
-	{#if data.readOnly}<p class="notice">
+	{#if data.participation.withdrawnAt != null}<p class="notice">This school has withdrawn. Registration is preserved. A coordinator can restore participation from the <a href="/contests/{data.contest.id}">contest page</a>.</p>{:else if data.readOnly}<p class="notice">
 			This contest is read-only ({data.contest.lifecycle.replaceAll('_', ' ')}).
 			Contact your coordinator for corrections.
 		</p>{/if}

@@ -3,7 +3,7 @@
 	const nav = $derived(data?.nav as { isAdmin: boolean; isRegional: boolean; isCoach: boolean; isScorekeeper: boolean } | null | undefined);
 	const principal = $derived(data?.principal);
 	// Administrators have the school directory; regional coordinators
-	// manage schools through their contest Overview / Regions scope instead.
+	// manage schools through their contest overview instead.
 	const showDirectory = $derived(Boolean(nav?.isAdmin));
 	const showUsers = $derived(Boolean(nav?.isAdmin));
 </script>
@@ -16,7 +16,7 @@
 <nav aria-label="Primary navigation">
 	<a href="/">WSMC</a>
 	{#if showDirectory}<a href="/schools">Schools</a>{/if}
-	{#if showDirectory || nav?.isRegional}<a href="/regions">Regions</a>{/if}
+	{#if showDirectory}<a href="/regions">Regions</a>{/if}
 	{#if nav?.isCoach}<a href="/my-schools">My schools</a>{/if}
 	{#if showUsers}<a href="/admin/users">Users &amp; access</a>{/if}
 	{#each data?.roleLinks ?? [] as link}<a href={link.href}>{link.label}</a>{/each}

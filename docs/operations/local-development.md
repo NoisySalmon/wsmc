@@ -133,3 +133,7 @@ assignments remain intact. Recreate local fixture data with a seed scenario
 such as `npm run seed:showcase`, or re-establish administrator access with the
 [bootstrap procedure](auth-bootstrap.md) and assign the other roles in Users &
 access. No conversion of obsolete season-specific grants is performed.
+
+Migration `0007_participation_withdrawal.sql` adds non-destructive school withdrawal.
+Apply local migrations with `npx wrangler d1 migrations apply wsmc-db --local`
+before running the updated app against an existing local database.

@@ -1,3 +1,4 @@
+import { activeEntry } from '$lib/server/program/participation';
 import { and, asc, eq } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
@@ -34,7 +35,7 @@ export async function getQualificationPlanningData(db: Database, seasonId: strin
 	for (const row of saved) automaticEntryIds.add(row.entryId);
 	const members = await db.select({ entryId: schema.entryMembers.entryId, studentId: schema.entryMembers.annualStudentId, studentName: schema.annualStudents.name })
 		.from(schema.entryMembers).innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.entryMembers.annualStudentId)).innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId))
-		.innerJoin(schema.contests, eq(schema.contests.id, schema.entries.contestId)).where(and(eq(schema.contests.seasonId, seasonId), eq(schema.contests.kind, 'regional')));
+		.innerJoin(schema.contests, eq(schema.contests.id, schema.entries.contestId)).where(and(eq(schema.contests.seasonId, seasonId), eq(schema.contests.kind, 'regional'), activeEntry()));
 	return { rows, decisions, automaticEntryIds: [...automaticEntryIds], members, finalized: contests.filter((contest) => contest.lifecycle === 'finalized').length, total: contests.length };
 }
 
@@ -43,7 +44,7 @@ export async function recordManualQualificationDecision(db: Database, input: { s
 	if (locked.length) throw new CutoffError('frozen', 'The qualification draft is frozen.');
 	const reason = input.reason.trim();
 	if (!reason) throw new CutoffError('reason_required', 'A reason is required for a manual qualification decision.');
-	const [entry] = await db.select({ entry: schema.entries, contest: schema.contests }).from(schema.entries).innerJoin(schema.contests, eq(schema.contests.id, schema.entries.contestId)).where(and(eq(schema.entries.id, input.entryId), eq(schema.contests.seasonId, input.seasonId)));
+	const [entry] = await db.select({ entry: schema.entries, contest: schema.contests }).from(schema.entries).innerJoin(schema.contests, eq(schema.contests.id, schema.entries.contestId)).where(and(activeEntry(), eq(schema.entries.id, input.entryId), eq(schema.contests.seasonId, input.seasonId)));
 	if (!entry || entry.contest.kind !== 'regional' || entry.contest.lifecycle !== 'finalized') throw new CutoffError('entry_out_of_scope', 'Manual decisions require an entry from a finalized regional contest in this season.');
 	if (input.studentId) {
 		const [member] = await db.select().from(schema.entryMembers).where(and(eq(schema.entryMembers.entryId, input.entryId), eq(schema.entryMembers.annualStudentId, input.studentId)));

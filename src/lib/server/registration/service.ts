@@ -38,6 +38,7 @@ async function requireOpenContest(db: Database, contestId: string) {
 async function requireParticipation(db: Database, contestId: string, schoolId: string) {
 	const [participation] = await db.select().from(schema.schoolParticipations).where(and(eq(schema.schoolParticipations.contestId, contestId), eq(schema.schoolParticipations.schoolId, schoolId)));
 	if (!participation) throw new RegistrationError('not_participating', 'School is not participating in this contest.');
+	if (participation.withdrawnAt != null) throw new RegistrationError('withdrawn', 'This school has withdrawn. Restore participation from the contest page before editing.');
 	return participation;
 }
 

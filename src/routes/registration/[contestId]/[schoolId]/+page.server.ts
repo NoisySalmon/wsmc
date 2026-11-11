@@ -6,12 +6,13 @@ import { importRegistrationCsv, previewRegistrationCsv, RegistrationCsvValidatio
 import { addWorksheetStudent, saveContestWorksheet, addCategoryMember, addRosterStudent, createCategoryEntry, createProjectTeam, deleteAnnualStudent, deleteCategoryEntry, RegistrationError, removeCategoryMember, removeRosterStudent, reopenRoster, saveTeamContestAssignments, saveTopicalAssignments, setContestRoster, setKnowdownNominees, updateAnnualStudent, type MatrixTeamAssignment, type MatrixTopicalAssignment } from '$lib/server/registration/service';
 import type { Actions, PageServerLoad } from './$types';
 
-async function scope(db: ReturnType<typeof getDb>, contestId: string, schoolId: string) {
+async function scope(db: ReturnType<typeof getDb>, contestId: string, schoolId: string, viewOnly = false) {
 	const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, contestId));
 	const [participation] = await db.select().from(schema.schoolParticipations).where(and(eq(schema.schoolParticipations.contestId, contestId), eq(schema.schoolParticipations.schoolId, schoolId)));
 	const [school] = await db.select().from(schema.schools).where(eq(schema.schools.id, schoolId));
 	if (!contest || contest.kind !== 'regional') throw error(404, 'Regional contest not found.');
 	if (!participation || !school) throw error(404, 'School participation not found.');
+	if (participation.withdrawnAt != null && !viewOnly) throw error(409, 'This school has withdrawn. Restore participation from the contest page before editing.');
 	return { contest, participation, school };
 }
 
@@ -45,7 +46,7 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	if (!locals.principal) throw error(401, 'Sign in required.');
 	if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 	const db = getDb(platform.env.DB);
-	const { contest, participation, school } = await scope(db, params.contestId, params.schoolId);
+	const { contest, participation, school } = await scope(db, params.contestId, params.schoolId, true);
 	if (!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)) throw error(403, 'You cannot view this school registration.');
 	const [students, rosterRows, entries] = await Promise.all([
 		db.select().from(schema.annualStudents).where(and(eq(schema.annualStudents.seasonId, contest.seasonId), eq(schema.annualStudents.schoolId, school.id))),
@@ -57,7 +58,7 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	const rosterIds = new Set(rosterRows.map((row) => row.annualStudentId));
 	const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, contest.seasonId));
 	const [stateContest] = await db.select().from(schema.contests).where(and(eq(schema.contests.seasonId, contest.seasonId), eq(schema.contests.kind, 'state')));
-	const readOnly = contest.lifecycle !== 'registration_open' || season?.status === 'archived';
+	const readOnly = participation.withdrawnAt != null || contest.lifecycle !== 'registration_open' || season?.status === 'archived';
 	return {
 		contest, school, participation, season, stateContest, students, rosterIds: [...rosterIds], entries, members,
 		readOnly, canReopen: canFinalizeContest(locals.principal, contest.id, contest.seasonId),
@@ -235,7 +236,7 @@ export const actions: Actions = {
 	},
 	reopen: async ({ locals, platform, params, request }) => {
 		if (!locals.principal) throw error(401, 'Sign in required.'); if (!platform?.env.DB) throw error(503, 'Database unavailable.');
-		const data = await request.formData(); const db = getDb(platform.env.DB); const { contest } = await scope(db, params.contestId, params.schoolId);
+		const data = await request.formData(); const db = getDb(platform.env.DB); const { contest } = await scope(db, params.contestId, params.schoolId, true);
 		if (!canFinalizeContest(locals.principal, contest.id, contest.seasonId)) throw error(403, 'Only a contest coordinator can reopen this roster.');
 		try { await reopenRoster(db, { contestId: contest.id, actorUserId: locals.principal.id, reason: text(data, 'reason') }); return { success: 'Roster reopened for corrections.' }; } catch (cause) { return formError(cause); }
 	},

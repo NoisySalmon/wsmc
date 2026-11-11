@@ -1,5 +1,8 @@
-import { eq } from 'drizzle-orm';
-import { error } from '@sveltejs/kit';
+import { assignSchool, removeSchoolParticipation, setParticipationWithdrawn, ParticipationError } from '$lib/server/program/participation';
+import { createSchool, SchoolDirectoryError } from '$lib/server/program/schools';
+import { getRegistrationReadiness } from '$lib/server/registration/readiness';
+import { and, eq } from 'drizzle-orm';
+import { error, fail, type RequestEvent } from '@sveltejs/kit';
 import { canCoordinateRegion, canScoreContest } from '$lib/server/auth/capabilities';
 import { getDb, schema } from '$lib/server/db';
 import { contestAction } from '$lib/server/program/contest-actions';
@@ -50,33 +53,71 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	const studentsBySchool = new Map<string, typeof rosterRows>();
 	for (const student of rosterRows) studentsBySchool.set(student.schoolId, [...(studentsBySchool.get(student.schoolId) ?? []), student]);
 	const entries = entryRows.map(({ entry, schoolName, schoolShortName, result }) => ({
-		id: entry.id, category: entry.category, categoryLabel: categoryLabels[entry.category], division: entry.division,
+		id: entry.id, schoolId: entry.ownerSchoolId, category: entry.category, categoryLabel: categoryLabels[entry.category], division: entry.division,
 		entryNumber: entry.entryNumber, schoolName: schoolShortName || schoolName || 'School not assigned',
 		members: membersByEntry.get(entry.id) ?? [],
 		complete: _hasCompleteResult(entry.category, result),
 	}));
+	const activeSchoolIds = new Set(participations.filter(p => p.participation.withdrawnAt == null).map(p => p.participation.schoolId));
+	const activeEntries = entries.filter(e => e.schoolId && activeSchoolIds.has(e.schoolId));
+	const readiness = await getRegistrationReadiness(db, contest.id);
 	const categoryCoverage = categories.map((category) => {
-		const categoryEntries = entries.filter((entry) => entry.category === category);
+		const categoryEntries = activeEntries.filter((entry) => entry.category === category);
 		return { category, label: categoryLabels[category], total: categoryEntries.length, complete: categoryEntries.filter((entry) => entry.complete).length };
 	});
 	const schools = participations.map(({ participation, schoolName, schoolShortName }) => {
 		const students = studentsBySchool.get(participation.schoolId) ?? [];
-		return { id: participation.schoolId, name: schoolShortName || schoolName, division: participation.division, students };
+		return { participationId: participation.id, withdrawn: participation.withdrawnAt != null, readiness: readiness.find(r => r.schoolId === participation.schoolId)!, entryCount: entries.filter(e => e.schoolId === participation.schoolId).length, id: participation.schoolId, name: schoolShortName || schoolName, division: participation.division, students };
 	}).sort((a, b) => a.name.localeCompare(b.name));
 	const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, contest.seasonId));
+	const directory = await db.select().from(schema.schools).where(eq(schema.schools.active, true));
+	const assignments = await db.select({ schoolId: schema.schoolParticipations.schoolId, contestId: schema.contests.id, contestName: schema.contests.name }).from(schema.schoolParticipations).innerJoin(schema.contests, eq(schema.contests.id, schema.schoolParticipations.contestId)).where(and(eq(schema.contests.seasonId, contest.seasonId), eq(schema.contests.kind, 'regional')));
 	return {
+		availableSchools: directory.filter(school => !schools.some(s => s.id === school.id)).map(school => ({ id: school.id, name: school.name, city: school.city, division: school.division, assignedTo: assignments.find(a => a.schoolId === school.id)?.contestName ?? null })).sort((a,b) => a.name.localeCompare(b.name)),
+		canViewRegions: locals.principal.isAdmin,
+		registrationIssueCount: readiness.filter(s => s.status === 'Needs attention').length,
+		activeSchoolCount: activeSchoolIds.size,
 		contest,
 		canManageContest: season.status !== 'archived' && canCoordinateRegion(locals.principal, contest.id, contest.seasonId),
 		canManageStaff: canManageRegionalContestStaff(locals.principal, contest),
 		schools,
-		entries,
+		entries: activeEntries,
 		categoryCoverage,
-		rosteredStudentCount: new Set(rosterRows.map((student) => student.studentId)).size,
-		completedEntryCount: entries.filter((entry) => entry.complete).length,
+		rosteredStudentCount: new Set(rosterRows.filter(s => activeSchoolIds.has(s.schoolId)).map((student) => student.studentId)).size,
+		completedEntryCount: activeEntries.filter((entry) => entry.complete).length,
 	};
 };
 
 export const actions: Actions = {
+	addSchool: (event) => participationAction(event, 'add'),
+	removeSchool: (event) => participationAction(event, 'remove'),
+	withdrawSchool: (event) => participationAction(event, 'withdraw'),
+	restoreSchool: (event) => participationAction(event, 'restore'),
 	updateDate: (event) => contestAction(event, 'regional', 'date'),
 	advanceLifecycle: (event) => contestAction(event, 'regional', 'stage'),
 };
+
+async function participationAction(event: RequestEvent, action: 'add' | 'remove' | 'withdraw' | 'restore') {
+	const { locals, platform, params, request } = event;
+	if (!locals.principal) throw error(401, 'Sign in required.');
+	if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+	const db = getDb(platform.env.DB);
+	const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, params.contestId!));
+	if (!contest || contest.kind !== 'regional' || !canCoordinateRegion(locals.principal, contest.id, contest.seasonId)) throw error(403, 'Contest coordinator access required.');
+	const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, contest.seasonId));
+	if (!season || season.status === 'archived') throw error(409, 'Archived seasons are read-only.');
+	const data = await request.formData();
+	const value = (name: string) => String(data.get(name) ?? '').trim();
+	try {
+		if (action === 'add') {
+			if (!['setup', 'registration_open'].includes(contest.lifecycle)) throw new ParticipationError('locked', 'Reopen registration before adding a school.');
+			if (value('mode') === 'create') {
+				await createSchool(db, { name: value('name'), city: value('city'), division: Number(value('division')), contestId: contest.id });
+			} else await assignSchool(db, { contestId: contest.id, schoolId: value('schoolId') });
+		} else if (action === 'remove') await removeSchoolParticipation(db, { contestId: contest.id, participationId: value('participationId') });
+		else await setParticipationWithdrawn(db, { contestId: contest.id, participationId: value('participationId'), withdrawn: action === 'withdraw', actorUserId: locals.principal.id });
+		return { success: action === 'add' ? 'School added to this contest.' : action === 'remove' ? 'Participation removed.' : action === 'withdraw' ? 'School withdrawn. Its registration is preserved.' : 'Participation restored with its saved registration.' };
+	} catch (cause) {
+		return fail(400, { error: cause instanceof ParticipationError || cause instanceof SchoolDirectoryError ? cause.message : 'Participation could not be updated.', addSchoolError: action === 'add' });
+	}
+}

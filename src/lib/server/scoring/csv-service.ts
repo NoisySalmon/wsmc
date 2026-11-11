@@ -1,3 +1,4 @@
+import { activeEntry } from '$lib/server/program/participation';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
@@ -21,7 +22,7 @@ export function shouldAuditQualificationImpact(contestKind: string): boolean {
 
 async function entriesSnapshot(db: Database, contestId: string): Promise<ScoreCsvEntry[]> {
 	const rows = await db.select({ entry: schema.entries, result: schema.results, schoolName: schema.schools.shortName, schoolFullName: schema.schools.name })
-		.from(schema.entries).leftJoin(schema.results, eq(schema.results.entryId, schema.entries.id)).leftJoin(schema.schools, eq(schema.schools.id, schema.entries.ownerSchoolId)).where(eq(schema.entries.contestId, contestId));
+		.from(schema.entries).leftJoin(schema.results, eq(schema.results.entryId, schema.entries.id)).leftJoin(schema.schools, eq(schema.schools.id, schema.entries.ownerSchoolId)).where(and(activeEntry(), eq(schema.entries.contestId, contestId)));
 	return rows.map(({ entry, result, schoolName, schoolFullName }) => ({
 		...(() => { const part1 = result?.part1 ?? null; const part2 = result?.part2 ?? null; return { score: result?.score ?? (part1 !== null && part2 !== null ? part1 + part2 : null), part1, part2 }; })(),
 		id: entry.id, category: entry.category, division: entry.division, entryNumber: entry.entryNumber, schoolName: schoolName || schoolFullName || 'Statewide entry',

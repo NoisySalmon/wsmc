@@ -22,25 +22,35 @@ email provider is configured.
 
 | Page | Purpose |
 |---|---|
-| `/regions` | Assign unmapped schools to a region and open school registration. |
-| `/contests/<contest-id>` | Review all participating schools, rosters, entries, result coverage, and move from registration to roster lock and scoring. |
+| `/contests/<contest-id>` | Add schools, manage participation, check automatic registration status, and move from registration to roster lock and scoring. |
 | `/contests/<contest-id>/staff` | Invite or remove scorekeepers for this contest. Administrators also assign regional coordinators here. Coordinator and coach access applies across seasons; scorekeepers remain event-specific. |
 | `/registration/<contest-id>/<school-id>` | Edit any participating school's regional roster and entries. |
 | `/scoring/<contest-id>` | Enter scores, finalize, publish, or reopen the assigned contest. |
 | `/results/<contest-id>` | Review finalized regional rankings. |
 
-The top navigation includes **Regions** and an **Overview** link for
-each assigned contest. A **Scoring** link appears after roster lock.
+The top navigation includes an **Overview** link for each assigned contest.
+**Regions** is reserved for administrators. A **Scoring** link appears after roster lock.
 
 ## 1. Prepare school participation
 
-Open **Regions**.
+Open your contest **Overview**.
 
-1. Under **Unmapped schools**, find an active school with no regional assignment.
-2. Choose your region and select **Assign region**. Its division comes from the school record.
-3. Find the school in your regional group and select **Open registration**.
-4. To change its region, select **Remove participation**, then assign it to the
-   correct region. Removal requires unlocked rosters and no roster students or entries.
+1. Select **Add school** and search by name or city. Choose an existing school
+   and select **Add selected school**. Its division comes from the school record.
+2. If it is missing from the directory, select **School missing? Create and add**.
+   Enter the school name, city, and division. Creation and assignment save together.
+   Duplicate name/city matches must be resolved using the existing school.
+3. A school assigned to another region cannot be added here. Contact an
+   administrator to arrange a transfer.
+4. **Remove participation** is available only during setup, with no roster or entries.
+5. For a cancellation or no-show, select **Withdraw school**. The saved registration
+   remains intact, editing is disabled, and its entries are excluded from scoring,
+   result completeness, results, and automatic qualifications. **Restore participation**
+   restores the saved registration. Withdrawal is blocked once results exist or the
+   contest is finalized. Archived seasons are read-only.
+
+Adding schools requires setup or open registration. If rosters are locked,
+reopen registration from a school registration page before adding a walk-in.
 
 Schools do not accept or decline their assignments. Manage coaches through
 the contest's **People** page after assigning the school to the contest.
@@ -48,8 +58,11 @@ the contest's **People** page after assigning the school to the contest.
 ## 2. Review and edit registration
 
 The state coordinator must first place the contest in `registration_open`.
-Use the contest overview to check school responses, rostered students, and
-category entry counts before locking rosters.
+The contest overview automatically shows **No registration**, **Needs attention**,
+**Valid**, or **Withdrawn** for each school. Issues include empty entries, students
+without event assignments, and rule violations. Optional categories need not be filled.
+There is no coordinator verification or approval step. Resolve **Needs attention**
+items before locking rosters; schools with no registration do not block locking.
 
 1. From Participation, select **Open registration** for a school.
 2. Review the summary: annual students, rostered students, entry count, and

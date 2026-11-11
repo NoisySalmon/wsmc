@@ -1,3 +1,4 @@
+import { activeEntry } from '$lib/server/program/participation';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
@@ -85,7 +86,7 @@ export async function getScoringSnapshot(db: Database, contestId: string) {
 	}).from(schema.entries)
 		.leftJoin(schema.results, eq(schema.results.entryId, schema.entries.id))
 		.leftJoin(schema.schools, eq(schema.schools.id, schema.entries.ownerSchoolId))
-		.where(eq(schema.entries.contestId, contestId))
+		.where(and(activeEntry(), eq(schema.entries.contestId, contestId)))
 		.orderBy(asc(schema.entries.category), asc(schema.entries.division), asc(schema.entries.entryNumber));
 
 	const allMembers = await db.select({ member: schema.entryMembers, studentName: schema.annualStudents.name, actualGrade: schema.annualStudents.actualGrade, schoolName: schema.schools.shortName })
@@ -93,7 +94,7 @@ export async function getScoringSnapshot(db: Database, contestId: string) {
 		.innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId))
 		.innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.entryMembers.annualStudentId))
 		.innerJoin(schema.schools, eq(schema.schools.id, schema.annualStudents.schoolId))
-		.where(eq(schema.entries.contestId, contestId));
+		.where(and(activeEntry(), eq(schema.entries.contestId, contestId)));
 
 	return {
 		contest,
@@ -123,13 +124,13 @@ export async function getScoringSnapshot(db: Database, contestId: string) {
 
 export async function saveContestResult(db: Database, input: { contestId: string; entryId: string; actorUserId: string; expectedVersion?: number; now?: number } & ScoreInput) {
 	const contest = await requireScoringContest(db, input.contestId);
-	const [entry] = await db.select().from(schema.entries).where(and(eq(schema.entries.id, input.entryId), eq(schema.entries.contestId, contest.id)));
+	const [entry] = await db.select().from(schema.entries).where(and(activeEntry(), eq(schema.entries.id, input.entryId), eq(schema.entries.contestId, contest.id)));
 	if (!entry) throw new ScoringError('entry_out_of_scope', 'Entry does not belong to this contest.');
 	const values = validateScoreInput(entry.category as ScoreCategory, input);
 	if (entry.category === 'knowdown' && values.knowdownOutcome === 'placed' && values.placement !== null) {
 		const conflicts = await db.select({ entryId: schema.entries.id }).from(schema.entries)
 			.innerJoin(schema.results, eq(schema.results.entryId, schema.entries.id))
-			.where(and(eq(schema.entries.contestId, contest.id), eq(schema.entries.category, 'knowdown'), eq(schema.results.placement, values.placement)));
+			.where(and(activeEntry(), eq(schema.entries.contestId, contest.id), eq(schema.entries.category, 'knowdown'), eq(schema.results.placement, values.placement)));
 		if (conflicts.some((row) => row.entryId !== entry.id)) throw new ScoringError('duplicate_placement', `Knowdown place ${values.placement} is already assigned to another entrant.`);
 	}
 	let saved;
@@ -167,7 +168,7 @@ export async function getFinalizationReport(db: Database, contestId: string) {
 	const contest = await requireScoringContest(db, contestId, true);
 	const rows = await db.select({ entry: schema.entries, result: schema.results, schoolName: schema.schools.shortName })
 		.from(schema.entries).leftJoin(schema.results, eq(schema.results.entryId, schema.entries.id)).leftJoin(schema.schools, eq(schema.schools.id, schema.entries.ownerSchoolId))
-		.where(eq(schema.entries.contestId, contest.id));
+		.where(and(activeEntry(), eq(schema.entries.contestId, contest.id)));
 	const missing = rows.filter(({ entry, result }) => {
 		if (entry.category === 'topical_team' || entry.category === 'topical_individual') return result?.part1 === null || result?.part1 === undefined || result?.part2 === null || result?.part2 === undefined;
 		if (entry.category === 'knowdown') return result?.knowdownOutcome === null || result?.knowdownOutcome === undefined;

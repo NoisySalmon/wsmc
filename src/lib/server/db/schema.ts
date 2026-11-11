@@ -110,6 +110,7 @@ export const scorekeeperAssignments = sqliteTable('scorekeeper_assignments', {
 }, (table) => [primaryKey({ columns: [table.userId, table.contestId] })]);
 
 export const schoolParticipations = sqliteTable('school_participations', {
+	withdrawnAt: integer('withdrawn_at'),
 	id: text('id').primaryKey(),
 	contestId: text('contest_id').notNull().references(() => contests.id, { onDelete: 'cascade' }),
 	schoolId: text('school_id').notNull().references(() => schools.id, { onDelete: 'restrict' }),

@@ -18,7 +18,7 @@ function requireDivision(division: unknown): 1 | 2 {
 	return division;
 }
 
-export async function createSchool(db: Database, input: { name: string; shortName?: string; address?: string; city: string; state?: string; postalCode?: string; contactEmail?: string; division?: number; confirmDuplicate?: boolean; now?: number }) {
+export async function createSchool(db: Database, input: { name: string; shortName?: string; address?: string; city: string; state?: string; postalCode?: string; contactEmail?: string; division?: number; confirmDuplicate?: boolean; now?: number; contestId?: string }) {
 	const name = input.name.trim();
 	const city = input.city.trim();
 	if (!name || !city) throw new SchoolDirectoryError('invalid_request', 'School name and city are required.');
@@ -27,11 +27,13 @@ export async function createSchool(db: Database, input: { name: string; shortNam
 	const duplicates = existing.filter((school) => normalizeSchoolName(school.name) === normalizeSchoolName(name) && school.city.toLowerCase() === city.toLowerCase());
 	if (duplicates.length > 0 && !input.confirmDuplicate) throw new SchoolDirectoryError('duplicate_suggestion', 'A school with the same name and city already exists.', duplicates);
 	const now = input.now ?? Date.now();
-	const [school] = await db.insert(schema.schools).values({
-		id: crypto.randomUUID(), name, shortName: input.shortName?.trim() ?? '', address: input.address?.trim() ?? '', city,
+	const schoolId = crypto.randomUUID();
+	const insert = db.insert(schema.schools).values({
+		id: schoolId, name, shortName: input.shortName?.trim() ?? '', address: input.address?.trim() ?? '', city,
 		state: input.state?.trim().toUpperCase() || 'WA', postalCode: input.postalCode?.trim() ?? '', contactEmail: input.contactEmail?.trim().toLowerCase() ?? '', division, active: true, createdAt: now, updatedAt: now,
 	}).returning();
-	return { school, duplicates };
+	const [schools] = input.contestId ? await db.batch([insert, db.insert(schema.schoolParticipations).values({ id: crypto.randomUUID(), contestId: input.contestId, schoolId, division, createdAt: now, updatedAt: now })]) : [await insert];
+	return { school: schools[0], duplicates };
 }
 
 export async function updateSchool(db: Database, schoolId: string, input: { name: string; shortName: string; address: string; city: string; postalCode: string; division: number; confirmDuplicate?: boolean }) {

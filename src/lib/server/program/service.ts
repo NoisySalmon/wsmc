@@ -1,3 +1,4 @@
+import { getRegistrationReadiness } from '$lib/server/registration/readiness';
 import { and, eq, ne, sql } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
@@ -101,6 +102,10 @@ export async function setContestLifecycle(db: Database, contestId: string, seaso
 	if (contest.lifecycle === 'finalized') throw new ProgramError('finalized', 'Finalized contests are read-only. Reopen them from the Scoring page to make a correction.');
 	if (lifecycleOrder.indexOf(lifecycle) < lifecycleOrder.indexOf(contest.lifecycle as ContestLifecycle)) {
 		throw new ProgramError('invalid_transition', 'Contest lifecycle cannot move backward.');
+	}
+	if (contest.kind === 'regional' && contest.lifecycle === 'registration_open' && lifecycle !== 'registration_open') {
+		const readiness = await getRegistrationReadiness(db, contestId);
+		if (readiness.some(school => school.status === 'Needs attention')) throw new ProgramError('incomplete_registration', 'Resolve registrations marked Needs attention before locking rosters.');
 	}
 	await db.update(schema.contests).set({ lifecycle, updatedAt: now }).where(eq(schema.contests.id, contestId));
 }

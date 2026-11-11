@@ -11,6 +11,7 @@ sqlite3 "$database_path" < drizzle/0003_school_division.sql
 sqlite3 "$database_path" < drizzle/0004_program_stages.sql
 sqlite3 "$database_path" < drizzle/0005_season_year.sql
 sqlite3 "$database_path" < drizzle/0006_persistent_access.sql
+sqlite3 "$database_path" < drizzle/0007_participation_withdrawal.sql
 sqlite3 "$database_path" < scripts/seed.sql
 
 # Add 21 additional state-participating schools with 11 annual students each,
