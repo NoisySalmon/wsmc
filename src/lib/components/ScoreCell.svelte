@@ -47,11 +47,15 @@
 			if (saved) { await tick(); (next ?? button).focus(); }
 		}
 	}
+	function wheel(event: WheelEvent) {
+		// Blur before the number input can step; leave the wheel event free to scroll the table.
+		(event.currentTarget as HTMLInputElement).blur();
+	}
 </script>
 
 <div class="cell">
 	{#if editing}
-		<input bind:this={input!} aria-label={name} aria-invalid={!!error} aria-describedby={error ? `error-${entryId}-${field}` : undefined} type="number" min="0" {max} step="any" value={draft} oninput={(event) => { draft = event.currentTarget.value; error = ''; }} onkeydown={keydown} onblur={() => { if (!error) void save(); }} readonly={saving} />
+		<input bind:this={input!} aria-label={name} aria-invalid={!!error} aria-describedby={error ? `error-${entryId}-${field}` : undefined} type="number" min="0" {max} step="any" value={draft} oninput={(event) => { draft = event.currentTarget.value; error = ''; }} onkeydown={keydown} onwheel={wheel} onblur={() => { if (!error) void save(); }} readonly={saving} />
 	{:else}
 		<button bind:this={button!} data-field={field} aria-label={`${name}: ${value ?? 'blank'}. Edit score`} title={tooltip} {disabled} onclick={edit}>{value ?? '—'}</button>
 	{/if}
