@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { canFinalizeContest, canScoreContest } from '$lib/server/auth/capabilities';
 import { getDb, schema } from '$lib/server/db';
 import { importScoreCsv, previewScoreCsv, ScoreCsvValidationError } from '$lib/server/scoring/csv-service';
-import { finalizeContest, getFinalizationReport, getScoringSnapshot, publishContestResults, reopenContest, saveContestResult, ScoringError, type KnowdownOutcome } from '$lib/server/scoring/service';
+import { finalizeContest, getFinalizationReport, getScoringSnapshot, publishContestResults, reopenContest, saveContestResult, saveScoreCell, saveKnowdownPlace, ScoringError, type KnowdownOutcome } from '$lib/server/scoring/service';
 import type { Actions, PageServerLoad } from './$types';
 
 function text(data: FormData, name: string): string {
@@ -60,6 +60,22 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 };
 
 export const actions: Actions = {
+	saveCell: async ({ locals, platform, params, request }) => {
+		if (!locals.principal) throw error(401, 'Sign in required.');
+		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+		const db = getDb(platform.env.DB);
+		const data = await request.formData();
+		try {
+			const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, params.contestId));
+			if (!contest || !canScoreContest(locals.principal, contest.id, contest.seasonId)) throw error(403, 'You cannot score this contest.');
+			if (text(data, 'field') === 'placement') await saveKnowdownPlace(db, { contestId: contest.id, entryId: text(data, 'entryId') || null, placement: Number(text(data, 'value')), actorUserId: locals.principal.id });
+			else await saveScoreCell(db, { contestId: contest.id, entryId: text(data, 'entryId'), field: text(data, 'field'), value: numberOrNull(data, 'value'), actorUserId: locals.principal.id });
+			return { success: 'Score saved.' };
+		} catch (cause) {
+			if (isHttpError(cause)) throw cause;
+			return scoringFailure(cause);
+		}
+	},
 	saveResult: async ({ locals, platform, params, request }) => {
 		if (!locals.principal) throw error(401, 'Sign in required.');
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
