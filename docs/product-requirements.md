@@ -277,17 +277,17 @@ The application supports documented, downloadable CSV templates. It does not imp
 
 Required workflows:
 
-- School roster and regional-entry CSV export/import for coaches and coordinators.
-- Prefilled score-entry CSV export/import for coordinators and scorekeepers.
+- An empty school registration CSV template and append-only import for coaches and coordinators.
+- Scores are entered directly in the scoring worksheet; there is no score CSV import/export round trip.
 - CSV exports for the school directory, contest participation, results, qualifiers, and state rosters.
 
 Import requirements:
 
-- Every template includes a format/version identifier.
-- Existing records use stable IDs so round trips do not rely on names alone.
+- The registration template uses student name, grade, Team Contest team, Topical team, and Knowdown; it contains no IDs or format/version fields.
+- Registration uploads skip duplicates by normalized name and grade without updating existing students.
 - Upload produces a preview showing additions, changes, warnings, and row-level errors.
 - No database changes occur during preview.
-- Commit is all-or-nothing when errors remain.
+- Incomplete or unreadable registration rows are skipped and reported; accepted rows are committed atomically. Contest-rule violations remain editable in the worksheet.
 - Imports are idempotent when the same completed template is submitted twice.
 - Imports respect lifecycle locks and user permissions.
 - Imported changes are audited like UI changes.

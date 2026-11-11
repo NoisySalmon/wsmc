@@ -608,15 +608,14 @@
 				</div>{/each}
 		</section>{/if}
 	<details class="tools">
-		<summary>Spreadsheet import & export</summary>
+		<summary>Add students from CSV</summary>
 		<p>
-			Download your registration, edit it in a spreadsheet, and preview before
-			importing. Save worksheet changes first.
+			Download the template and fill in one row per student. Upload adds new students as attending; existing students are skipped by name and grade. Save worksheet changes first.
 		</p>
 		<a href={`/registration/${data.contest.id}/${data.school.id}/csv`}
-			>Download registration CSV</a
+			>Download registration CSV template</a
 		>
-		<p class="hint">CSV imports are available only while registration is open. Use the worksheet for contest-day corrections.</p>
+		<p class="hint">Use positive whole numbers for teams. Blank Team Contest means no event; blank Topical means individual. Knowdown accepts Yes or No (blank means No). Competing grades start at the student’s grade. Set Project teams and correct registration problems in the worksheet. CSV imports are available only while registration is open.</p>
 		<div class="csv-forms">
 			{#each ['previewCsv', 'importCsv'] as action}<form
 					method="POST"
@@ -637,7 +636,7 @@
 				</form>{/each}
 		</div>
 		{#if form?.csvSummary}<p>
-				{form.csvSummary.rows.length} rows · {form.csvSummary.newStudents} new students
+				{form.csvSummary.newStudents} students to add · {form.csvSummary.duplicateRows} duplicates skipped · {form.csvSummary.skippedRows} incomplete or unreadable rows skipped
 			</p>{/if}{#if form?.csvErrors?.length}<ul>
 				{#each form.csvErrors as error}<li>
 						Row {error.rowNumber}, {error.field}: {error.message}

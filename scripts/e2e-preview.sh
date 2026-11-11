@@ -266,7 +266,7 @@ registration_before="$(npx wrangler d1 execute wsmc-db --local --persist-to "$pe
 assert_status POST '/contests/contest-region-2?/withdrawSchool' 200 "$regional" --data 'participationId=participation-r2-gamma'
 assert_status GET /scoring/contest-region-2 200 "$regional"
 if grep --fixed-strings --quiet 'Gale Gamma' "$response_file"; then echo 'Withdrawn entrant still appears in scoring' >&2; exit 1; fi
-assert_status GET /scoring/contest-region-2/csv 200 "$regional"
+assert_status GET /scoring/contest-region-2/csv 404 "$regional"
 if grep --fixed-strings --quiet 'Gamma' "$response_file"; then echo 'Withdrawn school still appears in score export' >&2; exit 1; fi
 assert_status POST "$worksheet" 409 "$gamma_coach" --data "$worksheet_students"
 assert_status POST '/scoring/contest-region-2?/finalize' 200 "$regional" --data ''

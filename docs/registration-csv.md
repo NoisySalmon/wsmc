@@ -1,34 +1,35 @@
-# Registration CSV v1
+# School registration CSV
 
-The regional registration download uses the `wsmc.registration.v1` format. It
-is a wide, one-row-per-annual-student CSV so a coach can edit a school’s
-annual list, contest roster, and category memberships in a spreadsheet.
+Download registration CSV template provides an empty, five-column CSV:
 
-The columns are:
-
-```text
-format_version,student_id,student_name,actual_grade,rostered,
-project_entry_id,project_entry_number,project_competing_grade,
-team_contest_entry_id,team_contest_entry_number,team_contest_competing_grade,
-topical_team_entry_id,topical_team_entry_number,topical_team_competing_grade,
-topical_individual_entry_id,topical_individual_entry_number,
-knowdown_entry_id,knowdown_entry_number,knowdown_selected
+```csv
+Student name,Grade,Team contest team,Topical team,Knowdown
 ```
 
-Stable `student_id` and `*_entry_id` values are included for existing records.
-Leave a student ID blank to add a new annual student. New category entries
-must use a positive entry number; rows with the same category and entry number
-join the same team or individual entry. Team membership requires a competing
-grade and individual membership leaves the competing-grade column blank.
+Enter one student per row. Grade must be 9, 10, 11, or 12. Team columns accept
+positive whole team numbers: students with the same number join the same team
+in that event, including existing teams. Blank Team Contest means no event;
+blank Topical means individual. Knowdown accepts Yes or No (also Y/N and
+True/False, case insensitive); blank means No. Students are added as attending,
+with competing grades initially matching their actual grade. Assign Project
+teams and adjust competing grades in the worksheet.
 
-Use `yes` or `no` for `rostered` and `knowdown_selected`. A blank category
-reference means that student is not a member of that category. The import
-does not delete annual students omitted from the file, but it does make the
-roster and category memberships for included students match the file.
+Uploads only append new students. Existing students in the school's annual
+list and earlier accepted rows in the file are matched by name and grade,
+ignoring name case and extra whitespace. Duplicates are skipped, without
+changing existing attendance or assignments. Two students with the same name
+and grade must be handled manually in the worksheet. Re-uploading a file does
+not apply corrections to existing students.
 
-Preview parses and validates the complete file without writing. Import repeats
-the validation inside an all-or-nothing transaction, is safe to repeat, and
-respects the Registration open lifecycle gate and the same team, grade,
-Topical, and Knowdown rules as the registration UI. Exported text beginning
-with `=`, `+`, `-`, or `@` is prefixed for spreadsheet safety and restored when
-read back by WSMC.
+Rows missing a name or usable grade, or containing unreadable team numbers or
+Knowdown values, are skipped. Preview and import report added/would-add counts,
+duplicate counts, skipped counts, and row numbers for skipped data. A malformed
+CSV or incorrect header rejects the file. Headers are case insensitive and
+must retain the template's order. Trailing empty cells may be omitted.
+
+Contest-rule violations, including oversized teams, repeated competing grades,
+and excess Knowdown nominees, do not block import. The resulting registration
+remains invalid until corrected in the worksheet. Preview writes nothing;
+import batches accepted rows atomically. Imports remain restricted to editable,
+open regional registrations. There are no IDs, format-version fields, Project
+columns, or existing student data in the template.

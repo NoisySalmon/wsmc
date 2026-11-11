@@ -2,7 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { error, fail } from '@sveltejs/kit';
 import { canEditRoster, canFinalizeContest } from '$lib/server/auth/capabilities';
 import { getDb, schema } from '$lib/server/db';
-import { importRegistrationCsv, previewRegistrationCsv, RegistrationCsvValidationError } from '$lib/server/registration/csv-service';
+import { importRegistrationCsv, previewRegistrationCsv } from '$lib/server/registration/csv-service';
 import { requireEditableRegistration, ScoredRemovalError, addWorksheetStudent, saveContestWorksheet, addCategoryMember, addRosterStudent, createCategoryEntry, createProjectTeam, deleteAnnualStudent, deleteCategoryEntry, RegistrationError, removeCategoryMember, removeRosterStudent, reopenRoster, saveTeamContestAssignments, saveTopicalAssignments, setContestRoster, setKnowdownNominees, updateAnnualStudent, type ScoredRemoval, type MatrixTeamAssignment, type MatrixTopicalAssignment } from '$lib/server/registration/service';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -40,7 +40,6 @@ async function csvText(request: Request): Promise<string> {
 }
 
 function csvFormError(cause: unknown) {
-	if (cause instanceof RegistrationCsvValidationError) return fail(400, { error: cause.message, csvErrors: cause.preview.errors.slice(0, 20), csvSummary: cause.preview });
 	return fail(400, { error: cause instanceof Error ? cause.message : 'CSV registration change could not be saved.' });
 }
 
@@ -241,7 +240,7 @@ export const actions: Actions = {
 		if (!locals.principal) throw error(401, 'Sign in required.'); if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const db = getDb(platform.env.DB); const { contest, school } = await scope(db, params.contestId, params.schoolId);
 		if (!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)) throw error(403, 'You cannot edit this registration.');
-		try { await requireEditable(db, contest, null); const preview = await importRegistrationCsv(db, { contestId: contest.id, schoolId: school.id, actorUserId: locals.principal.id, text: await csvText(request) }); return { csvSummary: preview, success: `Imported ${preview.rows.length} student rows atomically.` }; } catch (cause) { return csvFormError(cause); }
+		try { await requireEditable(db, contest, null); const preview = await importRegistrationCsv(db, { contestId: contest.id, schoolId: school.id, actorUserId: locals.principal.id, text: await csvText(request) }); return { csvSummary: preview, csvErrors: preview.errors, success: `Added ${preview.newStudents} students. Skipped ${preview.duplicateRows} duplicates and ${preview.skippedRows} incomplete or unreadable rows.` }; } catch (cause) { return csvFormError(cause); }
 	},
 	reopen: async ({ locals, platform, params, request }) => {
 		if (!locals.principal) throw error(401, 'Sign in required.'); if (!platform?.env.DB) throw error(503, 'Database unavailable.');

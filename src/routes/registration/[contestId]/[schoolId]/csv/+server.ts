@@ -20,6 +20,6 @@ export const GET: RequestHandler = async ({ locals, platform, params }) => {
 	const { contest, school } = scope;
 	if (!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)) throw error(403, 'You cannot export this registration.');
 	const csv = await exportRegistrationCsvFromDb(db, contest.id, school.id);
-	const filename = `wsmc-registration-${params.contestId}-${params.schoolId}.csv`;
+	const filename = 'wsmc-registration-template.csv';
 	return new Response(csv, { headers: { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="${filename}"`, 'cache-control': 'no-store' } });
 };

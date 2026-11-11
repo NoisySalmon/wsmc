@@ -148,17 +148,7 @@ entry; do not depend on the same row remaining missing.
 the noted student to show both parts, their total, and the saved version.
 Do not promise a total of 125: Part 1 comes from the fixture.
 
-> “A blank means work is still missing; zero is an actual score. For bulk entry,
-> there's also a prefilled score CSV, with preview before import and version
-> checks to catch an older spreadsheet.”
-
-> “The current screen supports individual score entry and CSV import. For
-> high-volume entry, the next improvement would be a keyboard-driven grid that
-> works like the spreadsheet staff already use.”
-
-**Optional show:** Open the [W3C interactive data grid examples](https://www.w3.org/WAI/ARIA/apg/patterns/grid/examples/data-grids/)
-to illustrate how keyboard navigation and cell editing might work. This is an
-external interaction example, not functionality currently implemented in WSMC.
+> “A blank means work is still missing; zero is an actual score. Enter scores directly in the scoring worksheet.”
 
 ### 3. Explain the completion checkpoint
 

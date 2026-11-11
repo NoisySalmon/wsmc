@@ -127,15 +127,6 @@ If another user saved the same result after your page loaded, the application
 rejects your stale version instead of overwriting their work. Reload, review
 the newer value, and make the correction again if needed.
 
-### Score CSV
-
-1. Select **Download score CSV**.
-2. Edit only the appropriate score, part, placement, or Knowdown outcome fields.
-3. Use **Preview CSV** and resolve every error.
-4. Use **Import CSV**. Any invalid or stale row rejects the complete import.
-
-See `docs/score-csv.md` for the exact columns.
-
 ## 4. Finalize and publish regional results
 
 1. On the scoring page, filter to **Missing only** and resolve all entries.
@@ -187,7 +178,7 @@ Knowdown alternate or a result correction made after an earlier review.
 - [ ] Registration edits are blocked outside `registration_open`.
 - [ ] Invalid team grades, team size, or Topical combinations are rejected.
 - [ ] Score edits are enabled only in `scoring`.
-- [ ] A stale browser or CSV score edit is rejected.
+- [ ] A stale browser score edit is rejected.
 - [ ] Finalization is blocked until every entry has a result.
 - [ ] Finalization, publication, and reasoned reopening succeed in contest scope.
 - [ ] Qualification and state administration pages remain forbidden.

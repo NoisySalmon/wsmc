@@ -169,10 +169,6 @@ For scoring:
 7. When the completeness summary says **Complete**, select **Finalize results**.
 8. Review the locked results, then select **Publish results**.
 
-For bulk work, download the score CSV, edit it, preview it, and import it. The
-version column prevents an older file from overwriting a newer browser or CSV
-edit. See `docs/score-csv.md` for the format.
-
 If finalized results need correction, enter a reason and select **Reopen for
 correction**. Reopening returns the contest to `scoring`, clears publication,
 and adds an audit event.
