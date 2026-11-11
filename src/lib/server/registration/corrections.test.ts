@@ -32,7 +32,8 @@ async function fixture() {
 	return { db, d1, event };
 }
 
-describe('contest-day registration corrections', () => {
+// Real D1 startup, seeding and multi-stage journeys need more than 5s on CI.
+describe('contest-day registration corrections', { timeout: 15_000 }, () => {
 	it('keeps team scores with teams and individual scores with students when the worksheet changes order and membership', async () => {
 		const { d1, event } = await fixture();
 		const entries = (await d1.prepare("SELECT e.id, e.category, e.entry_number, m.annual_student_id FROM entries e JOIN entry_members m ON m.entry_id = e.id WHERE e.contest_id = ? AND e.owner_school_id = ?").bind(scope.contestId, scope.schoolId).all()).results;
