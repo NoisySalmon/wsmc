@@ -57,11 +57,13 @@ export async function revokeQrSignIn(db: Database, actor: Principal | null, inpu
 	));
 }
 
+// Use same-origin referrers: no-referrer makes native POST forms send Origin: null,
+// which production CSRF protection rejects when closing a code.
 /** Each page supplies its scope; never take a contest scope from submitted data. */
 export function qrActions(scope: 'admin' | 'contest') {
 	return {
 		qr: async ({ locals, platform, params, request, url, setHeaders }) => {
-			setHeaders({ 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' });
+			setHeaders({ 'cache-control': 'no-store', 'referrer-policy': 'same-origin' });
 			if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 			const data = await request.formData();
 			try {
@@ -75,7 +77,7 @@ export function qrActions(scope: 'admin' | 'contest') {
 			}
 		},
 		revokeQr: async ({ locals, platform, params, request, setHeaders }) => {
-			setHeaders({ 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' });
+			setHeaders({ 'cache-control': 'no-store', 'referrer-policy': 'same-origin' });
 			if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 			const data = await request.formData();
 			try {

@@ -61,8 +61,22 @@ for (const [path, session] of [[adminPath, admin], [staffPath, regional]]) {
 		body: new URLSearchParams({ userId: 'user-coach-gamma' }),
 	});
 	assert.equal(response.status, 200, 'Ordinary form submission renders the QR panel');
+	// Preserve same-origin POST origins while suppressing cross-origin referrers.
+	assert.equal(response.headers.get('referrer-policy'), 'same-origin');
 	assert.equal(response.headers.get('cache-control'), 'no-store');
-	assert((await response.text()).includes('data:image/svg+xml,'), 'QR image appears in HTML');
+	const html = await response.text();
+	assert(/<img\b[^>]*src="data:image\/svg\+xml,/.test(html), 'QR image appears in HTML');
+	const tokenId = html.match(/name="tokenId" value="([^"]+)"/)?.[1];
+	assert(tokenId, 'Close form identifies the issued token');
+	const close = (origin) => fetch(`${base}${path}?/revokeQr`, {
+		method: 'POST', headers: { Origin: origin, Cookie: `wsmc_session=${session}`, Accept: 'text/html' },
+		body: new URLSearchParams({ userId: 'user-coach-gamma', tokenId }),
+	});
+	assert.equal((await close('https://untrusted.example')).status, 403, 'Cross-site close submissions remain blocked');
+	const closed = await close(base);
+	assert.equal(closed.status, 200, 'Ordinary close form succeeds');
+	assert(!/<img\b[^>]*src="data:image\/svg\+xml,/.test(await closed.text()), 'Closing removes the QR panel');
+	assert(sql(`SELECT revoked_at FROM sign_in_tokens WHERE id = '${tokenId}';`)[0].revoked_at, 'Closing revokes the issued token');
 }
 
 // Pending accounts activate without any email delivery. Existing sessions are retained.

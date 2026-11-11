@@ -280,6 +280,11 @@ assert_page_contains GET /scoring/contest-region-2 "$regional" 'Gale Gamma'
 
 assert_action_failure POST '/scoring/contest-region-2?/finalize' 400 "$regional" --data ''
 assert_status GET /contests/contest-region-2/staff 200 "$regional"
+if grep --fixed-strings --quiet 'Remove access' "$response_file"; then
+ echo 'Regional coordinators must not see persistent access removal buttons' >&2
+ exit 1
+fi
+assert_page_contains GET /contests/contest-region-2/staff "$coordinator" 'Remove access'
 assert_status GET /contests/contest-region-1/staff 403 "$regional"
 assert_status GET /contests/contest-region-2/staff 403 "$scorekeeper2"
 assert_status POST '/contests/contest-region-2/staff?/remove' 200 "$regional" --data 'role=scorekeeper&userId=user-scorekeeper-2'
@@ -298,7 +303,9 @@ assert_page_contains GET /contests/contest-region-2/staff "$regional" 'Region 2 
 assert_status POST '/admin/users?/add' 200 "$coordinator" --data 'email=scorekeeper2%40wsmc.example&role=scorekeeper&contestId=contest-region-2'
 existing_access="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT (SELECT COUNT(*) FROM coach_assignments WHERE user_id = 'user-scorekeeper-2' AND school_id = 'school-gamma') AS coaches, (SELECT COUNT(*) FROM sign_in_tokens WHERE user_id = 'user-scorekeeper-2') AS tokens, (SELECT display_name FROM users WHERE id = 'user-scorekeeper-2') AS name;")"
 node -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"))[0].results[0]; if(r.coaches!==1 || r.tokens!==0 || r.name!=="Region 2 Scorekeeper") throw new Error("Adding access changed identity or sign-in tokens");' <<< "$existing_access"
-assert_status POST '/contests/contest-region-2/staff?/remove' 200 "$regional" --data 'role=coach&schoolId=school-gamma&userId=user-scorekeeper-2'
+assert_status POST '/contests/contest-region-2/staff?/remove' 403 "$regional" --data 'role=coach&schoolId=school-gamma&userId=user-scorekeeper-2'
+assert_status POST '/contests/contest-region-2/staff?/remove' 403 "$regional" --data 'role=regional&userId=user-regional-coordinator-2'
+assert_status POST '/contests/contest-region-2/staff?/remove' 200 "$coordinator" --data 'role=coach&schoolId=school-gamma&userId=user-scorekeeper-2'
 assert_status POST '/admin/users?/disable' 200 "$coordinator" --data 'userId=user-scorekeeper-2'
 assert_action_failure POST '/contests/contest-region-2/staff?/add' 400 "$regional" --data 'email=scorekeeper2%40wsmc.example&role=coach&schoolId=school-gamma'
 assert_status POST '/admin/users?/enable' 200 "$coordinator" --data 'userId=user-scorekeeper-2'
