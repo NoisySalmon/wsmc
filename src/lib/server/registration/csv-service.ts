@@ -59,6 +59,10 @@ function entryKey(category: RegistrationCsvCategory, entryNumber: number | null)
 export async function importRegistrationCsv(db: Database, input: { contestId: string; schoolId: string; actorUserId: string; text: string; now?: number }): Promise<RegistrationCsvPreview> {
 	const scope = await loadRegistrationCsvScope(db, input.contestId, input.schoolId);
 	const snapshot = await loadRegistrationCsvSnapshot(db, input.contestId, input.schoolId);
+	if (snapshot.entries.length) {
+		const [result] = await db.select().from(schema.results).where(inArray(schema.results.entryId, snapshot.entries.map(entry => entry.id)));
+		if (result) throw new RegistrationCsvError('has_scores', 'Scores have been entered. Use the registration worksheet to make corrections while preserving results.');
+	}
 	const rows = parseRegistrationCsv(input.text);
 	const preview = validateRegistrationCsv(rows, snapshot);
 	if (preview.errors.length > 0) throw new RegistrationCsvValidationError(preview);

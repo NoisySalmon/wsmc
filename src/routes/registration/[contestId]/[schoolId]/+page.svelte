@@ -6,6 +6,11 @@
 	let { data, form } = $props();
 	let saving = $state(false);
 	let editing = $state(false);
+	let correcting = $state(false);
+	const correctionAvailable = $derived(!data.readOnly && data.contest.lifecycle !== 'registration_open');
+	const readOnly = $derived(data.readOnly || (correctionAvailable && !correcting));
+	let reviewedRows = $state('');
+	let confirmRemoval = $state(false);
 	let studentDrafts = $state<Record<string, { name: string; actualGrade: number }>>({});
 	let savingStudent = $state<string | null>(null);
 	let deletingStudent = $state<string | null>(null);
@@ -89,6 +94,8 @@
 	}
 	let rows = $state<Row[]>(makeRows());
 	let savedRows = $state(worksheetSnapshot(makeRows()));
+	const removalReview = $derived(form && 'scoredRemovals' in form ? form : null);
+	const showRemovalReview = $derived(Boolean(removalReview?.scoredRemovals?.length) && reviewedRows === worksheetSnapshot(rows));
 	const dirty = $derived(worksheetSnapshot(rows) !== savedRows);
 	function sortRows(
 		key: SortKey,
@@ -214,7 +221,7 @@
 				><strong>Regional contest</strong><small>{data.contest.name}</small
 				></span
 			><span class="status"
-				>{data.participation.withdrawnAt != null ? 'Withdrawn' : data.readOnly ? 'Read only' : 'Registration open'}</span
+				>{data.participation.withdrawnAt != null ? 'Withdrawn' : readOnly ? 'Read only' : correctionAvailable ? 'Coordinator editing' : 'Registration open'}</span
 			></a
 		>{#if data.stateContest}<a
 				href={`/state/${data.stateContest.id}`}
@@ -232,11 +239,19 @@
 				>
 			</div>{/if}
 	</nav>
-	{#if data.participation.withdrawnAt != null}<p class="notice">This school has withdrawn. Registration is preserved. A coordinator can restore participation from the <a href="/contests/{data.contest.id}">contest page</a>.</p>{:else if data.readOnly}<p class="notice">
-			This contest is read-only ({data.contest.lifecycle.replaceAll('_', ' ')}).
-			Contact your coordinator for corrections.
+	{#if data.participation.withdrawnAt != null}<p class="notice">This school has withdrawn. Registration is preserved. A coordinator can restore participation from the <a href="/contests/{data.contest.id}">contest page</a>.</p>{:else if readOnly}<p class="notice">
+			{#if correctionAvailable}
+				Registration is closed for coaches. You can make coordinator corrections.
+				<button type="button" onclick={() => correcting = true}>Edit registration</button>
+			{:else if data.canReopen}
+				{data.lockReason}
+				{#if data.contest.lifecycle === 'finalized' && data.season?.status !== 'archived'}<a href="/scoring/{data.contest.id}">Reopen for correction from Scoring</a>.{/if}
+			{:else}
+				Registration is closed. Contact your coordinator for corrections.
+			{/if}
 		</p>{/if}
 
+	{#if correcting && correctionAvailable}<p class="notice">Coordinator corrections: changes affect contest results. Scores already entered will be preserved unless you confirm removal of a scored entry. <button type="button" disabled={dirty || saving} onclick={() => correcting = false}>Finish editing</button></p>{/if}
 	<section class="worksheet" aria-label="Contest assignments">
 		<div class="section-heading">
 			<div>
@@ -271,18 +286,37 @@
 		<form
 			method="POST"
 			action="?/saveWorksheet"
-			oninput={() => { feedbackVisible = false; }}
+			oninput={(event) => { feedbackVisible = false; if ((event.target as HTMLInputElement).name !== "confirmRemoval") confirmRemoval = false; }}
 			onchange={() => { feedbackVisible = false; }}
 			use:enhance={() => {
 				saving = true;
 				feedbackVisible = false;
-				return async ({ update }) => {
+				return async ({ result, update }) => {
+					if (result.type === 'failure' && result.data?.scoredRemovals) {
+						reviewedRows = worksheetSnapshot(rows);
+						confirmRemoval = false;
+					}
 					await update({ reset: false });
 					saving = false;
 					feedbackVisible = true;
 				};
 			}}
 		>
+			{#if showRemovalReview}
+				<div class="notice" role="alert">
+					<strong>Review scored entries being removed</strong>
+					<ul>{#each removalReview?.scoredRemovals ?? [] as removal}<li>
+						{removal.category.replaceAll('_', ' ')} {removal.entryNumber ?? ''}: {removal.students.join(', ')} —
+						{#if removal.result.part1 !== null}Part 1: {removal.result.part1}; {/if}
+						{#if removal.result.part2 !== null}Part 2: {removal.result.part2}; {/if}
+						{#if removal.result.score !== null}Score: {removal.result.score}; {/if}
+						{#if removal.result.placement !== null}Place: {removal.result.placement}; {/if}
+						{#if removal.result.knowdownOutcome}Outcome: {removal.result.knowdownOutcome}{/if}
+					</li>{/each}</ul>
+					<label><input type="checkbox" name="confirmRemoval" bind:checked={confirmRemoval} /> Remove these entries and their results when saving.</label>
+					<input type="hidden" name="removalConfirmation" value={confirmRemoval ? removalReview?.removalConfirmation ?? '' : ''} />
+				</div>
+			{/if}
 			<div class="table-scroll">
 				<table>
 					<thead>
@@ -315,7 +349,7 @@
 										name={`attending_${row.id}`}
 										aria-label={`Attendance for ${row.name}`}
 										bind:value={row.attending}
-										disabled={data.readOnly}
+										disabled={readOnly}
 										><option value="yes">Attending</option><option value="no"
 											>Not attending</option
 										></select
@@ -329,7 +363,7 @@
 											aria-describedby={cellErrors[`team_${row.id}`] ? `team-error-${row.id}` : undefined}
 											aria-label={`Team Contest team for ${row.name}`}
 											bind:value={row.team}
-											disabled={data.readOnly || row.attending === 'no'}
+											disabled={readOnly || row.attending === 'no'}
 											><option value="">No event</option
 											>{#each teamNumbers as team}<option value={team}
 													>Team {team}</option
@@ -340,7 +374,7 @@
 											aria-describedby={cellErrors[`team_${row.id}`] ? `team-error-${row.id}` : undefined}
 											aria-label={`Team Contest grade for ${row.name}`}
 											bind:value={row.teamGrade}
-											disabled={data.readOnly ||
+											disabled={readOnly ||
 												row.attending === 'no' ||
 												!row.team}
 											>{#each grades.filter((g) => g >= row.actualGrade) as grade}<option
@@ -357,7 +391,7 @@
 											aria-describedby={cellErrors[`topical_${row.id}`] ? `topical-error-${row.id}` : undefined}
 											aria-label={`Topical event for ${row.name}`}
 											bind:value={row.topical}
-											disabled={data.readOnly || row.attending === 'no'}
+											disabled={readOnly || row.attending === 'no'}
 											><option value="">No event</option><option
 												value="individual">Individual</option
 											>{#each teamNumbers as team}<option value={team}
@@ -369,7 +403,7 @@
 											aria-describedby={cellErrors[`topical_${row.id}`] ? `topical-error-${row.id}` : undefined}
 											aria-label={`Topical grade for ${row.name}`}
 											bind:value={row.topicalGrade}
-											disabled={data.readOnly ||
+											disabled={readOnly ||
 												row.attending === 'no' ||
 												!row.topical ||
 												row.topical === 'individual'}
@@ -387,7 +421,7 @@
 											aria-describedby={cellErrors[`project_${row.id}`] ? `project-error-${row.id}` : undefined}
 											aria-label={`Project team for ${row.name}`}
 											bind:value={row.project}
-											disabled={data.readOnly || row.attending === 'no'}
+											disabled={readOnly || row.attending === 'no'}
 											><option value="">No event</option
 											>{#each teamNumbers as team}<option value={team}
 													>Team {team}</option
@@ -398,7 +432,7 @@
 											aria-describedby={cellErrors[`project_${row.id}`] ? `project-error-${row.id}` : undefined}
 											aria-label={`Project grade for ${row.name}`}
 											bind:value={row.projectGrade}
-											disabled={data.readOnly ||
+											disabled={readOnly ||
 												row.attending === 'no' ||
 												!row.project}
 											>{#each grades.filter((g) => g >= row.actualGrade) as grade}<option
@@ -413,7 +447,7 @@
 										name={`knowdown_${row.id}`}
 										aria-label={`Nominate ${row.name} for Knowdown`}
 										bind:checked={row.knowdown}
-										disabled={data.readOnly || row.attending === 'no'}
+										disabled={readOnly || row.attending === 'no'}
 									/></td
 								>
 							</tr>{:else}<tr
@@ -438,7 +472,7 @@
 				</p>
 				<div class="save-actions">
 					<button class="secondary" type="button" onclick={cancelContestChanges} disabled={!dirty || saving}>Cancel</button>
-				<button type="submit" disabled={data.readOnly || !dirty || saving || nominees > 3}
+				<button type="submit" disabled={readOnly || !dirty || saving || nominees > 3 || (showRemovalReview && !confirmRemoval)}
 					>{saving ? 'Saving…' : 'Save contest'}</button
 				>
 				</div>
@@ -470,14 +504,14 @@
 				name="name"
 				placeholder="Full name"
 				required
-				disabled={data.readOnly || dirty}
+				disabled={readOnly || dirty}
 			/><label class="sr-only" for="student-grade">Actual grade</label><select
 				id="student-grade"
 				name="actualGrade"
-				disabled={data.readOnly || dirty}
+				disabled={readOnly || dirty}
 				>{#each grades as grade}<option value={grade}>Grade {grade}</option
 					>{/each}</select
-			><button class="secondary" disabled={data.readOnly || dirty}
+			><button class="secondary" disabled={readOnly || dirty}
 				>+ Add student</button
 			>
 		</form>
@@ -528,16 +562,16 @@
 						name="name"
 						value={draft.name}
 						oninput={(event) => { studentDrafts[student.id] = { ...draft, name: event.currentTarget.value }; }}
-						disabled={data.readOnly || savingStudent !== null || deletingStudent !== null}
+						disabled={readOnly || savingStudent !== null || deletingStudent !== null}
 						required
 					/><select
 						aria-label={`Actual grade for ${student.name}`}
 						name="actualGrade"
 						value={draft.actualGrade}
 						onchange={(event) => { studentDrafts[student.id] = { ...draft, actualGrade: Number(event.currentTarget.value) }; }}
-						disabled={data.readOnly || savingStudent !== null || deletingStudent !== null}
+						disabled={readOnly || savingStudent !== null || deletingStudent !== null}
 						>{#each grades as grade}<option value={grade}>Grade {grade}</option>{/each}</select
-					><button disabled={data.readOnly || dirty || !studentDirty || savingStudent !== null || deletingStudent !== null}>{savingStudent === student.id ? 'Saving…' : 'Save student'}</button>
+					><button disabled={readOnly || dirty || !studentDirty || savingStudent !== null || deletingStudent !== null}>{savingStudent === student.id ? 'Saving…' : 'Save student'}</button>
 				</form>
 				<form
 					method="POST"
@@ -568,7 +602,7 @@
 					<button
 						class="delete-student"
 						aria-label={`Delete ${student.name}`}
-						disabled={data.readOnly || dirty || studentDirty || data.rosterIds.includes(student.id) || data.members.some((member) => member.annualStudentId === student.id) || savingStudent !== null || deletingStudent !== null}
+						disabled={readOnly || dirty || studentDirty || data.rosterIds.includes(student.id) || data.members.some((member) => member.annualStudentId === student.id) || savingStudent !== null || deletingStudent !== null}
 					>{deletingStudent === student.id ? 'Deleting…' : 'Delete student'}</button>
 				</form>
 				</div>{/each}
@@ -582,6 +616,7 @@
 		<a href={`/registration/${data.contest.id}/${data.school.id}/csv`}
 			>Download registration CSV</a
 		>
+		<p class="hint">CSV imports are available only while registration is open. Use the worksheet for contest-day corrections.</p>
 		<div class="csv-forms">
 			{#each ['previewCsv', 'importCsv'] as action}<form
 					method="POST"
@@ -596,7 +631,7 @@
 							accept=".csv,text/csv"
 							required
 						/></label
-					><button disabled={data.readOnly || dirty}
+					><button disabled={readOnly || dirty || data.contest.lifecycle !== 'registration_open'}
 						>{action === 'previewCsv' ? 'Preview CSV' : 'Import CSV'}</button
 					>
 				</form>{/each}
@@ -609,10 +644,11 @@
 					</li>{/each}
 			</ul>{/if}
 	</details>
-	{#if data.canReopen && data.contest.lifecycle === 'roster_locked'}<section
+	{#if data.canReopen && !data.readOnly && data.contest.lifecycle === 'roster_locked'}<section
 			class="details-panel"
 		>
-			<h2>Reopen for corrections</h2>
+			<h2>Reopen registration for all coaches</h2>
+			<p>Use this when coaches need to review their registrations again before scoring. For a single correction, use Edit registration above.</p>
 			<form method="POST" action="?/reopen" use:enhance>
 				<label>Reason <textarea name="reason" required></textarea></label
 				><button>Reopen registration</button>
