@@ -55,5 +55,7 @@ with tempfile.TemporaryDirectory(prefix="wsmc-results-check-") as temp:
         assert db.execute("SELECT score,part1,part2 FROM results WHERE entry_id=?", (incomplete["entryId"],)).fetchone() == (None, None, None)
         assert scalar("SELECT count(*) FROM audit_events WHERE action='historical_results_seeded' AND details_json LIKE '%115%'") > 0
         assert scalar("SELECT count(*) FROM results r JOIN entries e ON e.id=r.entry_id WHERE e.category='knowdown' AND r.placement=4 AND r.knowdown_outcome='placed'") > 0
+        # Reviewed school aliases must survive the real seed/storage boundary.
+        assert db.execute("SELECT r.placement,r.knowdown_outcome FROM results r JOIN entries e ON e.id=r.entry_id JOIN entry_members m ON m.entry_id=e.id WHERE e.category='knowdown' AND m.annual_student_id='r5-S4-I13'").fetchall() == [(2, 'placed')]
         db.execute("UPDATE seasons SET status='archived'")
     print("2026 results seed storage checks passed (including archived-history replacement).")

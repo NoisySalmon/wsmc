@@ -67,7 +67,7 @@ for (const [index, school] of directory.schools.entries()) {
  if (stage === 'setup') continue;
  const definitions = [
   ['project', students.slice(0, 3)], ['team_contest', students.slice(0, 3)], ['topical_team', students.slice(0, 3)],
-  ...students.slice(3).map(s => ['topical_individual', [s]]), ...students.map(s => ['knowdown', [s]])
+  ...students.slice(3).map(s => ['topical_individual', [s]]), ...students.slice(0, 3).map(s => ['knowdown', [s]])
  ];
  const counts = new Map();
  for (const [category, members] of definitions) {

@@ -43,7 +43,7 @@ print(json.dumps(statements))
 	const planning = await getQualificationPlanningData(db, input.seasonId);
 	assert(planning.members.every(member => typeof member.studentName === 'string' && member.studentName.length));
 	assert.equal(await scalar("SELECT count(*) n FROM qualifications q JOIN qualification_rounds r ON r.id=q.round_id WHERE r.kind='state_cutoff'"), 66);
-	assert.equal(await scalar("SELECT count(*) n FROM qualifications q JOIN qualification_rounds r ON r.id=q.round_id WHERE r.kind='regional_placements' AND q.active=1"), 184);
+	assert.equal(await scalar("SELECT count(*) n FROM qualifications q JOIN qualification_rounds r ON r.id=q.round_id WHERE r.kind='regional_placements' AND q.active=1"), 190);
 	assert.equal(await visibility(), 0);
 	await saveQualificationDraft(db, { ...input, thresholds: Object.fromEntries(Object.keys(input.thresholds).map(key => [key, { 1: 999, 2: 999 }])) });
 	assert.equal(await scalar("SELECT count(*) n FROM qualifications q JOIN qualification_rounds r ON r.id=q.round_id WHERE r.kind='state_cutoff'"), 0);

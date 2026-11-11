@@ -6,6 +6,10 @@
 	let { data, form } = $props();
 	let saving = $state(false);
 	let editing = $state(false);
+	let studentDrafts = $state<Record<string, { name: string; actualGrade: number }>>({});
+	let savingStudent = $state<string | null>(null);
+	let deletingStudent = $state<string | null>(null);
+	let deletionFeedback = $state<{ message: string; error: boolean } | null>(null);
 	const grades = [9, 10, 11, 12];
 	type Row = {
 		id: string;
@@ -189,7 +193,7 @@
 	}}
 />
 <main>
-	<a class="back" href="/my-schools" onclick={guardNavigation}>← My schools</a>
+	<a class="back" href={data.canReopen ? `/contests/${data.contest.id}` : "/my-schools"} onclick={guardNavigation}>← {data.canReopen ? data.contest.name : 'My schools'}</a>
 	<header class="page-heading">
 		<div>
 			<p class="eyebrow">MY TEAM / {data.season?.year ?? 'Season'}</p>
@@ -497,26 +501,77 @@
 	{#if editing}<section class="details-panel">
 			<h2>Student details</h2>
 			<p class="intro">Names and actual grades are shared across the season.</p>
-			{#each data.students as student}<form
+			<p class="intro">To delete a duplicate, mark them “Not attending” above and save the contest first. Deleting removes their student record for this season.</p>
+			{#if deletionFeedback}<p class:error={deletionFeedback.error} class:success={!deletionFeedback.error} role={deletionFeedback.error ? 'alert' : 'status'}>{deletionFeedback.message}</p>{/if}
+			{#each data.students as student (student.id)}
+				{@const draft = studentDrafts[student.id] ?? student}
+				{@const studentDirty = draft.name !== student.name || draft.actualGrade !== student.actualGrade}
+				<div class="student-detail-row">
+				<form
 					class="edit-row"
 					method="POST"
 					action="?/updateStudent"
-					use:enhance
+					use:enhance={() => {
+						savingStudent = student.id;
+						return async ({ result, update }) => {
+							try {
+								await update({ reset: false });
+								if (result.type === 'success') delete studentDrafts[student.id];
+							} finally {
+								savingStudent = null;
+							}
+						};
+					}}
 				>
 					<input type="hidden" name="studentId" value={student.id} /><input
 						aria-label={`Name for ${student.name}`}
 						name="name"
-						value={student.name}
+						value={draft.name}
+						oninput={(event) => { studentDrafts[student.id] = { ...draft, name: event.currentTarget.value }; }}
+						disabled={data.readOnly || savingStudent !== null || deletingStudent !== null}
 						required
 					/><select
 						aria-label={`Actual grade for ${student.name}`}
 						name="actualGrade"
-						>{#each grades as grade}<option
-								value={grade}
-								selected={grade === student.actualGrade}>Grade {grade}</option
-							>{/each}</select
-					><button disabled={data.readOnly || dirty}>Save student</button>
-				</form>{/each}
+						value={draft.actualGrade}
+						onchange={(event) => { studentDrafts[student.id] = { ...draft, actualGrade: Number(event.currentTarget.value) }; }}
+						disabled={data.readOnly || savingStudent !== null || deletingStudent !== null}
+						>{#each grades as grade}<option value={grade}>Grade {grade}</option>{/each}</select
+					><button disabled={data.readOnly || dirty || !studentDirty || savingStudent !== null || deletingStudent !== null}>{savingStudent === student.id ? 'Saving…' : 'Save student'}</button>
+				</form>
+				<form
+					method="POST"
+					action="?/deleteStudent"
+					use:enhance={({ cancel }) => {
+						if (!window.confirm(`Delete ${student.name} from the ${data.season?.year ?? ''} season? This permanently removes their student record and cannot be undone.`)) {
+							cancel();
+							return;
+						}
+						deletingStudent = student.id;
+						deletionFeedback = null;
+						return async ({ result, update }) => {
+							try {
+								await update({ reset: false });
+								if (result.type === 'success') {
+									delete studentDrafts[student.id];
+									deletionFeedback = { message: `${student.name} deleted from this season.`, error: false };
+								} else {
+									deletionFeedback = { message: result.type === 'failure' && typeof result.data?.error === 'string' ? result.data.error : 'Student could not be deleted. Please try again.', error: true };
+								}
+							} finally {
+								deletingStudent = null;
+							}
+						};
+					}}
+				>
+					<input type="hidden" name="studentId" value={student.id} />
+					<button
+						class="delete-student"
+						aria-label={`Delete ${student.name}`}
+						disabled={data.readOnly || dirty || studentDirty || data.rosterIds.includes(student.id) || data.members.some((member) => member.annualStudentId === student.id) || savingStudent !== null || deletingStudent !== null}
+					>{deletingStudent === student.id ? 'Deleting…' : 'Delete student'}</button>
+				</form>
+				</div>{/each}
 		</section>{/if}
 	<details class="tools">
 		<summary>Spreadsheet import & export</summary>
@@ -903,11 +958,18 @@
 	.tools a {
 		font-size: 13px;
 	}
+	.student-detail-row {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		margin-top: 12px;
+	}
+	button.delete-student { background: white; color: #a12929; border-color: #d4dce9; }
 	.edit-row {
 		display: grid;
 		grid-template-columns: 1fr 120px auto;
+		flex: 1;
 		gap: 12px;
-		margin-top: 12px;
 	}
 	.csv-forms {
 		display: flex;
@@ -977,6 +1039,8 @@
 		.save-bar {
 			flex-wrap: wrap;
 		}
+		.student-detail-row { display: block; }
+		.student-detail-row > form + form { margin-top: 12px; }
 		.edit-row {
 			grid-template-columns: 1fr;
 		}

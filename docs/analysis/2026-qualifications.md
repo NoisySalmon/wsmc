@@ -16,6 +16,9 @@ uses saved values and has no historical-reference preset, reset button, or
 population target. Team additions show student names. The overall population
 still deduplicates known students across entries and events.
 
+The counts below predate the reviewed Knowdown identity corrections. See
+[2026 reconciliation](2026-reconciliation.md) for current findings and remaining gaps.
+
 ## Imported-data reconstruction
 
 Computed with the application ranking, placement, and cutoff functions against

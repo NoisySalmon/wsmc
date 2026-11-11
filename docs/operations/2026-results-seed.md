@@ -8,6 +8,7 @@ require those private inputs; they are unavailable in a fresh public checkout.
 Use the synthetic showcase fixtures for public development and CI.
 
 ```sh
+python scripts/reconcile-2026-results.py
 npm run seed:2026-results
 npm run dev
 ```
@@ -18,7 +19,8 @@ It cannot select a remote target. For disposable local data instead, use
 
 The data comes from `scripts/data/2026-regionals/region-*.json`, extracted from
 the administrators' workbooks. XLSX files and Python spreadsheet libraries are
-not needed to generate the seed. The original extraction remains unchanged.
+not needed to generate the seed. The original extraction remains unchanged. A reviewed private reconciliation overlay
+resolves supported Knowdown identities; see [the reconciliation notes](../analysis/2026-reconciliation.md).
 `node scripts/generate-2026-results.mjs OUTPUT.sql REPORT.json` generates SQL
 and a report without connecting to a database.
 

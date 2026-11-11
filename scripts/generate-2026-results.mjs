@@ -1,5 +1,5 @@
 // Generate a local replay snapshot from extracted workbooks. No database access.
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 
 const output = process.argv[2];
@@ -7,6 +7,9 @@ const reportPath = process.argv[3];
 if (!output || !reportPath) throw new Error('Usage: node scripts/generate-2026-results.mjs OUTPUT.sql REPORT.json');
 const base = new URL('./data/2026-regionals/', import.meta.url);
 const manifest = JSON.parse(readFileSync(new URL('manifest.json', base)));
+const reconciliationUrl = new URL('reconciliation.json', base);
+const reconciliation = existsSync(reconciliationUrl) ? JSON.parse(readFileSync(reconciliationUrl)) : null;
+if (reconciliation && reconciliation.schemaVersion !== 1) throw new Error('Unsupported reconciliation schema');
 const directory = JSON.parse(readFileSync(new URL('./data/wsmc-directory-2026.json', import.meta.url)));
 const quote = value => value === null ? 'NULL' : typeof value === 'number' ? String(value) : `'${String(value).replaceAll("'", "''")}'`;
 const sql = ['-- LOCAL ONLY: historical 2026 results replay; replaces all app data.',
@@ -33,6 +36,19 @@ for (const source of manifest.regions) {
  if (region.schemaVersion !== 1 || region.year !== 2026 || seenRegions.has(region.regionNumber)) throw new Error(`Invalid regional source: ${source.file}`);
  seenRegions.add(region.regionNumber);
  if (region.source.sha256 !== source.source.sha256) throw new Error(`Source manifest mismatch: ${source.file}`);
+ const reviewed = reconciliation?.regions.find(r => r.regionNumber === region.regionNumber);
+ if (reviewed) {
+  if (reviewed.sourceSha256 !== region.source.sha256) throw new Error(`Stale reconciliation: ${source.file}`);
+  for (const correction of reviewed.knowdown) {
+   const outcome = region.knowdownResults.find(o => o.source === correction.source);
+   const school = region.schools.find(s => s.id === correction.schoolId);
+   if (!outcome || outcome.name !== correction.originalName || outcome.school !== correction.originalSchool ||
+       !school?.students.some(s => s.id === correction.studentId)) throw new Error(`Invalid reconciliation: ${source.file}`);
+   Object.assign(outcome, { studentId: correction.studentId, schoolId: correction.schoolId });
+   note('adjustments', 'reviewed_knowdown_identity', region, school, outcome,
+    { correction, reference: reconciliation.reference });
+  }
+ }
  report.sourceIssues.push(...region.issues.map(issue => ({ regionNumber: region.regionNumber, ...issue })));
  const n = region.regionNumber;
  const regionId = n === 11 ? 'region-virtual-2026' : `region-${n}-2026`;
