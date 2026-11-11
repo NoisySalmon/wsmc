@@ -11,7 +11,8 @@ const empty = { students: [], rosterIds: [], entries: [], members: [] };
 
 describe('school CSV uploads', () => {
 	it('downloads an empty usable template and reads quoted spreadsheet cells', () => {
-		expect(exportRegistrationCsv()).toBe(header.replace('\n', '\r\n'));
+		expect(exportRegistrationCsv()).toBe('"Student name","Grade","Team contest team","Topical team","Knowdown"\r\n');
+		expect(parseRegistrationCsv(exportRegistrationCsv() + 'Alex Lee,10,,,Yes\r\n')[0]).toMatchObject({ studentName: 'Alex Lee', actualGrade: 10 });
 		const preview = validateRegistrationCsv(parseRegistrationCsv('\uFEFF' + header + '"Lee, Alex",10,,,Yes\n'), empty);
 		expect(preview.rows[0]).toMatchObject({ studentName: 'Lee, Alex', actualGrade: 10, entries: { topical_individual: { selected: true }, knowdown: { selected: true }, project: { selected: false }, team_contest: { selected: false } } });
 	});

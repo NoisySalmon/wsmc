@@ -82,7 +82,7 @@ function parseCsvRecords(text: string): string[][] {
 }
 
 export function exportRegistrationCsv(): string {
-	return `${registrationCsvHeaders.join(',')}\r\n`;
+	return `${registrationCsvHeaders.map(header => `"${header}"`).join(',')}\r\n`;
 }
 
 export function parseRegistrationCsv(text: string): RegistrationCsvRow[] {
