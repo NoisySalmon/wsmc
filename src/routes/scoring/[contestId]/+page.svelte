@@ -98,7 +98,10 @@
 		<section class="controls"><h2>Contest controls</h2>
 			<p>{data.finalization.complete ? 'All required scores are entered. Confirm the Knowdown places before finalizing.' : 'Finalization is blocked until all required scores are entered and all Knowdown places are unique.'}</p>
 			<form method="POST" action="?/finalize"><button type="submit" disabled={data.contest.lifecycle !== 'scoring' || !data.finalization.complete}>Finalize results</button></form>
-			{#if data.contest.lifecycle === 'finalized'}<form method="POST" action="?/publish"><button type="submit">{data.contest.resultsPublishedAt ? 'Republish results' : 'Publish results'}</button></form><form method="POST" action="?/reopen"><label>Reason to reopen <textarea name="reason" required></textarea></label><button class="quiet" type="submit">Reopen for correction</button></form>{/if}
+			{#if data.contest.lifecycle === 'finalized'}
+				{#if !data.contest.resultsPublishedAt}<form method="POST" action="?/publish"><button type="submit">Publish results</button></form>{/if}
+				<form method="POST" action="?/reopen"><label>Reason to reopen <textarea name="reason" required></textarea></label><button class="quiet" type="submit">Reopen for correction</button></form>
+			{/if}
 		</section>
 	{/if}
 
