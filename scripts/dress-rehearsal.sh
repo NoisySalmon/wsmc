@@ -11,6 +11,8 @@ sqlite3 "$database_path" < drizzle/0003_school_division.sql
 sqlite3 "$database_path" < drizzle/0004_program_stages.sql
 sqlite3 "$database_path" < drizzle/0005_season_year.sql
 sqlite3 "$database_path" < drizzle/0006_persistent_access.sql
+sqlite3 "$database_path" < drizzle/0007_participation_withdrawal.sql
+sqlite3 "$database_path" < drizzle/0008_contest_knowdown_limit.sql
 sqlite3 "$database_path" < scripts/seed.sql
 
 # Add 21 additional state-participating schools with 11 annual students each,
@@ -44,7 +46,7 @@ counts="$(sqlite3 -noheader -separator '|' "$database_path" "SELECT (SELECT COUN
 journey="$(sqlite3 -noheader -separator '|' "$database_path" "SELECT (SELECT COUNT(*) FROM contests WHERE id = 'contest-region-1' AND lifecycle = 'finalized'), (SELECT COUNT(*) FROM qualification_rounds WHERE id = 'round-regional-2026' AND status = 'published'), (SELECT COUNT(*) FROM state_roster_members WHERE contest_id = 'contest-state-2026'), (SELECT COUNT(*) FROM state_team_berths WHERE state_entry_id = 'entry-state-cross-school-team');")"
 [[ "$journey" == "1|1|3|1" ]] || { echo "regional-to-state handoff failed: $journey" >&2; exit 1; }
 
-# Rehearse two scorekeepers editing the same result from the same stale CSV
+# Rehearse two scorekeepers editing the same result from the same stale version
 # version. The first conditional update wins; the second must affect zero rows.
 sqlite3 "$database_path" "INSERT INTO users (id, email, display_name, status) VALUES ('user-scorekeeper-2', 'scorekeeper2@wsmc.example', 'Second Scorekeeper', 'active'); INSERT INTO scorekeeper_assignments (user_id, contest_id) VALUES ('user-scorekeeper-2', 'contest-region-1');"
 scorekeeper_count="$(sqlite3 -noheader "$database_path" "SELECT COUNT(*) FROM scorekeeper_assignments WHERE contest_id = 'contest-region-1';")"

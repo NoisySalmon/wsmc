@@ -1,3 +1,4 @@
+import { activeEntry } from '$lib/server/program/participation';
 import { and, asc, eq } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
@@ -27,30 +28,32 @@ export async function getQualificationPlanningData(db: Database, seasonId: strin
 			throw cause;
 		}
 	}
-	// Preserve any frozen placement decisions if scores were subsequently corrected.
+	// Preserve any published placement decisions if scores were subsequently corrected.
 	const saved = await db.select({ entryId: schema.qualifications.entryId }).from(schema.qualifications)
 		.innerJoin(schema.qualificationRounds, eq(schema.qualificationRounds.id, schema.qualifications.roundId))
 		.where(and(eq(schema.qualificationRounds.seasonId, seasonId), eq(schema.qualificationRounds.kind, 'regional_placements'), eq(schema.qualificationRounds.status, 'published'), eq(schema.qualifications.active, true)));
 	for (const row of saved) automaticEntryIds.add(row.entryId);
 	const members = await db.select({ entryId: schema.entryMembers.entryId, studentId: schema.entryMembers.annualStudentId, studentName: schema.annualStudents.name })
 		.from(schema.entryMembers).innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.entryMembers.annualStudentId)).innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId))
-		.innerJoin(schema.contests, eq(schema.contests.id, schema.entries.contestId)).where(and(eq(schema.contests.seasonId, seasonId), eq(schema.contests.kind, 'regional')));
+		.innerJoin(schema.contests, eq(schema.contests.id, schema.entries.contestId)).where(and(eq(schema.contests.seasonId, seasonId), eq(schema.contests.kind, 'regional'), activeEntry()));
 	return { rows, decisions, automaticEntryIds: [...automaticEntryIds], members, finalized: contests.filter((contest) => contest.lifecycle === 'finalized').length, total: contests.length };
 }
 
 export async function recordManualQualificationDecision(db: Database, input: { seasonId: string; entryId: string; studentId?: string | null; include: boolean; reason: string; actorUserId: string; now?: number }) {
-	const locked = await db.select().from(schema.qualificationRounds).where(and(eq(schema.qualificationRounds.seasonId, input.seasonId), eq(schema.qualificationRounds.status, 'frozen')));
-	if (locked.length) throw new CutoffError('frozen', 'The qualification draft is frozen.');
+	const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, input.seasonId));
+	if (!season || !['regional', 'qualifications'].includes(season.status)) throw new CutoffError('locked', 'Qualifications can only be edited before the state contest opens.');
+	const locked = await db.select().from(schema.qualificationRounds).where(and(eq(schema.qualificationRounds.seasonId, input.seasonId), eq(schema.qualificationRounds.kind, 'state_cutoff'), eq(schema.qualificationRounds.status, 'published')));
+	if (locked.length) throw new CutoffError('locked', 'Published qualifications are locked.');
 	const reason = input.reason.trim();
 	if (!reason) throw new CutoffError('reason_required', 'A reason is required for a manual qualification decision.');
-	const [entry] = await db.select({ entry: schema.entries, contest: schema.contests }).from(schema.entries).innerJoin(schema.contests, eq(schema.contests.id, schema.entries.contestId)).where(and(eq(schema.entries.id, input.entryId), eq(schema.contests.seasonId, input.seasonId)));
+	const [entry] = await db.select({ entry: schema.entries, contest: schema.contests }).from(schema.entries).innerJoin(schema.contests, eq(schema.contests.id, schema.entries.contestId)).where(and(activeEntry(), eq(schema.entries.id, input.entryId), eq(schema.contests.seasonId, input.seasonId)));
 	if (!entry || entry.contest.kind !== 'regional' || entry.contest.lifecycle !== 'finalized') throw new CutoffError('entry_out_of_scope', 'Manual decisions require an entry from a finalized regional contest in this season.');
 	if (input.studentId) {
 		const [member] = await db.select().from(schema.entryMembers).where(and(eq(schema.entryMembers.entryId, input.entryId), eq(schema.entryMembers.annualStudentId, input.studentId)));
 		if (!member) throw new CutoffError('student_out_of_scope', 'Student is not a member of this entry.');
 	}
 	const [round] = await db.select().from(schema.qualificationRounds).where(and(eq(schema.qualificationRounds.seasonId, input.seasonId), eq(schema.qualificationRounds.kind, 'manual_review'))).orderBy(asc(schema.qualificationRounds.createdAt));
-	if (round && round.status !== 'draft') throw new CutoffError('published', 'Published manual qualification decisions are frozen.');
+	if (round && round.status === 'published') throw new CutoffError('published', 'Published manual qualification decisions are locked.');
 	const manualRound = round ?? { id: crypto.randomUUID() };
 	const [existing] = round ? await db.select().from(schema.qualifications).where(and(eq(schema.qualifications.roundId, round.id), eq(schema.qualifications.entryId, input.entryId))) : [];
 	const now = input.now ?? Date.now();

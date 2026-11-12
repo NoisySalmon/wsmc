@@ -16,8 +16,8 @@ export async function contestAction(event: RequestEvent, kind: 'regional' | 'sta
 	const data = await request.formData();
 	try {
 		if (action === 'date') {
-			await updateContestDate(db, contest.id, String(data.get('startsAt') ?? ''));
-			return { success: 'Contest date saved.' };
+			await updateContestDate(db, contest.id, String(data.get('startsAt') ?? ''), kind === 'regional' ? Number(data.get('knowdownLimit')) : undefined);
+			return { success: kind === 'regional' ? 'Contest settings saved.' : 'Contest date saved.' };
 		}
 		const next: Partial<Record<string, ContestLifecycle>> = { setup: 'registration_open', registration_open: 'roster_locked', roster_locked: 'scoring' };
 		if (!next[contest.lifecycle] || next[contest.lifecycle] !== data.get('lifecycle')) return fail(400, { error: 'Use the next available contest stage.' });

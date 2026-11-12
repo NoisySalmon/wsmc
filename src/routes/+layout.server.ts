@@ -15,18 +15,20 @@ export const load: LayoutServerLoad = async ({ locals, platform }) => {
 
 	const contestIds = [...new Set([...principal.regionalContestIds, ...principal.scorekeeperContestIds])];
 	const assignedContests = contestIds.length
-		? await db.select({ id: schema.contests.id, name: schema.contests.name, kind: schema.contests.kind, lifecycle: schema.contests.lifecycle, seasonId: schema.contests.seasonId }).from(schema.contests)
+		? await db.select({ id: schema.contests.id, name: schema.contests.name, kind: schema.contests.kind, lifecycle: schema.contests.lifecycle, regionNumber: schema.regions.number, regionName: schema.regions.name }).from(schema.contests)
+			.innerJoin(schema.regions, eq(schema.regions.id, schema.contests.regionId))
 			.innerJoin(schema.seasons, eq(schema.seasons.id, schema.contests.seasonId))
 			.where(and(inArray(schema.contests.id, contestIds), ne(schema.seasons.status, 'archived')))
 		: [];
 	const roleLinks: { href: string; label: string }[] = [];
 	// Show assigned contests from the current season; archives remain accessible from Home.
-	// Regional coordinators get Overview and, when relevant, Scoring.
+	// Regional coordinators get one short region link to the contest overview.
 	// Scorekeepers: just Scoring. No per-school registration spam — coaches use My schools.
 	for (const contest of assignedContests.filter((item) => item.kind === 'regional')) {
 		const isCoordinator = principal.regionalContestIds.includes(contest.id);
-		if (isCoordinator) roleLinks.push({ href: `/contests/${contest.id}`, label: `Overview · ${contest.name}` });
-		if (['roster_locked', 'scoring', 'finalized'].includes(contest.lifecycle)) roleLinks.push({ href: `/scoring/${contest.id}`, label: `Scoring · ${contest.name}` });
+		if (isCoordinator) {
+			roleLinks.push({ href: `/contests/${contest.id}`, label: `Region ${contest.regionNumber} — ${contest.regionName}` });
+		} else if (['roster_locked', 'scoring', 'finalized'].includes(contest.lifecycle)) roleLinks.push({ href: `/scoring/${contest.id}`, label: `Scoring · ${contest.name}` });
 	}
 
 	return {

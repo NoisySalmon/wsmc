@@ -74,7 +74,7 @@
 								<form method="POST" action="?/withdraw" use:enhance>
 									<input type="hidden" name="participationId" value={participation.id} />
 									<input type="hidden" name="contestId" value={contest.id} />
-									<button class="remove" type="submit" disabled={!['setup', 'registration_open'].includes(contest.lifecycle)}>Remove participation</button>
+									<button class="remove" type="submit" disabled={contest.lifecycle !== 'setup'}>Remove participation</button>
 								</form>
 							</div>
 						</li>

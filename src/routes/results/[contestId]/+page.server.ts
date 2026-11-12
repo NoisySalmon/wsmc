@@ -1,5 +1,6 @@
+import { activeEntry } from '$lib/server/program/participation';
 import { error } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { canScoreContest } from '$lib/server/auth/capabilities';
 import { getDb, schema } from '$lib/server/db';
 import { getRegionalRankings, ScoringError } from '$lib/server/scoring/service';
@@ -18,7 +19,7 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	try {
 		const [rankings, registeredEntries] = await Promise.all([
 			getRegionalRankings(db, params.contestId),
-			db.select({ category: schema.entries.category, division: schema.entries.division }).from(schema.entries).where(eq(schema.entries.contestId, contest.id)),
+			db.select({ category: schema.entries.category, division: schema.entries.division }).from(schema.entries).where(and(activeEntry(), eq(schema.entries.contestId, contest.id))),
 		]);
 		return { ...rankings, registeredEntries, canViewOverview: canReviewUnpublished };
 	} catch (cause) {

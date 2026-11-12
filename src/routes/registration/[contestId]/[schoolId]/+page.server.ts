@@ -2,16 +2,17 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { error, fail } from '@sveltejs/kit';
 import { canEditRoster, canFinalizeContest } from '$lib/server/auth/capabilities';
 import { getDb, schema } from '$lib/server/db';
-import { importRegistrationCsv, previewRegistrationCsv, RegistrationCsvValidationError } from '$lib/server/registration/csv-service';
-import { addWorksheetStudent, saveContestWorksheet, addCategoryMember, addRosterStudent, createCategoryEntry, createProjectTeam, deleteAnnualStudent, deleteCategoryEntry, RegistrationError, removeCategoryMember, removeRosterStudent, reopenRoster, saveTeamContestAssignments, saveTopicalAssignments, setContestRoster, setKnowdownNominees, updateAnnualStudent, type MatrixTeamAssignment, type MatrixTopicalAssignment } from '$lib/server/registration/service';
+import { importRegistrationCsv, previewRegistrationCsv } from '$lib/server/registration/csv-service';
+import { requireEditableRegistration, ScoredRemovalError, addWorksheetStudent, saveContestWorksheet, addCategoryMember, addRosterStudent, createCategoryEntry, createProjectTeam, deleteAnnualStudent, deleteCategoryEntry, RegistrationError, removeCategoryMember, removeRosterStudent, reopenRoster, saveTeamContestAssignments, saveTopicalAssignments, setContestRoster, setKnowdownNominees, updateAnnualStudent, type ScoredRemoval, type MatrixTeamAssignment, type MatrixTopicalAssignment } from '$lib/server/registration/service';
 import type { Actions, PageServerLoad } from './$types';
 
-async function scope(db: ReturnType<typeof getDb>, contestId: string, schoolId: string) {
+async function scope(db: ReturnType<typeof getDb>, contestId: string, schoolId: string, viewOnly = false) {
 	const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, contestId));
 	const [participation] = await db.select().from(schema.schoolParticipations).where(and(eq(schema.schoolParticipations.contestId, contestId), eq(schema.schoolParticipations.schoolId, schoolId)));
 	const [school] = await db.select().from(schema.schools).where(eq(schema.schools.id, schoolId));
 	if (!contest || contest.kind !== 'regional') throw error(404, 'Regional contest not found.');
 	if (!participation || !school) throw error(404, 'School participation not found.');
+	if (participation.withdrawnAt != null && !viewOnly) throw error(409, 'This school has withdrawn. Restore participation from the contest page before editing.');
 	return { contest, participation, school };
 }
 
@@ -21,11 +22,13 @@ function text(data: FormData, name: string): string {
 }
 
 function formError(cause: unknown) {
-	return fail(400, { error: cause instanceof RegistrationError ? cause.message : 'Registration change could not be saved.' });
+	const details: { error: string; scoredRemovals?: ScoredRemoval[]; removalConfirmation?: string } = { error: cause instanceof RegistrationError ? cause.message : 'Registration change could not be saved.' };
+	return fail(400, details);
 }
 
-function requireEditable(contest: { lifecycle: string }): void {
-	if (contest.lifecycle !== 'registration_open') throw error(409, 'Registration is locked for this contest.');
+async function requireEditable(db: ReturnType<typeof getDb>, contest: { id: string }, principal: App.Locals['principal']): Promise<void> {
+	try { await requireEditableRegistration(db, contest.id, principal ?? undefined); }
+	catch (cause) { throw error(409, cause instanceof RegistrationError ? cause.message : 'Registration is locked for this contest.'); }
 }
 
 async function csvText(request: Request): Promise<string> {
@@ -37,7 +40,6 @@ async function csvText(request: Request): Promise<string> {
 }
 
 function csvFormError(cause: unknown) {
-	if (cause instanceof RegistrationCsvValidationError) return fail(400, { error: cause.message, csvErrors: cause.preview.errors.slice(0, 20), csvSummary: cause.preview });
 	return fail(400, { error: cause instanceof Error ? cause.message : 'CSV registration change could not be saved.' });
 }
 
@@ -45,7 +47,7 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	if (!locals.principal) throw error(401, 'Sign in required.');
 	if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 	const db = getDb(platform.env.DB);
-	const { contest, participation, school } = await scope(db, params.contestId, params.schoolId);
+	const { contest, participation, school } = await scope(db, params.contestId, params.schoolId, true);
 	if (!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)) throw error(403, 'You cannot view this school registration.');
 	const [students, rosterRows, entries] = await Promise.all([
 		db.select().from(schema.annualStudents).where(and(eq(schema.annualStudents.seasonId, contest.seasonId), eq(schema.annualStudents.schoolId, school.id))),
@@ -57,10 +59,13 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	const rosterIds = new Set(rosterRows.map((row) => row.annualStudentId));
 	const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, contest.seasonId));
 	const [stateContest] = await db.select().from(schema.contests).where(and(eq(schema.contests.seasonId, contest.seasonId), eq(schema.contests.kind, 'state')));
-	const readOnly = contest.lifecycle !== 'registration_open' || season?.status === 'archived';
+	let lockReason = '';
+	try { await requireEditableRegistration(db, contest.id, locals.principal); }
+	catch (cause) { lockReason = cause instanceof RegistrationError ? cause.message : 'Registration is locked for this contest.'; }
+	const readOnly = participation.withdrawnAt != null || Boolean(lockReason);
 	return {
 		contest, school, participation, season, stateContest, students, rosterIds: [...rosterIds], entries, members,
-		readOnly, canReopen: canFinalizeContest(locals.principal, contest.id, contest.seasonId),
+		readOnly, lockReason, canReopen: canFinalizeContest(locals.principal, contest.id, contest.seasonId),
 		readiness: { annualStudentCount: students.length, rosterCount: rosterRows.length, entryCount: entries.length, categories: new Set(entries.map((entry) => entry.category)).size },
 	};
 };
@@ -79,6 +84,7 @@ export const actions: Actions = {
 			!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)
 		)
 			throw error(403, 'You cannot edit this registration.');
+		await requireEditable(db, contest, locals.principal);
 		const data = await request.formData();
 		const number = (name: string) =>
 			text(data, name) ? Number(text(data, name)) : null;
@@ -86,6 +92,8 @@ export const actions: Actions = {
 			const result = await saveContestWorksheet(db, {
 				contestId: contest.id,
 				schoolId: school.id,
+				principal: locals.principal,
+				removalConfirmation: text(data, 'removalConfirmation'),
 				students: data
 					.getAll('studentId')
 					.map(String)
@@ -105,6 +113,7 @@ export const actions: Actions = {
 				success: `Contest saved. ${result.attending} students attending.`,
 			};
 		} catch (cause) {
+			if (cause instanceof ScoredRemovalError) return fail(400, { error: cause.message, scoredRemovals: cause.removals, removalConfirmation: cause.confirmation });
 			return formError(cause);
 		}
 	},
@@ -114,25 +123,25 @@ export const actions: Actions = {
 		const db = getDb(platform.env.DB);
 		const { contest, school } = await scope(db, params.contestId, params.schoolId);
 		if (!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)) throw error(403, 'You cannot edit this registration.');
-		requireEditable(contest);
+		await requireEditable(db, contest, locals.principal);
 		const data = await request.formData();
-		try { await addWorksheetStudent(db, { contestId: contest.id, schoolId: school.id, name: text(data, 'name'), actualGrade: Number(text(data, 'actualGrade')) }); return { success: 'Student added to your team and included in this contest.' }; } catch (cause) { return formError(cause); }
+		try { await addWorksheetStudent(db, { contestId: contest.id, schoolId: school.id, name: text(data, 'name'), actualGrade: Number(text(data, 'actualGrade')), principal: locals.principal }); return { success: 'Student added to your team and included in this contest.' }; } catch (cause) { return formError(cause); }
 	},
 	updateStudent: async ({ locals, platform, params, request }) => {
 		if (!locals.principal) throw error(401, 'Sign in required.');
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const data = await request.formData(); const db = getDb(platform.env.DB); const { contest, school } = await scope(db, params.contestId, params.schoolId);
 		if (!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)) throw error(403, 'You cannot edit this registration.');
-		requireEditable(contest);
-		try { await updateAnnualStudent(db, { seasonId: contest.seasonId, schoolId: school.id, studentId: text(data, 'studentId'), name: text(data, 'name'), actualGrade: Number(text(data, 'actualGrade')) }); return { success: 'Annual student updated.' }; } catch (cause) { return formError(cause); }
+		await requireEditable(db, contest, locals.principal);
+		try { await updateAnnualStudent(db, { contestId: contest.id, principal: locals.principal, seasonId: contest.seasonId, schoolId: school.id, studentId: text(data, 'studentId'), name: text(data, 'name'), actualGrade: Number(text(data, 'actualGrade')) }); return { success: 'Annual student updated.' }; } catch (cause) { return formError(cause); }
 	},
 	deleteStudent: async ({ locals, platform, params, request }) => {
 		if (!locals.principal) throw error(401, 'Sign in required.');
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const data = await request.formData(); const db = getDb(platform.env.DB); const { contest, school } = await scope(db, params.contestId, params.schoolId);
 		if (!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)) throw error(403, 'You cannot edit this registration.');
-		requireEditable(contest);
-		try { await deleteAnnualStudent(db, { seasonId: contest.seasonId, schoolId: school.id, studentId: text(data, 'studentId') }); return { success: 'Annual student deleted.' }; } catch (cause) { return formError(cause); }
+		await requireEditable(db, contest, locals.principal);
+		try { await deleteAnnualStudent(db, { contestId: contest.id, principal: locals.principal, seasonId: contest.seasonId, schoolId: school.id, studentId: text(data, 'studentId') }); return { success: 'Annual student deleted.' }; } catch (cause) { return formError(cause); }
 	},
 	addRoster: async ({ locals, platform, params, request }) => {
 		if (!locals.principal) throw error(401, 'Sign in required.'); if (!platform?.env.DB) throw error(503, 'Database unavailable.');
@@ -225,17 +234,17 @@ export const actions: Actions = {
 		if (!locals.principal) throw error(401, 'Sign in required.'); if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const db = getDb(platform.env.DB); const { contest, school } = await scope(db, params.contestId, params.schoolId);
 		if (!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)) throw error(403, 'You cannot edit this registration.');
-		try { requireEditable(contest); const preview = await previewRegistrationCsv(db, contest.id, school.id, await csvText(request)); return { csvSummary: preview, csvErrors: preview.errors.slice(0, 20), success: 'Preview generated. No changes have been saved.' }; } catch (cause) { return csvFormError(cause); }
+		try { await requireEditable(db, contest, null); const preview = await previewRegistrationCsv(db, contest.id, school.id, await csvText(request)); return { csvSummary: preview, csvErrors: preview.errors.slice(0, 20), success: 'Preview generated. No changes have been saved.' }; } catch (cause) { return csvFormError(cause); }
 	},
 	importCsv: async ({ locals, platform, params, request }) => {
 		if (!locals.principal) throw error(401, 'Sign in required.'); if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const db = getDb(platform.env.DB); const { contest, school } = await scope(db, params.contestId, params.schoolId);
 		if (!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)) throw error(403, 'You cannot edit this registration.');
-		try { requireEditable(contest); const preview = await importRegistrationCsv(db, { contestId: contest.id, schoolId: school.id, actorUserId: locals.principal.id, text: await csvText(request) }); return { csvSummary: preview, success: `Imported ${preview.rows.length} student rows atomically.` }; } catch (cause) { return csvFormError(cause); }
+		try { await requireEditable(db, contest, null); const preview = await importRegistrationCsv(db, { contestId: contest.id, schoolId: school.id, actorUserId: locals.principal.id, text: await csvText(request) }); return { csvSummary: preview, csvErrors: preview.errors, success: `Added ${preview.newStudents} students. Skipped ${preview.duplicateRows} duplicates and ${preview.skippedRows} incomplete or unreadable rows.` }; } catch (cause) { return csvFormError(cause); }
 	},
 	reopen: async ({ locals, platform, params, request }) => {
 		if (!locals.principal) throw error(401, 'Sign in required.'); if (!platform?.env.DB) throw error(503, 'Database unavailable.');
-		const data = await request.formData(); const db = getDb(platform.env.DB); const { contest } = await scope(db, params.contestId, params.schoolId);
+		const data = await request.formData(); const db = getDb(platform.env.DB); const { contest } = await scope(db, params.contestId, params.schoolId, true);
 		if (!canFinalizeContest(locals.principal, contest.id, contest.seasonId)) throw error(403, 'Only a contest coordinator can reopen this roster.');
 		try { await reopenRoster(db, { contestId: contest.id, actorUserId: locals.principal.id, reason: text(data, 'reason') }); return { success: 'Roster reopened for corrections.' }; } catch (cause) { return formError(cause); }
 	},

@@ -1,4 +1,5 @@
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { activeEntry } from '$lib/server/program/participation';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
 import { PersistenceRuleError, saveResult } from '$lib/server/db/repositories';
@@ -82,10 +83,12 @@ export async function getScoringSnapshot(db: Database, contestId: string) {
 		result: schema.results,
 		schoolName: schema.schools.shortName,
 		schoolFullName: schema.schools.name,
+		lastEditorName: schema.users.displayName,
 	}).from(schema.entries)
 		.leftJoin(schema.results, eq(schema.results.entryId, schema.entries.id))
 		.leftJoin(schema.schools, eq(schema.schools.id, schema.entries.ownerSchoolId))
-		.where(eq(schema.entries.contestId, contestId))
+		.leftJoin(schema.users, eq(schema.users.id, schema.results.lastEditedBy))
+		.where(and(activeEntry(), eq(schema.entries.contestId, contestId)))
 		.orderBy(asc(schema.entries.category), asc(schema.entries.division), asc(schema.entries.entryNumber));
 
 	const allMembers = await db.select({ member: schema.entryMembers, studentName: schema.annualStudents.name, actualGrade: schema.annualStudents.actualGrade, schoolName: schema.schools.shortName })
@@ -93,11 +96,11 @@ export async function getScoringSnapshot(db: Database, contestId: string) {
 		.innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId))
 		.innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.entryMembers.annualStudentId))
 		.innerJoin(schema.schools, eq(schema.schools.id, schema.annualStudents.schoolId))
-		.where(eq(schema.entries.contestId, contestId));
+		.where(and(activeEntry(), eq(schema.entries.contestId, contestId)));
 
 	return {
 		contest,
-		entries: rows.map(({ entry, result, schoolName, schoolFullName }) => {
+		entries: rows.map(({ entry, result, schoolName, schoolFullName, lastEditorName }) => {
 			const part1 = result?.part1 ?? null;
 			const part2 = result?.part2 ?? null;
 			return {
@@ -112,9 +115,9 @@ export async function getScoringSnapshot(db: Database, contestId: string) {
 				part1,
 				part2,
 				placement: result?.placement ?? null,
-				knowdownOutcome: result?.knowdownOutcome ?? null,
+				knowdownOutcome: result?.knowdownOutcome ?? (entry.category === 'knowdown' ? 'eliminated' : null),
 				version: result?.version ?? 0,
-				lastEditedBy: result?.lastEditedBy ?? null,
+				lastEditedBy: lastEditorName || result?.lastEditedBy || null,
 				updatedAt: result?.updatedAt ?? null,
 			};
 		}),
@@ -123,13 +126,13 @@ export async function getScoringSnapshot(db: Database, contestId: string) {
 
 export async function saveContestResult(db: Database, input: { contestId: string; entryId: string; actorUserId: string; expectedVersion?: number; now?: number } & ScoreInput) {
 	const contest = await requireScoringContest(db, input.contestId);
-	const [entry] = await db.select().from(schema.entries).where(and(eq(schema.entries.id, input.entryId), eq(schema.entries.contestId, contest.id)));
+	const [entry] = await db.select().from(schema.entries).where(and(activeEntry(), eq(schema.entries.id, input.entryId), eq(schema.entries.contestId, contest.id)));
 	if (!entry) throw new ScoringError('entry_out_of_scope', 'Entry does not belong to this contest.');
 	const values = validateScoreInput(entry.category as ScoreCategory, input);
 	if (entry.category === 'knowdown' && values.knowdownOutcome === 'placed' && values.placement !== null) {
 		const conflicts = await db.select({ entryId: schema.entries.id }).from(schema.entries)
 			.innerJoin(schema.results, eq(schema.results.entryId, schema.entries.id))
-			.where(and(eq(schema.entries.contestId, contest.id), eq(schema.entries.category, 'knowdown'), eq(schema.results.placement, values.placement)));
+			.where(and(activeEntry(), eq(schema.entries.contestId, contest.id), eq(schema.entries.category, 'knowdown'), eq(schema.results.placement, values.placement)));
 		if (conflicts.some((row) => row.entryId !== entry.id)) throw new ScoringError('duplicate_placement', `Knowdown place ${values.placement} is already assigned to another entrant.`);
 	}
 	let saved;
@@ -144,14 +147,55 @@ export async function saveContestResult(db: Database, input: { contestId: string
 		id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: contest.id, entityType: 'result', entityId: entry.id,
 		action: 'score_saved', detailsJson: JSON.stringify({ category: entry.category, score: values.score, part1: values.part1, part2: values.part2, placement: values.placement, knowdownOutcome: values.knowdownOutcome, version: result?.version ?? null }), createdAt: input.now ?? Date.now(),
 	});
+	await auditQualificationImpact(db, contest, input.actorUserId, entry.id, entry.category, input.now);
+	return result;
+}
+
+async function auditQualificationImpact(db: Database, contest: Awaited<ReturnType<typeof requireScoringContest>>, actorUserId: string, entryId: string | null, category: string, now = Date.now()) {
 	const [publishedQualificationRound] = contest.kind === 'regional'
-		? await db.select({ id: schema.qualificationRounds.id }).from(schema.qualificationRounds).where(and(eq(schema.qualificationRounds.seasonId, contest.seasonId), inArray(schema.qualificationRounds.status, ['frozen', 'published']))).limit(1)
+		? await db.select({ id: schema.qualificationRounds.id }).from(schema.qualificationRounds).where(and(eq(schema.qualificationRounds.seasonId, contest.seasonId), eq(schema.qualificationRounds.status, 'published'))).limit(1)
 		: [];
 	if (publishedQualificationRound) await db.insert(schema.auditEvents).values({
-		id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: contest.id, entityType: 'qualification_round', entityId: publishedQualificationRound.id,
-		action: 'qualification_impact_review_required', detailsJson: JSON.stringify({ entryId: entry.id, category: entry.category, reason: 'score_changed_after_qualification_publication' }), createdAt: input.now ?? Date.now(),
+		id: crypto.randomUUID(), actorUserId, contestId: contest.id, entityType: 'qualification_round', entityId: publishedQualificationRound.id,
+		action: 'qualification_impact_review_required', detailsJson: JSON.stringify({ entryId, category, reason: 'score_changed_after_qualification_publication' }), createdAt: now,
 	});
-	return result;
+}
+
+/** Interactive entry updates exactly one cell; SQLite serializes concurrent upserts. */
+export async function saveScoreCell(db: Database, input: { contestId: string; entryId: string; actorUserId: string; field: string; value: number | null }) {
+	const contest = await requireScoringContest(db, input.contestId);
+	const [entry] = await db.select().from(schema.entries).where(and(activeEntry(), eq(schema.entries.id, input.entryId), eq(schema.entries.contestId, contest.id)));
+	if (!entry) throw new ScoringError('entry_out_of_scope', 'Entry does not belong to this contest.');
+	const topical = entry.category === 'topical_team' || entry.category === 'topical_individual';
+	if (!(topical ? ['part1', 'part2'] : ['score']).includes(input.field) || entry.category === 'knowdown') throw new ScoringError('wrong_score_shape', 'This field is not editable for this category.');
+	const field = input.field as 'score' | 'part1' | 'part2';
+	validateScoreInput(entry.category as ScoreCategory, { [field]: input.value });
+	const now = Date.now();
+	const total = field === 'part1' ? sql`${input.value} + ${schema.results.part2}` : sql`${schema.results.part1} + ${input.value}`;
+	const saved = db.insert(schema.results).values({ entryId: entry.id, [field]: input.value, lastEditedBy: input.actorUserId, updatedAt: now })
+		.onConflictDoUpdate({ target: schema.results.entryId, set: { [field]: input.value, ...(topical ? { score: total } : {}), version: sql`${schema.results.version} + 1`, lastEditedBy: input.actorUserId, updatedAt: now } }).returning();
+	await db.batch([saved, db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: contest.id, entityType: 'result', entityId: entry.id, action: 'score_saved', detailsJson: JSON.stringify({ field, value: input.value }), createdAt: now })]);
+	await auditQualificationImpact(db, contest, input.actorUserId, entry.id, entry.category);
+}
+
+/** Replace one place atomically, including removal of its previous occupant. */
+export async function saveKnowdownPlace(db: Database, input: { contestId: string; placement: number; entryId: string | null; actorUserId: string }) {
+	const contest = await requireScoringContest(db, input.contestId);
+	validateScoreInput('knowdown', { placement: input.placement });
+	if (input.entryId) {
+		const [entry] = await db.select().from(schema.entries).where(and(activeEntry(), eq(schema.entries.id, input.entryId), eq(schema.entries.contestId, contest.id), eq(schema.entries.category, 'knowdown')));
+		if (!entry) throw new ScoringError('entry_out_of_scope', 'Choose a Knowdown student from this contest.');
+	}
+	const now = Date.now();
+	const clear = db.update(schema.results).set({ placement: null, knowdownOutcome: 'eliminated', version: sql`${schema.results.version} + 1`, lastEditedBy: input.actorUserId, updatedAt: now })
+		.where(and(eq(schema.results.placement, input.placement), inArray(schema.results.entryId, db.select({ id: schema.entries.id }).from(schema.entries).where(and(activeEntry(), eq(schema.entries.contestId, contest.id), eq(schema.entries.category, 'knowdown'))))));
+	const audit = db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: contest.id, entityType: 'result', entityId: input.entryId ?? contest.id, action: 'knowdown_place_saved', detailsJson: JSON.stringify({ placement: input.placement, entryId: input.entryId }), createdAt: now });
+	if (input.entryId) {
+		const assign = db.insert(schema.results).values({ entryId: input.entryId, placement: input.placement, knowdownOutcome: 'placed', lastEditedBy: input.actorUserId, updatedAt: now })
+			.onConflictDoUpdate({ target: schema.results.entryId, set: { placement: input.placement, knowdownOutcome: 'placed', version: sql`${schema.results.version} + 1`, lastEditedBy: input.actorUserId, updatedAt: now } });
+		await db.batch([clear, assign, audit]);
+	} else await db.batch([clear, audit]);
+	await auditQualificationImpact(db, contest, input.actorUserId, input.entryId, 'knowdown');
 }
 
 export function findDuplicateKnowdownPlaces(rows: { entryId: string; category: string; placement: number | null; knowdownOutcome: string | null }[]) {
@@ -167,10 +211,10 @@ export async function getFinalizationReport(db: Database, contestId: string) {
 	const contest = await requireScoringContest(db, contestId, true);
 	const rows = await db.select({ entry: schema.entries, result: schema.results, schoolName: schema.schools.shortName })
 		.from(schema.entries).leftJoin(schema.results, eq(schema.results.entryId, schema.entries.id)).leftJoin(schema.schools, eq(schema.schools.id, schema.entries.ownerSchoolId))
-		.where(eq(schema.entries.contestId, contest.id));
+		.where(and(activeEntry(), eq(schema.entries.contestId, contest.id)));
 	const missing = rows.filter(({ entry, result }) => {
 		if (entry.category === 'topical_team' || entry.category === 'topical_individual') return result?.part1 === null || result?.part1 === undefined || result?.part2 === null || result?.part2 === undefined;
-		if (entry.category === 'knowdown') return result?.knowdownOutcome === null || result?.knowdownOutcome === undefined;
+		if (entry.category === 'knowdown') return false;
 		return result?.score === null || result?.score === undefined;
 	}).map(({ entry, result, schoolName }) => ({ entryId: entry.id, category: entry.category, entryNumber: entry.entryNumber, division: entry.division, schoolName: schoolName || 'Statewide entry', resultVersion: result?.version ?? 0 }));
 	const duplicateKnowdownPlaces = findDuplicateKnowdownPlaces(rows.map(({ entry, result }) => ({ entryId: entry.id, category: entry.category, placement: result?.placement ?? null, knowdownOutcome: result?.knowdownOutcome ?? null })));

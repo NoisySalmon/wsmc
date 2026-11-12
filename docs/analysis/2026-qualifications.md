@@ -4,17 +4,33 @@ Reference: `State Math/2026/Statewide Regional Results 2026.pdf`, all six
 pages. The first page specifies inclusive minimum scores and says all Projects
 qualify. The planner represents that Project policy with a cutoff of 0:
 
-| Category | Division I | Division II |
-| --- | ---: | ---: |
-| Project | 0 | 0 |
-| Team Problem (app: Team Contest) | 14 | 10 |
-| Topical Team | 89 | 68 |
-| Topical Individual | 50 | 50 |
+| Category | Combined | Division I | Division II |
+| --- | ---: | ---: | ---: |
+| Project | 0 | — | — |
+| Team Problem (app: Team Contest) | — | 14 | 10 |
+| Topical Team | — | 89 | 68 |
+| Topical Individual | 50 | — | — |
 
 The example seed persists these values in an editable cutoff draft. The UI
 uses saved values and has no historical-reference preset, reset button, or
 population target. Team additions show student names. The overall population
 still deduplicates known students across entries and events.
+
+Project, Topical Individual, and Knowdown have no competitive divisions.
+Topical Individual grade ranks span school divisions. Automatic Individual
+qualification first selects the regional overall top three (including ties),
+removes them from the pool, then selects the highest remaining score in each
+actual grade (including ties) as distinguished freshman, sophomore, junior, or
+senior. Each student gets one automatic basis; cutoff additions apply only to
+entries not already automatically qualified. Distinguished selection does not
+change the public grade leaderboard. Saved legacy cutoff pairs
+with equal values load as one cutoff; conflicting pairs are blanked and flagged
+for review. School division metadata remains intact. Team Contest and Topical Team
+automatically qualify regional first place in each division (including ties),
+then add other entries meeting the statewide cutoff.
+
+The counts below predate the division correction and reviewed Knowdown identity corrections. See
+[2026 reconciliation](2026-reconciliation.md) for current findings and remaining gaps.
 
 ## Imported-data reconstruction
 
@@ -48,8 +64,8 @@ historical replay as authoritative. The planner explicitly warns of this.
 
 ## Known limits and policy questions
 
-- The PDF says **all Projects qualify**. Project now has division-specific
-  score cutoffs defaulting to 0, so every scored Project qualifies through
+- The PDF says **all Projects qualify**. Project has one shared
+  score cutoff defaulting to 0, so every scored Project qualifies through
   placement or cutoff. Unscored Projects still need review. Raising or disabling
   the Project cutoff retains automatic top-three placement qualifiers.
 - In the seed, 19 Topical Team entries, 3 Topical Individual entries, and 1 Team
@@ -77,25 +93,25 @@ There is one editable qualification draft. **Save draft** refreshes automatic
 placements and cutoff additions together in one atomic batch; separate
 regional generation and publication actions have been removed.
 
-**Save and freeze qualifications** saves the displayed scores and locks the
-complete list. All regionals must be finalized and the season must be in the
-qualification stage. Frozen qualifications remain unavailable to the state
-registration services, which only consume published decisions.
-
-**Publish qualifications and open state contest** publishes the frozen snapshot
+**Publish qualifications and open state contest** publishes the saved snapshot
 without recalculating it and advances the season to `state` in one transaction.
-Frozen and published drafts reject edits. Subsequent regional score changes
-record an impact-review audit event for either frozen or published decisions.
+All regionals must be finalized, and the season must be in the qualification
+stage. Save any cutoff changes or manual exceptions before publishing; pending
+exceptions that have not been applied to the complete list block publication.
+Drafts remain editable until publication; there is no separate Freeze step.
+Previously frozen, unpublished drafts load as editable drafts, and saving resets
+their rounds to draft. Published lists remain locked. Subsequent regional score
+changes record an impact-review audit event for published decisions.
 Existing published legacy placement rounds are preserved when completing
-statewide additions. Manual exceptions remain part of the same save/freeze
-workflow; they cannot be edited once the draft is frozen.
+statewide additions. The saved review shows scores for scored events, with
+exclusions identified in Basis; Knowdown retains its Decision column.
 
 ## Entry counts and population counts
 
 The cutoff table reports Project entries, team entries, or individual entries
 according to the event. Each automatic/addition/eligible cell also expands
 those entries through known regional memberships and reports unique students
-within that event and division. Knowdown appears with placement-only eligibility.
+within that event (and division for Team Contest and Topical Team). Knowdown appears with placement-only eligibility.
 A student appearing in automatic and cutoff-added teams counts once in the
 eligible column. A student appearing in several events counts once in the
 overall population. Per-event student counts and automatic plus cutoff
@@ -105,7 +121,8 @@ student counts must not be summed.
 
 `npm run test:qualifications` exercises real D1 storage with the full 2026
 fixture: persisted cutoff defaults, named members, combined automatic/cutoff
-saving, stricter-cutoff replacement, incomplete-region freeze rejection,
-frozen-draft edit rejection, no pre-publication exposure, publication of the
+saving, stricter-cutoff replacement, incomplete-region publication rejection,
+legacy frozen draft editing, pending-exception checks, score display data,
+no pre-publication exposure, publication of the
 unchanged snapshot, and the state-stage transition. It uses a disposable
 Miniflare database and never reseeds the application's local database.

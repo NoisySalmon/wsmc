@@ -1,7 +1,8 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
 import { addEntryMember, assertContestScope, createEntry, PersistenceRuleError } from '$lib/server/db/repositories';
+import { canCoordinateRegion, type Principal } from '$lib/server/auth/capabilities';
 import { validateGrade, validatePlayUp } from '$lib/validation';
 
 export type RegistrationCategory = 'project' | 'team_contest' | 'topical_team' | 'topical_individual' | 'knowdown';
@@ -27,17 +28,28 @@ async function requireContest(db: Database, contestId: string) {
 	return contest;
 }
 
-async function requireOpenContest(db: Database, contestId: string) {
+export async function requireEditableRegistration(db: Database, contestId: string, principal?: Principal) {
 	const contest = await requireContest(db, contestId);
-	if (contest.lifecycle !== 'registration_open') throw new RegistrationError('locked', 'Registration is not open for this contest.');
-	const [season] = await db.select({ status: schema.seasons.status }).from(schema.seasons).where(eq(schema.seasons.id, contest.seasonId));
-	if (!season || season.status === 'archived') throw new RegistrationError('locked', 'This season is archived and cannot be edited.');
+	if (contest.lifecycle !== 'registration_open' && !(principal && canCoordinateRegion(principal, contest.id, contest.seasonId) && ['roster_locked', 'scoring'].includes(contest.lifecycle))) throw new RegistrationError('locked', 'Registration is not open for this contest.');
+	await requireRegistrationSeason(db, contest.seasonId, contest.id);
 	return contest;
+}
+
+async function requireRegistrationSeason(db: Database, seasonId: string, contestId: string) {
+	const [season] = await db.select({ status: schema.seasons.status }).from(schema.seasons).where(eq(schema.seasons.id, seasonId));
+	if (!season || season.status === 'archived') throw new RegistrationError('locked', 'This season is archived and cannot be edited.');
+	const rounds = await db.select({ status: schema.qualificationRounds.status, kind: schema.qualificationRounds.kind }).from(schema.qualificationRounds).where(eq(schema.qualificationRounds.seasonId, seasonId));
+	const published = await db.select({ id: schema.qualifications.id }).from(schema.qualifications)
+		.innerJoin(schema.qualificationRounds, eq(schema.qualificationRounds.id, schema.qualifications.roundId))
+		.innerJoin(schema.entries, eq(schema.entries.id, schema.qualifications.entryId))
+		.where(and(eq(schema.entries.contestId, contestId), eq(schema.qualificationRounds.status, 'published')));
+	if (published.length || rounds.some(round => round.kind === 'state_cutoff' && round.status === 'published')) throw new RegistrationError('qualifications_locked', 'Qualifications are published. Registration corrections require a separate qualification review.');
 }
 
 async function requireParticipation(db: Database, contestId: string, schoolId: string) {
 	const [participation] = await db.select().from(schema.schoolParticipations).where(and(eq(schema.schoolParticipations.contestId, contestId), eq(schema.schoolParticipations.schoolId, schoolId)));
 	if (!participation) throw new RegistrationError('not_participating', 'School is not participating in this contest.');
+	if (participation.withdrawnAt != null) throw new RegistrationError('withdrawn', 'This school has withdrawn. Restore participation from the contest page before editing.');
 	return participation;
 }
 
@@ -61,7 +73,8 @@ export async function createAnnualStudent(db: Database, input: { seasonId: strin
 	return student;
 }
 
-export async function updateAnnualStudent(db: Database, input: { seasonId: string; schoolId: string; studentId: string; name: string; actualGrade: number; now?: number }) {
+export async function updateAnnualStudent(db: Database, input: { contestId?: string; principal?: Principal; seasonId: string; schoolId: string; studentId: string; name: string; actualGrade: number; now?: number }) {
+	if (input.contestId) await requireEditableRegistration(db, input.contestId, input.principal);
 	const student = await requireStudent(db, input.seasonId, input.schoolId, input.studentId);
 	const name = input.name.trim();
 	if (!name) throw new RegistrationError('invalid_name', 'Student name is required.');
@@ -70,21 +83,22 @@ export async function updateAnnualStudent(db: Database, input: { seasonId: strin
 		const memberships = await db.select({ competingGrade: schema.entryMembers.competingGrade }).from(schema.entryMembers).where(eq(schema.entryMembers.annualStudentId, input.studentId));
 		if (memberships.some((member) => member.competingGrade !== null && validatePlayUp(input.actualGrade, member.competingGrade))) throw new RegistrationError('grade_conflict', 'Actual grade cannot exceed an existing competing grade.');
 	}
-	const [updated] = await db.update(schema.annualStudents).set({ name, actualGrade: input.actualGrade, updatedAt: input.now ?? Date.now() }).where(and(eq(schema.annualStudents.id, input.studentId), eq(schema.annualStudents.seasonId, input.seasonId), eq(schema.annualStudents.schoolId, input.schoolId))).returning();
+	const [[updated]] = await db.batch([db.update(schema.annualStudents).set({ name, actualGrade: input.actualGrade, updatedAt: input.now ?? Date.now() }).where(and(eq(schema.annualStudents.id, input.studentId), eq(schema.annualStudents.seasonId, input.seasonId), eq(schema.annualStudents.schoolId, input.schoolId))).returning(), ...(input.principal ? [db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.principal.id, contestId: input.contestId, schoolId: input.schoolId, entityType: 'student', entityId: input.studentId, action: 'registration_student_updated', detailsJson: JSON.stringify({ before: student, after: { name, actualGrade: input.actualGrade } }) })] : [])]);
 	return updated;
 }
 
-export async function deleteAnnualStudent(db: Database, input: { seasonId: string; schoolId: string; studentId: string }): Promise<void> {
-	await requireStudent(db, input.seasonId, input.schoolId, input.studentId);
+export async function deleteAnnualStudent(db: Database, input: { contestId?: string; principal?: Principal; seasonId: string; schoolId: string; studentId: string }): Promise<void> {
+	if (input.contestId) await requireEditableRegistration(db, input.contestId, input.principal);
+	const student = await requireStudent(db, input.seasonId, input.schoolId, input.studentId);
 	const [roster] = await db.select().from(schema.contestRosterMembers).where(eq(schema.contestRosterMembers.annualStudentId, input.studentId));
 	if (roster) throw new RegistrationError('student_in_use', 'Remove the student from contest rosters before deleting the annual record.');
 	const [entryMember] = await db.select().from(schema.entryMembers).where(eq(schema.entryMembers.annualStudentId, input.studentId));
 	if (entryMember) throw new RegistrationError('student_in_use', 'Remove the student from entries before deleting the annual record.');
-	await db.delete(schema.annualStudents).where(and(eq(schema.annualStudents.id, input.studentId), eq(schema.annualStudents.seasonId, input.seasonId), eq(schema.annualStudents.schoolId, input.schoolId)));
+	await db.batch([db.delete(schema.annualStudents).where(and(eq(schema.annualStudents.id, input.studentId), eq(schema.annualStudents.seasonId, input.seasonId), eq(schema.annualStudents.schoolId, input.schoolId))), ...(input.principal ? [db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.principal.id, contestId: input.contestId, schoolId: input.schoolId, entityType: 'student', entityId: input.studentId, action: 'registration_student_deleted', detailsJson: JSON.stringify({ before: student }) })] : [])]);
 }
 
 export async function addRosterStudent(db: Database, input: { contestId: string; schoolId: string; studentId: string; now?: number }) {
-	const contest = await requireOpenContest(db, input.contestId);
+	const contest = await requireEditableRegistration(db, input.contestId);
 	const participation = await requireParticipation(db, input.contestId, input.schoolId);
 	await requireStudent(db, contest.seasonId, input.schoolId, input.studentId);
 	const now = input.now ?? Date.now();
@@ -93,7 +107,7 @@ export async function addRosterStudent(db: Database, input: { contestId: string;
 }
 
 export async function setContestRoster(db: Database, input: { contestId: string; schoolId: string; studentIds: string[]; now?: number }): Promise<{ added: number; removed: number }> {
-	const contest = await requireOpenContest(db, input.contestId);
+	const contest = await requireEditableRegistration(db, input.contestId);
 	const participation = await requireParticipation(db, input.contestId, input.schoolId);
 	const uniqueIds = [...new Set(input.studentIds)];
 	if (uniqueIds.length > 0) {
@@ -121,10 +135,10 @@ export async function setContestRoster(db: Database, input: { contestId: string;
 }
 
 export async function setKnowdownNominees(db: Database, input: { contestId: string; schoolId: string; studentIds: string[]; now?: number }): Promise<{ count: number }> {
-	const contest = await requireOpenContest(db, input.contestId);
+	const contest = await requireEditableRegistration(db, input.contestId);
 	const participation = await requireParticipation(db, input.contestId, input.schoolId);
 	const uniqueIds = [...new Set(input.studentIds.filter(Boolean))];
-	if (uniqueIds.length > 3) throw new RegistrationError('knowdown_limit', 'A school may designate at most 3 Knowdown competitors.');
+	if (uniqueIds.length > contest.knowdownLimit) throw new RegistrationError('knowdown_limit', `A school may designate at most ${contest.knowdownLimit} Knowdown competitors.`);
 	if (uniqueIds.length > 0) {
 		const roster = await db.select({ annualStudentId: schema.contestRosterMembers.annualStudentId }).from(schema.contestRosterMembers).where(eq(schema.contestRosterMembers.contestId, input.contestId));
 		const rostered = new Set(roster.map((row) => row.annualStudentId));
@@ -138,6 +152,7 @@ export async function setKnowdownNominees(db: Database, input: { contestId: stri
 		}
 	}
 	const existing = await db.select().from(schema.entries).where(and(eq(schema.entries.contestId, input.contestId), eq(schema.entries.ownerSchoolId, input.schoolId), eq(schema.entries.category, 'knowdown')));
+	await guardNoScores(db, input.contestId, input.schoolId, ['knowdown']);
 	const now = input.now ?? Date.now();
 	const operations: any[] = [];
 	for (const entry of existing) operations.push(db.delete(schema.entries).where(and(eq(schema.entries.id, entry.id), eq(schema.entries.contestId, input.contestId))));
@@ -242,7 +257,7 @@ async function replaceTeamEntries(db: Database, input: { contestId: string; scho
 }
 
 export async function saveTeamContestAssignments(db: Database, input: { contestId: string; schoolId: string; assignments: MatrixTeamAssignment[]; now?: number }): Promise<{ teams: number; students: number }> {
-	const contest = await requireOpenContest(db, input.contestId);
+	const contest = await requireEditableRegistration(db, input.contestId);
 	const participation = await requireParticipation(db, input.contestId, input.schoolId);
 	const studentsById = await loadStudentGrades(db, contest.seasonId, input.schoolId);
 	const rostered = await loadRosteredIds(db, input.contestId);
@@ -257,7 +272,7 @@ export async function saveTeamContestAssignments(db: Database, input: { contestI
 }
 
 export async function saveTopicalAssignments(db: Database, input: { contestId: string; schoolId: string; assignments: MatrixTopicalAssignment[]; now?: number }): Promise<{ teams: number; teamStudents: number; individuals: number }> {
-	const contest = await requireOpenContest(db, input.contestId);
+	const contest = await requireEditableRegistration(db, input.contestId);
 	const participation = await requireParticipation(db, input.contestId, input.schoolId);
 	const studentsById = await loadStudentGrades(db, contest.seasonId, input.schoolId);
 	const rostered = await loadRosteredIds(db, input.contestId);
@@ -283,11 +298,11 @@ export async function saveTopicalAssignments(db: Database, input: { contestId: s
 }
 
 export async function createProjectTeam(db: Database, input: { contestId: string; schoolId: string; members: { studentId: string; competingGrade?: number | null }[]; now?: number }): Promise<{ entryNumber: number }> {
-	const contest = await requireOpenContest(db, input.contestId);
+	const contest = await requireEditableRegistration(db, input.contestId);
 	const participation = await requireParticipation(db, input.contestId, input.schoolId);
 	const uniqueIds = [...new Set(input.members.map((member) => member.studentId).filter(Boolean))];
 	if (uniqueIds.length === 0) throw new RegistrationError('empty_team', 'Select at least one student for the project team.');
-	if (uniqueIds.length > 3) throw new RegistrationError('team_too_large', 'A team may have at most 3 members.');
+	if (uniqueIds.length > contest.knowdownLimit) throw new RegistrationError('team_too_large', 'A team may have at most 3 members.');
 	const studentsById = await loadStudentGrades(db, contest.seasonId, input.schoolId);
 	const rostered = await loadRosteredIds(db, input.contestId);
 	const seenGrades = new Set<number>();
@@ -316,7 +331,7 @@ export async function createProjectTeam(db: Database, input: { contestId: string
 }
 
 export async function removeRosterStudent(db: Database, input: { contestId: string; schoolId: string; studentId: string }): Promise<void> {
-	await requireOpenContest(db, input.contestId);
+	await requireEditableRegistration(db, input.contestId);
 	await requireParticipation(db, input.contestId, input.schoolId);
 	const [entryMember] = await db.select({ entryId: schema.entryMembers.entryId }).from(schema.entryMembers).innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId)).where(and(eq(schema.entries.contestId, input.contestId), eq(schema.entryMembers.annualStudentId, input.studentId)));
 	if (entryMember) throw new RegistrationError('student_in_entry', 'Remove the student from category entries before removing the roster selection.');
@@ -324,21 +339,21 @@ export async function removeRosterStudent(db: Database, input: { contestId: stri
 }
 
 export async function createCategoryEntry(db: Database, input: { contestId: string; schoolId: string; category: RegistrationCategory; entryNumber?: number | null; now?: number }) {
-	const contest = await requireOpenContest(db, input.contestId);
+	const contest = await requireEditableRegistration(db, input.contestId);
 	const participation = await requireParticipation(db, input.contestId, input.schoolId);
 	if (input.entryNumber !== undefined && input.entryNumber !== null && (!Number.isInteger(input.entryNumber) || input.entryNumber < 1)) throw new RegistrationError('invalid_entry_number', 'Entry number must be a positive integer.');
 	return createEntry(db, { contestId: contest.id, ownerSchoolId: participation.schoolId, category: input.category, entryKind: teamCategories.has(input.category) ? 'team' : 'individual', entryNumber: input.entryNumber ?? null, division: participation.division });
 }
 
 export async function addCategoryMember(db: Database, input: { contestId: string; schoolId: string; entryId: string; studentId: string; competingGrade?: number | null }) {
-	const contest = await requireOpenContest(db, input.contestId);
+	const contest = await requireEditableRegistration(db, input.contestId);
 	const participation = await requireParticipation(db, input.contestId, input.schoolId);
 	const [entry] = await db.select().from(schema.entries).where(eq(schema.entries.id, input.entryId));
 	assertContestScope(entry, input.contestId);
 	if (entry.ownerSchoolId !== participation.schoolId) throw new RegistrationError('entry_out_of_scope', 'Entry does not belong to this school.');
 	if (entry.category === 'knowdown') {
 		const knowdownMembers = await db.select({ studentId: schema.entryMembers.annualStudentId }).from(schema.entryMembers).innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId)).where(and(eq(schema.entries.contestId, input.contestId), eq(schema.entries.ownerSchoolId, input.schoolId), eq(schema.entries.category, 'knowdown')));
-		if (!knowdownMembers.some((member) => member.studentId === input.studentId) && knowdownMembers.length >= 3) throw new RegistrationError('knowdown_limit', 'A school may designate at most 3 Knowdown competitors.');
+		if (!knowdownMembers.some((member) => member.studentId === input.studentId) && knowdownMembers.length >= contest.knowdownLimit) throw new RegistrationError('knowdown_limit', `A school may designate at most ${contest.knowdownLimit} Knowdown competitors.`);
 	}
 	try {
 		return await addEntryMember(db, { contestId: input.contestId, entryId: input.entryId, annualStudentId: input.studentId, competingGrade: input.competingGrade });
@@ -349,7 +364,7 @@ export async function addCategoryMember(db: Database, input: { contestId: string
 }
 
 export async function removeCategoryMember(db: Database, input: { contestId: string; schoolId: string; entryId: string; studentId: string }): Promise<void> {
-	await requireOpenContest(db, input.contestId);
+	await requireEditableRegistration(db, input.contestId);
 	const participation = await requireParticipation(db, input.contestId, input.schoolId);
 	const [entry] = await db.select().from(schema.entries).where(eq(schema.entries.id, input.entryId));
 	assertContestScope(entry, input.contestId);
@@ -358,11 +373,13 @@ export async function removeCategoryMember(db: Database, input: { contestId: str
 }
 
 export async function deleteCategoryEntry(db: Database, input: { contestId: string; schoolId: string; entryId: string }): Promise<void> {
-	await requireOpenContest(db, input.contestId);
+	await requireEditableRegistration(db, input.contestId);
 	const participation = await requireParticipation(db, input.contestId, input.schoolId);
 	const [entry] = await db.select().from(schema.entries).where(eq(schema.entries.id, input.entryId));
 	assertContestScope(entry, input.contestId);
 	if (entry.ownerSchoolId !== participation.schoolId) throw new RegistrationError('entry_out_of_scope', 'Entry does not belong to this school.');
+	const [result] = await db.select().from(schema.results).where(eq(schema.results.entryId, entry.id));
+	if (result) throw new RegistrationError('has_scores', 'Use the registration worksheet to review and confirm removal of a scored entry.');
 	await db.delete(schema.entries).where(and(eq(schema.entries.id, input.entryId), eq(schema.entries.contestId, input.contestId), eq(schema.entries.ownerSchoolId, input.schoolId)));
 }
 
@@ -371,17 +388,27 @@ export async function reopenRoster(db: Database, input: { contestId: string; act
 	if (!reason) throw new RegistrationError('reason_required', 'A reason is required to reopen a roster.');
 	const contest = await requireContest(db, input.contestId);
 	if (contest.lifecycle !== 'roster_locked') throw new RegistrationError('invalid_transition', 'Only roster-locked contests can be reopened.');
+	await requireRegistrationSeason(db, contest.seasonId, contest.id);
 	const now = input.now ?? Date.now();
 	await db.update(schema.contests).set({ lifecycle: 'registration_open', updatedAt: now }).where(and(eq(schema.contests.id, input.contestId), eq(schema.contests.lifecycle, 'roster_locked')));
 	await db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: input.contestId, entityType: 'contest', entityId: input.contestId, action: 'roster_reopened', detailsJson: JSON.stringify({ reason, previousLifecycle: 'roster_locked' }), createdAt: now });
 }
 
-/** Save the coach's complete worksheet in one transaction after validating every category. */
+export type ScoredRemoval = { entryId: string; category: string; entryNumber: number | null; students: string[]; result: typeof schema.results.$inferSelect };
+export class ScoredRemovalError extends RegistrationError {
+	constructor(public readonly removals: ScoredRemoval[], public readonly confirmation: string) {
+		super('scored_removal', 'These changes remove entries with results. Review and confirm the scores to remove.');
+	}
+}
+
+/** Reconcile the worksheet atomically, keeping team and student score identities. */
 export async function saveContestWorksheet(
 	db: Database,
 	input: {
 		contestId: string;
 		schoolId: string;
+		principal?: Principal;
+		removalConfirmation?: string;
 		students: {
 			studentId: string;
 			attending: boolean;
@@ -395,7 +422,7 @@ export async function saveContestWorksheet(
 		}[];
 	},
 ) {
-	const contest = await requireOpenContest(db, input.contestId);
+	const contest = await requireEditableRegistration(db, input.contestId, input.principal);
 	const participation = await requireParticipation(
 		db,
 		input.contestId,
@@ -447,17 +474,11 @@ export async function saveContestWorksheet(
 		})),
 	);
 	const knowdown = attending.filter((s) => s.knowdown).map((s) => s.studentId);
-	if (knowdown.length > 3)
+	if (knowdown.length > contest.knowdownLimit)
 		throw new RegistrationError(
 			'knowdown_limit',
-			'Choose at most 3 Knowdown competitors.',
+			`Choose at most ${contest.knowdownLimit} Knowdown competitors.`,
 		);
-	await guardNoScores(
-		db,
-		input.contestId,
-		input.schoolId,
-		registrationCategories,
-	);
 	const existing = await db
 		.select()
 		.from(schema.entries)
@@ -467,60 +488,20 @@ export async function saveContestWorksheet(
 				eq(schema.entries.ownerSchoolId, input.schoolId),
 			),
 		);
-	const operations: any[] = existing.map((entry) =>
-		db.delete(schema.entries).where(eq(schema.entries.id, entry.id)),
-	);
-	operations.push(
-		db
-			.delete(schema.contestRosterMembers)
-			.where(
-				and(
-					eq(schema.contestRosterMembers.contestId, input.contestId),
-					eq(schema.contestRosterMembers.participationId, participation.id),
-				),
-			),
-	);
-	for (const student of attending)
-		operations.push(
-			db
-				.insert(schema.contestRosterMembers)
-				.values({
-					contestId: input.contestId,
-					participationId: participation.id,
-					annualStudentId: student.studentId,
-					createdAt: Date.now(),
-				}),
-		);
-	function entry(
-		category: RegistrationCategory,
-		number: number,
-		members: { studentId: string; competingGrade: number | null }[],
-		kind: 'team' | 'individual',
-	) {
-		const id = crypto.randomUUID();
-		operations.push(
-			db
-				.insert(schema.entries)
-				.values({
-					id,
-					contestId: input.contestId,
-					ownerSchoolId: input.schoolId,
-					category,
-					entryKind: kind,
-					entryNumber: number,
-					division: participation.division,
-				}),
-		);
-		for (const member of members)
-			operations.push(
-				db
-					.insert(schema.entryMembers)
-					.values({
-						entryId: id,
-						annualStudentId: member.studentId,
-						competingGrade: member.competingGrade,
-					}),
-			);
+	const existingIds = existing.map(entry => entry.id);
+	const roster = await db.select().from(schema.contestRosterMembers).where(and(
+		eq(schema.contestRosterMembers.contestId, input.contestId),
+		eq(schema.contestRosterMembers.participationId, participation.id),
+	));
+	const members = existingIds.length ? await db.select().from(schema.entryMembers).where(inArray(schema.entryMembers.entryId, existingIds)) : [];
+	const results = existingIds.length ? await db.select().from(schema.results).where(inArray(schema.results.entryId, existingIds)) : [];
+	type PlannedEntry = { id: string; category: RegistrationCategory; entryNumber: number; entryKind: 'team' | 'individual'; members: { studentId: string; competingGrade: number | null }[] };
+	const planned: PlannedEntry[] = [];
+	function entry(category: RegistrationCategory, number: number, wantedMembers: PlannedEntry['members'], kind: 'team' | 'individual') {
+		const prior = existing.find(e => e.category === category && (kind === 'team'
+			? e.entryNumber === number
+			: members.some(m => m.entryId === e.id && m.annualStudentId === wantedMembers[0].studentId)));
+		planned.push({ id: prior?.id ?? crypto.randomUUID(), category, entryNumber: kind === 'team' ? number : prior?.entryNumber ?? 0, entryKind: kind, members: wantedMembers });
 	}
 	for (const [category, groups] of [
 		['team_contest', teams],
@@ -546,7 +527,70 @@ export async function saveContestWorksheet(
 			'individual',
 		),
 	);
-	await db.batch(operations as [any, ...any[]]);
+	// Keep existing individual numbers, and allocate unused numbers only to new entrants.
+	for (const category of ['topical_individual', 'knowdown'] as const) {
+		const used = new Set(planned.filter(e => e.category === category && e.entryNumber > 0).map(e => e.entryNumber));
+		for (const e of planned.filter(e => e.category === category && e.entryNumber === 0)) {
+			let number = 1; while (used.has(number)) number++;
+			e.entryNumber = number; used.add(number);
+		}
+	}
+	const retained = new Set(planned.map(e => e.id));
+	const removed = existing.filter(e => !retained.has(e.id));
+	const names = await db.select({ id: schema.annualStudents.id, name: schema.annualStudents.name }).from(schema.annualStudents).where(and(eq(schema.annualStudents.seasonId, contest.seasonId), eq(schema.annualStudents.schoolId, input.schoolId)));
+	const removals: ScoredRemoval[] = removed.flatMap(e => {
+		const result = results.find(r => r.entryId === e.id);
+		return result ? [{ entryId: e.id, category: e.category, entryNumber: e.entryNumber, students: members.filter(m => m.entryId === e.id).map(m => names.find(s => s.id === m.annualStudentId)?.name ?? m.annualStudentId), result }] : [];
+	});
+	// Confirm exactly the results displayed; a later score edit invalidates this confirmation.
+	const confirmation = JSON.stringify(removals.sort((a, b) => a.entryId.localeCompare(b.entryId)));
+	if (removals.length && input.removalConfirmation !== confirmation) throw new ScoredRemovalError(removals, confirmation);
+	if (removed.length) {
+		const qualified = await db.select({ id: schema.qualifications.id }).from(schema.qualifications).where(inArray(schema.qualifications.entryId, removed.map(e => e.id)));
+		if (qualified.length) throw new RegistrationError('qualification_reference', 'An entry being removed is included in a qualification draft. Review that draft before removing the entry.');
+	}
+	const resultMatches = removals.length ? sql.join(removals.map(r => sql`(entry_id = ${r.entryId} AND version = ${r.result.version})`), sql` OR `) : sql`0`;
+	const removedIds = removed.length ? sql.join(removed.map(e => sql`${e.id}`), sql`, `) : sql`NULL`;
+	const guard = sql`EXISTS (SELECT 1 FROM contests JOIN seasons ON seasons.id = contests.season_id
+		WHERE contests.id = ${contest.id} AND contests.lifecycle = ${contest.lifecycle} AND seasons.status <> 'archived')
+		AND NOT EXISTS (SELECT 1 FROM qualification_rounds WHERE season_id = ${contest.seasonId} AND (kind = 'state_cutoff' AND status = 'published'))
+		AND NOT EXISTS (SELECT 1 FROM qualifications JOIN qualification_rounds ON qualification_rounds.id = qualifications.round_id JOIN entries ON entries.id = qualifications.entry_id WHERE entries.contest_id = ${contest.id} AND qualification_rounds.status = 'published')
+		AND EXISTS (SELECT 1 FROM school_participations WHERE id = ${participation.id} AND withdrawn_at IS NULL)
+		AND (SELECT COUNT(*) FROM results WHERE entry_id IN (${removedIds})) = ${removals.length}
+		AND NOT EXISTS (SELECT 1 FROM results WHERE entry_id IN (${removedIds}) AND NOT (${resultMatches}))`;
+	const details = JSON.stringify({ before: { entries: existing, members, attendance: roster.map(s => s.annualStudentId) }, after: planned, removedResults: removals, attendance: attending.map(s => s.studentId) });
+	// The NOT NULL audit field makes a stale save abort the entire D1 batch, including
+	// a score entered between the removal review and this transaction.
+	const operations: any[] = [db.insert(schema.auditEvents).values({
+		id: crypto.randomUUID(), actorUserId: input.principal?.id, contestId: input.contestId, schoolId: input.schoolId,
+		entityType: 'registration', entityId: input.schoolId,
+		action: contest.lifecycle === 'registration_open' ? 'registration_saved' : 'registration_corrected',
+		detailsJson: sql`CASE WHEN ${guard} THEN ${details} ELSE NULL END`,
+	})];
+	for (const e of removed) operations.push(db.delete(schema.entries).where(eq(schema.entries.id, e.id)));
+	for (const e of planned) {
+		if (!existingIds.includes(e.id)) operations.push(db.insert(schema.entries).values({ id: e.id, contestId: input.contestId, ownerSchoolId: input.schoolId, category: e.category, entryKind: e.entryKind, entryNumber: e.entryNumber, division: participation.division }));
+		else operations.push(db.delete(schema.entryMembers).where(eq(schema.entryMembers.entryId, e.id)));
+		for (const m of e.members) operations.push(db.insert(schema.entryMembers).values({ entryId: e.id, annualStudentId: m.studentId, competingGrade: m.competingGrade }));
+	}
+	const attendingIds = new Set(attending.map(s => s.studentId));
+	const rosterIds = new Set(roster.map(s => s.annualStudentId));
+	for (const student of roster.filter(s => !attendingIds.has(s.annualStudentId))) {
+		operations.push(db.delete(schema.contestRosterMembers).where(and(
+			eq(schema.contestRosterMembers.contestId, input.contestId),
+			eq(schema.contestRosterMembers.annualStudentId, student.annualStudentId),
+		)));
+	}
+	for (const student of attending.filter(s => !rosterIds.has(s.studentId))) {
+		operations.push(db.insert(schema.contestRosterMembers).values({ contestId: input.contestId, participationId: participation.id, annualStudentId: student.studentId }));
+	}
+	try { await db.batch(operations as [any, ...any[]]); }
+	catch (cause) {
+		if (String(cause).includes('audit_events.details_json') || String((cause as Error).cause).includes('audit_events.details_json')) {
+			throw new RegistrationError('stale_registration', 'The contest or results changed while saving. Review the latest registration and try again.');
+		}
+		throw cause;
+	}
 	return { attending: attending.length };
 }
 
@@ -555,11 +599,12 @@ export async function addWorksheetStudent(
 	input: {
 		contestId: string;
 		schoolId: string;
+		principal?: Principal;
 		name: string;
 		actualGrade: number;
 	},
 ) {
-	const contest = await requireOpenContest(db, input.contestId);
+	const contest = await requireEditableRegistration(db, input.contestId, input.principal);
 	const participation = await requireParticipation(
 		db,
 		input.contestId,
@@ -583,6 +628,7 @@ export async function addWorksheetStudent(
 				createdAt: now,
 				updatedAt: now,
 			}),
+		...(input.principal ? [db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.principal.id, contestId: input.contestId, schoolId: input.schoolId, entityType: 'student', entityId: id, action: 'registration_student_added', detailsJson: JSON.stringify({ name, actualGrade: input.actualGrade }) })] : []),
 		db
 			.insert(schema.contestRosterMembers)
 			.values({

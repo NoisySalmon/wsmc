@@ -1,12 +1,12 @@
 import { eq, inArray } from 'drizzle-orm';
 import { error, fail } from '@sveltejs/kit';
 import { canAdministerUsers, canCoordinateRegion, canCoordinateState } from '$lib/server/auth/capabilities';
-import { assignSchool, ParticipationError, withdrawSchool } from '$lib/server/program/participation';
+import { assignSchool, ParticipationError, removeSchoolParticipation } from '$lib/server/program/participation';
 import { getDb, schema } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
 
 function requireCoordinator(locals: App.Locals): void {
-	if (!locals.principal || (!locals.principal.isAdmin && locals.principal.regionalContestIds.length === 0)) throw error(403, 'Coordinator access required.');
+	if (!locals.principal || !locals.principal.isAdmin) throw error(403, 'Coordinator access required.');
 }
 
 function text(data: FormData, name: string): string {
@@ -77,7 +77,7 @@ export const actions: Actions = {
 		const [contest] = await db.select({ id: schema.contests.id, seasonId: schema.contests.seasonId }).from(schema.contests).where(eq(schema.contests.id, contestId));
 		if (!contest || !canManageContest(locals, contest)) throw error(403, 'You cannot manage this contest.');
 		try {
-			await withdrawSchool(db, { participationId, contestId });
+			await removeSchoolParticipation(db, { participationId, contestId });
 			return { success: 'School removed from this contest. It can now be assigned to another region.' };
 		} catch (cause) {
 			return fail(400, { error: cause instanceof ParticipationError ? cause.message : 'School could not be removed.' });

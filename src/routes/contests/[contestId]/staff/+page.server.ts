@@ -59,7 +59,7 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	]);
 	const protectedIds = new Set([...admins, ...regionalUsers].map((row) => row.userId));
 	const withQr = <T extends { userId: string; status: string }>(person: T) => ({ ...person, canGenerateQr: person.status !== 'disabled' && (canAdministerUsers(locals.principal!) || !protectedIds.has(person.userId)) });
-	return { contest, scorekeepers: scorekeepers.map(withQr), coordinators: coordinators.map(withQr), schools, coaches: coaches.map(withQr), canManageCoordinators: canAdministerUsers(locals.principal!) };
+	return { contest, scorekeepers: scorekeepers.map(withQr), coordinators: coordinators.map(withQr), schools, coaches: coaches.map(withQr), canManageCoordinators: canAdministerUsers(locals.principal!), canRemovePersistentAccess: canAdministerUsers(locals.principal!) };
 };
 
 export const actions: Actions = {
@@ -83,6 +83,7 @@ export const actions: Actions = {
 		const contest = await authorizedContest(locals, db, params.contestId);
 		const data = await request.formData();
 		const assignment = await readAssignment(db, locals, contest, data);
+		if (assignment.kind !== 'scorekeeper' && !canAdministerUsers(locals.principal!)) throw error(403, 'Administrator access required to remove coach or coordinator access.');
 		const userId = text(data, 'userId');
 		if (!userId) return fail(400, { error: 'Choose a person to remove.' });
 		await removeAssignment(db, { ...assignment, userId }, locals.principal!.id);

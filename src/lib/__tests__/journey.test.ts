@@ -18,7 +18,7 @@ describe('ranking-to-qualification contract', () => {
 		]);
 		const decisions = buildRegionalPlacementDecisions(rankings);
 		expect(decisions.map((decision) => [decision.entryId, decision.kind, decision.rank])).toEqual([
-			['team-first', 'regional_placement', 1], ['team-second', 'regional_placement', 2],
+			['team-first', 'regional_placement', 1],
 		]);
 	});
 });

@@ -1,3 +1,4 @@
+import { getRegistrationReadiness } from '$lib/server/registration/readiness';
 import { and, eq, ne, sql } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
@@ -78,15 +79,16 @@ export async function setSeasonStatus(db: Database, seasonId: string, status: Se
 	await db.update(schema.seasons).set({ status, updatedAt: now }).where(eq(schema.seasons.id, seasonId));
 }
 
-export async function updateContestDate(db: Database, contestId: string, date: string) {
+export async function updateContestDate(db: Database, contestId: string, date: string, knowdownLimit?: number) {
 	if (date && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date)) throw new ProgramError('invalid_date', 'Enter a valid contest date.');
 	const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, contestId));
 	if (!contest) throw new ProgramError('not_found', 'Contest not found.');
 	const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, contest.seasonId));
 	if (season?.status === 'archived') throw new ProgramError('archived', 'Archived seasons are read-only.');
 	if (contest.lifecycle === 'finalized') throw new ProgramError('finalized', 'Finalized contests are read-only. Reopen them from the Scoring page to make a correction.');
+	if (knowdownLimit !== undefined && (contest.kind !== 'regional' || !Number.isSafeInteger(knowdownLimit) || knowdownLimit < 1)) throw new ProgramError('invalid_knowdown_limit', 'Enter a positive whole number for the Knowdown limit.');
 	const timeOfDay = contest.startsAt == null ? 0 : ((contest.startsAt % 86_400_000) + 86_400_000) % 86_400_000;
-	const [updated] = await db.update(schema.contests).set({ startsAt: date ? Date.parse(date) + timeOfDay : null, updatedAt: Date.now() }).where(eq(schema.contests.id, contestId)).returning();
+	const [updated] = await db.update(schema.contests).set({ startsAt: date ? Date.parse(date) + timeOfDay : null, ...(knowdownLimit === undefined ? {} : { knowdownLimit }), updatedAt: Date.now() }).where(eq(schema.contests.id, contestId)).returning();
 	return updated;
 }
 
@@ -101,6 +103,10 @@ export async function setContestLifecycle(db: Database, contestId: string, seaso
 	if (contest.lifecycle === 'finalized') throw new ProgramError('finalized', 'Finalized contests are read-only. Reopen them from the Scoring page to make a correction.');
 	if (lifecycleOrder.indexOf(lifecycle) < lifecycleOrder.indexOf(contest.lifecycle as ContestLifecycle)) {
 		throw new ProgramError('invalid_transition', 'Contest lifecycle cannot move backward.');
+	}
+	if (contest.kind === 'regional' && contest.lifecycle === 'registration_open' && lifecycle !== 'registration_open') {
+		const readiness = await getRegistrationReadiness(db, contestId);
+		if (readiness.some(school => school.status === 'Needs attention')) throw new ProgramError('incomplete_registration', 'Resolve registrations marked Needs attention before locking rosters.');
 	}
 	await db.update(schema.contests).set({ lifecycle, updatedAt: now }).where(eq(schema.contests.id, contestId));
 }

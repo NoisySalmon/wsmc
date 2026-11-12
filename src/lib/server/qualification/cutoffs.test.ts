@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { previewStateCutoffs, type CutoffThresholds } from './cutoffs';
 import type { RegionalResultRow } from '$lib/server/scoring/rankings';
 
-const thresholds: CutoffThresholds = { project: { 1: null, 2: null }, team_contest: { 1: 80, 2: 90 }, topical_team: { 1: 100, 2: 100 }, topical_individual: { 1: 120, 2: 120 } };
+const thresholds: CutoffThresholds = { project: null, team_contest: { 1: 80, 2: 90 }, topical_team: { 1: 100, 2: 100 }, topical_individual: 120 };
 function row(overrides: Partial<RegionalResultRow>): RegionalResultRow { return { entryId: 'entry', category: 'team_contest', division: 1, entryNumber: 1, schoolName: 'School', studentId: null, score: 80, part1: null, part2: null, placement: null, studentName: null, actualGrade: null, ...overrides }; }
 
 describe('state cutoff preview', () => {
@@ -22,12 +22,12 @@ describe('state cutoff preview', () => {
 			row({ entryId: 'd2', category: 'project', division: 2, score: 0 }),
 			row({ entryId: 'unscored', category: 'project', score: null }),
 		];
-		const reference = { ...thresholds, project: { 1: 0, 2: 0 } };
+		const reference = { ...thresholds, project: 0 };
 		expect(previewStateCutoffs(projects, reference, new Set(['placement'])).map(row => [row.entryId, row.added])).toEqual([
-			['additional', true], ['placement', false], ['d2', true],
+			['additional', true], ['d2', true], ['placement', false],
 		]);
-		expect(previewStateCutoffs(projects, { ...reference, project: { 1: 20, 2: null } }, new Set(['placement'])).map(row => row.entryId)).toEqual(['additional']);
-		expect(previewStateCutoffs(projects, { ...reference, project: { 1: null, 2: null } }, new Set(['placement']))).toEqual([]);
+		expect(previewStateCutoffs(projects, { ...reference, project: 20 }, new Set(['placement'])).map(row => row.entryId)).toEqual(['additional']);
+		expect(previewStateCutoffs(projects, { ...reference, project: null }, new Set(['placement']))).toEqual([]);
 	});
 
 });

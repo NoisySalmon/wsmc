@@ -8,6 +8,7 @@ require those private inputs; they are unavailable in a fresh public checkout.
 Use the synthetic showcase fixtures for public development and CI.
 
 ```sh
+python scripts/reconcile-2026-results.py
 npm run seed:2026-results
 npm run dev
 ```
@@ -18,7 +19,8 @@ It cannot select a remote target. For disposable local data instead, use
 
 The data comes from `scripts/data/2026-regionals/region-*.json`, extracted from
 the administrators' workbooks. XLSX files and Python spreadsheet libraries are
-not needed to generate the seed. The original extraction remains unchanged.
+not needed to generate the seed. The original extraction remains unchanged. A reviewed private reconciliation overlay
+resolves supported Knowdown identities; see [the reconciliation notes](../analysis/2026-reconciliation.md).
 `node scripts/generate-2026-results.mjs OUTPUT.sql REPORT.json` generates SQL
 and a report without connecting to a database.
 
@@ -27,11 +29,11 @@ and a report without connecting to a database.
 - Season 2026 is in `qualifications`.
 - All 11 regional contests are `finalized`, with publication pending.
 - The state contest is in `setup`, with no invented contest date.
-- One editable cutoff draft stores Project 0 / 0, Team Contest 14 / 10,
-  Topical Team 89 / 68, and Topical Individual 50 / 50. No qualification
+- One editable cutoff draft stores Project 0, Team Contest 14 / 10,
+  Topical Team 89 / 68, and Topical Individual 50. No qualification
   decisions, attendance, or state rosters exist yet. Saving the qualification
-  draft builds the combined placement/cutoff list; freezing locks it and
-  publication advances the season to the state contest.
+  draft builds the combined placement/cutoff list. It remains editable until
+  publication locks it and advances the season to the state contest.
 - All 53 named school sheets and 517 base student records are loaded. Resolved
   play-up records share the original annual student identity; team-problem and
   topical memberships remain independent.

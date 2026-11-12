@@ -65,9 +65,7 @@ For each school and regional contest:
    the result is missing.
 4. Use the category, division, and missing-result filters. The page shows the
    last editor and optimistic-concurrency version for each result.
-5. To use a spreadsheet, download the score CSV, edit it, preview it, and
-   import it only after the preview is clean. Stale versions are rejected.
-6. A coordinator finalizes only after the completeness report is clear, then
+5. A coordinator finalizes only after the completeness report is clear, then
    publishes results separately. Reopening a finalized contest clears
    publication and requires a reason.
 

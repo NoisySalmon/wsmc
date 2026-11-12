@@ -1,3 +1,4 @@
+import { usesDivisions } from '$lib/events';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
@@ -149,12 +150,13 @@ export async function removeStateRosterMember(db: Database, input: { contestId: 
 export async function createStateEntry(db: Database, input: { contestId: string; ownerSchoolId?: string | null; category: StateCategory; entryNumber?: number | null; division: number; actorUserId: string; now?: number }) {
 	const contest = await requireStateContest(db, input.contestId, true);
 	if (!['project', 'team_contest', 'topical_team', 'topical_individual', 'knowdown'].includes(input.category)) throw new StateError('invalid_category', 'Choose a valid state category.');
-	if (!Number.isInteger(input.division) || (input.division !== 1 && input.division !== 2)) throw new StateError('invalid_division', 'Division must be 1 or 2.');
+	if (usesDivisions(input.category) && (!Number.isInteger(input.division) || (input.division !== 1 && input.division !== 2))) throw new StateError('invalid_division', 'Division must be 1 or 2.');
 	if (!input.ownerSchoolId && input.category !== 'team_contest') throw new StateError('school_required', 'Only cross-school Team Contest entries may omit an owner school.');
 	if (input.ownerSchoolId) {
 		await requireQualifiedSchool(db, contest.id, input.ownerSchoolId);
 		const [participation] = await db.select().from(schema.schoolParticipations).where(and(eq(schema.schoolParticipations.contestId, contest.id), eq(schema.schoolParticipations.schoolId, input.ownerSchoolId)));
-		if (!participation || participation.division !== input.division) throw new StateError('division_mismatch', 'School entry division must match state participation.');
+		if (!participation || (usesDivisions(input.category) && participation.division !== input.division)) throw new StateError('division_mismatch', 'School entry division must match state participation.');
+		if (!usesDivisions(input.category)) input = { ...input, division: participation.division };
 	}
 	if (input.entryNumber !== undefined && input.entryNumber !== null && (!Number.isInteger(input.entryNumber) || input.entryNumber < 1)) throw new StateError('invalid_entry_number', 'Entry number must be a positive integer.');
 	const id = crypto.randomUUID();

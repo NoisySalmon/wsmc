@@ -33,6 +33,8 @@ d1 --file=drizzle/0003_school_division.sql
 d1 --file=drizzle/0004_program_stages.sql
 d1 --file=drizzle/0005_season_year.sql
 d1 --file=drizzle/0006_persistent_access.sql
+d1 --file=drizzle/0007_participation_withdrawal.sql
+d1 --file=drizzle/0008_contest_knowdown_limit.sql
 d1 --file=scripts/seed.sql
 
 # Exercise scoring in the open state while retaining the seeded regional and
@@ -171,18 +173,31 @@ assert_status GET /my-schools 200 "$gamma_coach"
 assert_status GET /my-schools 403 "$scorekeeper"
 # Participation is a region assignment, with no coach response workflow.
 assert_status POST '/my-schools?/respond' 405 "$gamma_coach" --data 'participationId=participation-r2-gamma&contestId=contest-region-2&status=declined'
-assert_action_failure POST '/regions?/assign' 400 "$regional" --data 'schoolId=school-alpha&contestId=contest-region-2'
-assert_status POST '/regions?/assign' 403 "$regional" --data 'schoolId=school-gamma&contestId=contest-region-1'
-# A walk-in school can be assigned, removed, and moved to another region.
+# Regional school management lives on the contest, with server-side scope checks.
+assert_status GET /regions 403 "$regional"
+assert_status POST '/regions?/assign' 403 "$regional" --data 'schoolId=school-alpha&contestId=contest-region-2'
+assert_action_failure POST '/contests/contest-region-2?/addSchool' 400 "$regional" --data 'schoolId=school-alpha'
+assert_status POST '/contests/contest-region-1?/addSchool' 403 "$regional" --data 'schoolId=school-gamma'
+assert_status POST '/contests/contest-region-2?/addSchool' 403 "$scorekeeper2" --data 'mode=create&name=Forbidden&city=Seattle&division=1'
 d1 --command="INSERT INTO schools (id, name, division) VALUES ('school-walk-in', 'Walk-in High School', 2);"
-assert_page_contains GET /regions "$regional" 'Walk-in High School'
-assert_status POST '/regions?/assign' 200 "$regional" --data 'schoolId=school-walk-in&contestId=contest-region-2'
+assert_page_contains GET /contests/contest-region-2 "$regional" 'Walk-in High School'
+assert_status POST '/contests/contest-region-2?/addSchool' 200 "$regional" --data 'schoolId=school-walk-in'
 assert_page_contains GET /registration/contest-region-2/school-walk-in "$regional" 'Division 2'
-walk_in_id="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT id FROM school_participations WHERE school_id = 'school-walk-in';" | node -e 'let s="";process.stdin.on("data",x=>s+=x);process.stdin.on("end",()=>process.stdout.write(JSON.parse(s)[0].results[0].id));')"
-assert_status POST '/regions?/withdraw' 200 "$regional" --data "participationId=$walk_in_id&contestId=contest-region-2"
+walk_in_id="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT id FROM school_participations WHERE school_id = 'school-walk-in';" | node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(0,"utf8"))[0].results[0].id)')"
+assert_action_failure POST '/contests/contest-region-2?/removeSchool' 400 "$regional" --data "participationId=$walk_in_id"
+assert_status POST '/contests/contest-region-2?/withdrawSchool' 200 "$regional" --data "participationId=$walk_in_id"
+assert_page_contains GET /contests/contest-region-2 "$regional" 'Withdrawn'
+assert_status POST '/contests/contest-region-2?/restoreSchool' 200 "$regional" --data "participationId=$walk_in_id"
+# Removal really is available during setup, and frees the school for reassignment.
+d1 --command="UPDATE contests SET lifecycle = 'setup' WHERE id = 'contest-region-2';"
+assert_status POST '/contests/contest-region-2?/removeSchool' 200 "$regional" --data "participationId=$walk_in_id"
 assert_status GET /registration/contest-region-2/school-walk-in 404 "$regional"
-assert_status POST '/regions?/assign' 200 "$coordinator" --data 'schoolId=school-walk-in&contestId=contest-virtual-2026'
-d1 --command="DELETE FROM school_participations WHERE school_id = 'school-walk-in'; DELETE FROM schools WHERE id = 'school-walk-in';"
+assert_status POST '/contests/contest-region-2?/advanceLifecycle' 200 "$regional" --data 'lifecycle=registration_open'
+assert_status POST '/contests/contest-region-2?/addSchool' 200 "$regional" --data 'mode=create&name=New+Walk-in+School&city=Seattle&division=2'
+assert_action_failure POST '/contests/contest-region-2?/addSchool' 400 "$regional" --data 'mode=create&name=New+Walk-in+School&city=Seattle&division=2'
+created_check="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT COUNT(*) AS count FROM schools JOIN school_participations p ON schools.id = p.school_id WHERE name = 'New Walk-in School' AND p.contest_id = 'contest-region-2' AND p.division = 2;")"
+node -e 'if(JSON.parse(require("fs").readFileSync(0,"utf8"))[0].results[0].count!==1) throw new Error("Create-and-add duplicated the school or missed participation");' <<< "$created_check"
+d1 --command="DELETE FROM school_participations WHERE school_id IN (SELECT id FROM schools WHERE name = 'New Walk-in School'); DELETE FROM schools WHERE name = 'New Walk-in School' OR id = 'school-walk-in';"
 # The coach worksheet validates the whole form before writing, then saves
 # attendance and all events together. An absent student's assignments disappear.
 worksheet='/registration/contest-region-2/school-gamma?/saveWorksheet'
@@ -205,6 +220,10 @@ assert_status GET /qualifications/season-2026 200 "$coordinator"
 assert_status GET /state/contest-state-2026 200 "$coordinator"
 assert_status GET /reports/season/season-2026 200 "$coordinator"
 assert_status POST '/state/contest-state-2026?/setAttendance' 200 "$coordinator" --data 'schoolId=school-alpha&intent=attending'
+
+# Scores prevent withdrawal even before finalization.
+assert_action_failure POST '/contests/contest-region-1?/withdrawSchool' 400 "$coordinator" --data 'participationId=participation-r1-alpha'
+grep --fixed-strings --quiet 'recorded results' "$response_file" || { echo 'Withdrawal was rejected for the wrong reason' >&2; exit 1; }
 
 # Two authenticated score editors can reach the same contest, but a stale
 # conditional write is rejected and a scorekeeper cannot finalize.
@@ -232,11 +251,41 @@ assert_status GET '/reports/results?contestId=contest-region-1' 200 "$coach"
 # lock and scoring, then review the missing scores without statewide help.
 assert_status GET /contests/contest-region-2 200 "$regional"
 assert_status GET '/reports/participation?contestId=contest-region-2' 404 "$regional"
+# New attending students without events are flagged until the coach fixes them.
+assert_page_contains GET /contests/contest-region-2 "$regional" 'Needs attention'
+assert_action_failure POST '/contests/contest-region-2?/advanceLifecycle' 400 "$regional" --data 'lifecycle=roster_locked'
+new_student_id="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT id FROM annual_students WHERE name = 'New Student';" | node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(0,"utf8"))[0].results[0].id)')"
+assert_status POST '/registration/contest-region-2/school-gamma?/removeRoster' 200 "$gamma_coach" --data "studentId=$new_student_id"
+assert_page_contains GET /contests/contest-region-2 "$regional" '>Valid<'
 assert_status POST '/contests/contest-region-2?/advanceLifecycle' 200 "$regional" --data 'lifecycle=roster_locked'
 assert_status POST '/contests/contest-region-2?/advanceLifecycle' 200 "$regional" --data 'lifecycle=scoring'
 assert_status GET /scoring/contest-region-2 200 "$regional"
+# A no-show keeps its exact roster and entries, but leaves scoring and exports.
+registration_snapshot_sql="SELECT id, category FROM entries WHERE contest_id = 'contest-region-2' ORDER BY id; SELECT annual_student_id FROM contest_roster_members WHERE contest_id = 'contest-region-2' ORDER BY annual_student_id; SELECT entry_id, annual_student_id, competing_grade FROM entry_members JOIN entries ON entries.id = entry_members.entry_id WHERE entries.contest_id = 'contest-region-2' ORDER BY entry_id, annual_student_id;"
+registration_before="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="$registration_snapshot_sql" | node -e 'process.stdout.write(JSON.stringify(JSON.parse(require("fs").readFileSync(0,"utf8")).map(x=>x.results)))')"
+assert_status POST '/contests/contest-region-2?/withdrawSchool' 200 "$regional" --data 'participationId=participation-r2-gamma'
+assert_status GET /scoring/contest-region-2 200 "$regional"
+if grep --fixed-strings --quiet 'Gale Gamma' "$response_file"; then echo 'Withdrawn entrant still appears in scoring' >&2; exit 1; fi
+assert_status GET /scoring/contest-region-2/csv 404 "$regional"
+if grep --fixed-strings --quiet 'Gamma' "$response_file"; then echo 'Withdrawn school still appears in score export' >&2; exit 1; fi
+assert_status POST "$worksheet" 409 "$gamma_coach" --data "$worksheet_students"
+assert_status POST '/scoring/contest-region-2?/finalize' 200 "$regional" --data ''
+assert_status GET /results/contest-region-2 200 "$regional"
+if grep --fixed-strings --quiet 'Gale Gamma' "$response_file"; then echo 'Withdrawn entrant appears in results' >&2; exit 1; fi
+assert_action_failure POST '/contests/contest-region-2?/restoreSchool' 400 "$regional" --data 'participationId=participation-r2-gamma'
+assert_status POST '/scoring/contest-region-2?/reopen' 200 "$regional" --data 'reason=Restore+school+after+no-show+correction'
+assert_status POST '/contests/contest-region-2?/restoreSchool' 200 "$regional" --data 'participationId=participation-r2-gamma'
+registration_after="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="$registration_snapshot_sql" | node -e 'process.stdout.write(JSON.stringify(JSON.parse(require("fs").readFileSync(0,"utf8")).map(x=>x.results)))')"
+[[ "$registration_before" == "$registration_after" ]] || { echo 'Withdrawal/restoration changed saved registration' >&2; exit 1; }
+assert_page_contains GET /scoring/contest-region-2 "$regional" 'Gale Gamma'
+
 assert_action_failure POST '/scoring/contest-region-2?/finalize' 400 "$regional" --data ''
 assert_status GET /contests/contest-region-2/staff 200 "$regional"
+if grep --fixed-strings --quiet 'Remove access' "$response_file"; then
+ echo 'Regional coordinators must not see persistent access removal buttons' >&2
+ exit 1
+fi
+assert_page_contains GET /contests/contest-region-2/staff "$coordinator" 'Remove access'
 assert_status GET /contests/contest-region-1/staff 403 "$regional"
 assert_status GET /contests/contest-region-2/staff 403 "$scorekeeper2"
 assert_status POST '/contests/contest-region-2/staff?/remove' 200 "$regional" --data 'role=scorekeeper&userId=user-scorekeeper-2'
@@ -255,7 +304,9 @@ assert_page_contains GET /contests/contest-region-2/staff "$regional" 'Region 2 
 assert_status POST '/admin/users?/add' 200 "$coordinator" --data 'email=scorekeeper2%40wsmc.example&role=scorekeeper&contestId=contest-region-2'
 existing_access="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT (SELECT COUNT(*) FROM coach_assignments WHERE user_id = 'user-scorekeeper-2' AND school_id = 'school-gamma') AS coaches, (SELECT COUNT(*) FROM sign_in_tokens WHERE user_id = 'user-scorekeeper-2') AS tokens, (SELECT display_name FROM users WHERE id = 'user-scorekeeper-2') AS name;")"
 node -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"))[0].results[0]; if(r.coaches!==1 || r.tokens!==0 || r.name!=="Region 2 Scorekeeper") throw new Error("Adding access changed identity or sign-in tokens");' <<< "$existing_access"
-assert_status POST '/contests/contest-region-2/staff?/remove' 200 "$regional" --data 'role=coach&schoolId=school-gamma&userId=user-scorekeeper-2'
+assert_status POST '/contests/contest-region-2/staff?/remove' 403 "$regional" --data 'role=coach&schoolId=school-gamma&userId=user-scorekeeper-2'
+assert_status POST '/contests/contest-region-2/staff?/remove' 403 "$regional" --data 'role=regional&userId=user-regional-coordinator-2'
+assert_status POST '/contests/contest-region-2/staff?/remove' 200 "$coordinator" --data 'role=coach&schoolId=school-gamma&userId=user-scorekeeper-2'
 assert_status POST '/admin/users?/disable' 200 "$coordinator" --data 'userId=user-scorekeeper-2'
 assert_action_failure POST '/contests/contest-region-2/staff?/add' 400 "$regional" --data 'email=scorekeeper2%40wsmc.example&role=coach&schoolId=school-gamma'
 assert_status POST '/admin/users?/enable' 200 "$coordinator" --data 'userId=user-scorekeeper-2'

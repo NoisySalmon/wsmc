@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ContestStatus from '$lib/components/ContestStatus.svelte';
 	let { data } = $props();
 </script>
 
@@ -11,7 +12,7 @@
 			<article>
 				<h2>{participation.schoolName} · {participation.seasonYear}</h2>
 				<p><strong>{participation.contestName}</strong> · {participation.contestKind} · Division {participation.division}</p>
-				<p>Contest stage: {participation.contestLifecycle}</p>
+				<p>Contest stage: <ContestStatus status={participation.contestLifecycle} /></p>
 				{#if participation.contestKind === 'regional'}<a href="/registration/{participation.contestId}/{participation.schoolId}">Open school registration</a>{/if}
 			</article>
 		{/each}

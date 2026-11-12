@@ -26,7 +26,7 @@
 			<section class="card"><SeasonOverview season={current} contests={data.contests} regions={data.regions} canOpenState={isAdmin || isCoach} canOpenQualifications={isAdmin} />
 				{#if isAdmin}
 			<div class="advance">
-				{#if current.status === 'regional'}<p>Plan qualifications as regional results are finalized.</p>{:else if current.status === 'qualifications'}<p>Finish the qualification draft, then freeze and publish it to open the state contest.</p>{:else}<p>Archiving permanently closes editing for this season. It cannot be reopened.</p>{/if}
+				{#if current.status === 'regional'}<p>Plan qualifications as regional results are finalized.</p>{:else if current.status === 'qualifications'}<p>Finish the qualification draft, then publish it to open the state contest.</p>{:else}<p>Archiving permanently closes editing for this season. It cannot be reopened.</p>{/if}
 				{#if current.status === 'qualifications'}<p><a href="/qualifications/{current.id}">Review and publish qualifications →</a></p>{:else}<form use:enhance method="POST" action="?/setSeasonStatus"><input type="hidden" name="seasonId" value={current.id} /><input type="hidden" name="status" value={nextStage[current.status]} /><button type="submit">{nextLabel[current.status]}</button></form>{/if}
 			</div>
 				{/if}

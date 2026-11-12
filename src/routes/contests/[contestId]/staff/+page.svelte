@@ -27,7 +27,7 @@
 		{#if manageable && !data.contest.archived}<div class="actions">
 			{#if person.canGenerateQr}<form method="POST" action="?/qr"><input type="hidden" name="userId" value={person.userId} /><button type="submit">Show sign-in QR</button></form>{/if}
 			{#if person.status === 'pending'}<form method="POST" action="?/resend"><input type="hidden" name="role" value={role} /><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="userId" value={person.userId} /><button class="quiet" type="submit">Resend invitation</button></form>{/if}
-			<form method="POST" action="?/remove"><input type="hidden" name="role" value={role} /><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="userId" value={person.userId} /><button class="quiet" type="submit">{role === 'scorekeeper' ? 'Remove from this contest' : 'Remove access'}</button></form>
+			{#if role === 'scorekeeper' || data.canRemovePersistentAccess}<form method="POST" action="?/remove"><input type="hidden" name="role" value={role} /><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="userId" value={person.userId} /><button class="quiet" type="submit">{role === 'scorekeeper' ? 'Remove from this contest' : 'Remove access'}</button></form>{/if}
 		</div>{/if}</li>
 	{/snippet}
 
@@ -39,7 +39,7 @@
 		<ul>{#each data.scorekeepers as person}{@render personRow(person, 'scorekeeper')}{:else}<li>No scorekeepers assigned.</li>{/each}</ul>
 		{#if !data.contest.archived}{@render addForm('scorekeeper')}{/if}
 	</section>
-	<section><h2>School coaches</h2><p>Coach access belongs to the school across seasons and stays with it when it moves between contests. Adding or removing a coach here affects every season.</p>
+	<section><h2>School coaches</h2><p>Coach access belongs to the school across seasons and stays with it when it moves between contests. Adding a coach here affects every season. Only administrators can remove coach access.</p>
 		{#each data.schools as school}<section id="school-{school.id}"><h3>{school.name}</h3>
 			<ul>{#each data.coaches.filter((coach) => coach.schoolId === school.id) as person}{@render personRow(person, 'coach', school.id)}{:else}<li>No coaches assigned.</li>{/each}</ul>
 			{#if !data.contest.archived}{@render addForm('coach', school.id)}{/if}
