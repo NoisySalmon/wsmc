@@ -19,3 +19,16 @@ migrations_dir = "drizzle"
 ENVIRONMENT = "production"
 APP_ORIGIN = "https://wsmc.pages.dev"
 EMAIL_FROM = "WSMC <noreply@nanonat.com>"
+
+# Direct uploads labeled cloudflare-preview use an isolated historical replay DB.
+# Pages shares these settings across preview branches, not per branch.
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "wsmc-2026-preview"
+database_id = "43e41f18-2e53-4c4a-a00b-498bdc32a66d"
+migrations_dir = "drizzle"
+
+[env.preview.vars]
+ENVIRONMENT = "production"
+APP_ORIGIN = "https://cloudflare-preview.wsmc.pages.dev"
+EMAIL_FROM = "WSMC <noreply@nanonat.com>"
