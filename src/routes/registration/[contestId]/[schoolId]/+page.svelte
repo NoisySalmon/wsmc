@@ -252,6 +252,7 @@
 		</p>{/if}
 
 	{#if correcting && correctionAvailable}<p class="notice">Coordinator corrections: changes affect contest results. Scores already entered will be preserved unless you confirm removal of a scored entry. <button type="button" disabled={dirty || saving} onclick={() => correcting = false}>Finish editing</button></p>{/if}
+	<p><a href="/help/coach/regional" target="_blank" rel="noopener">Regional coach guide ↗</a></p>
 	<section class="worksheet" aria-label="Contest assignments">
 		<div class="section-heading">
 			<div>
@@ -525,6 +526,7 @@
 		and Project teams are independent.
 	</p>
 	<div class="details-toggle">
+		<a href="/help/coach/regional#student-details" target="_blank" rel="noopener">Help with editing or removing students ↗</a>
 			<button
 				class="secondary"
 				type="button"

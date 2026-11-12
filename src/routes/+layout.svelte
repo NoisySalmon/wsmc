@@ -20,6 +20,7 @@
 	{#if nav?.isCoach}<a href="/my-schools">My schools</a>{/if}
 	{#if showUsers}<a href="/admin/users">Users &amp; access</a>{/if}
 	{#each data?.roleLinks ?? [] as link}<a href={link.href}>{link.label}</a>{/each}
+	<a href="/help">Help</a>
 	{#if principal}<form method="POST" action="/auth/sign-out"><button type="submit">Sign out</button></form>{/if}
 </nav>
 

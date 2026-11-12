@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ContestStatus from '$lib/components/ContestStatus.svelte';
 	import { enhance } from '$app/forms';
 	import ContestSettings from '$lib/components/ContestSettings.svelte';
 	let { data, form } = $props();
@@ -13,7 +14,7 @@
 <svelte:head><title>{data.contest.name} overview — WSMC</title></svelte:head>
 <main>
 	<h1>{data.contest.name}</h1>
-	<p class="subheading">Regional contest · {data.contest.lifecycle}{#if data.contest.resultsPublishedAt} · results published{/if}</p>
+	<p class="subheading">Regional contest · <ContestStatus status={data.contest.lifecycle} />{#if data.contest.resultsPublishedAt} · results published{/if}</p>
 	<ContestSettings contest={data.contest} canManage={data.canManageContest} />
 	{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
 	<nav aria-label="Contest tools">{#if ['roster_locked', 'scoring', 'finalized'].includes(data.contest.lifecycle)}<a href="/scoring/{data.contest.id}">Scoring</a>{/if}{#if data.contest.lifecycle === 'finalized'}<a href="/results/{data.contest.id}">Results</a>{/if}{#if data.canManageStaff}<a href="/contests/{data.contest.id}/staff">People</a>{/if}</nav>

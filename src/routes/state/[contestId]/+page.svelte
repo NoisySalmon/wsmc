@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ContestStatus from '$lib/components/ContestStatus.svelte';
 	import ContestSettings from '$lib/components/ContestSettings.svelte';
 	let { data, form } = $props();
 	const categories = [
@@ -23,7 +24,7 @@
 <main>
 	<p><a href="/">← Home</a></p>
 	<h1>{data.contest.name}</h1>
-	<p class="subheading">State administration · {data.contest.lifecycle}{#if data.contest.lifecycle === 'scoring' || data.contest.lifecycle === 'finalized'} · <a href="/scoring/{data.contest.id}">Open state scoring</a>{/if}{#if data.contest.lifecycle === 'finalized' && data.contest.resultsPublishedAt} · <a href="/state/{data.contest.id}/results">View published results</a>{/if}</p>
+	<p class="subheading">State administration · <ContestStatus status={data.contest.lifecycle} />{#if data.contest.lifecycle === 'scoring' || data.contest.lifecycle === 'finalized'} · <a href="/scoring/{data.contest.id}">Open state scoring</a>{/if}{#if data.contest.lifecycle === 'finalized' && data.contest.resultsPublishedAt} · <a href="/state/{data.contest.id}/results">View published results</a>{/if}</p>
 	{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
 	{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
 
