@@ -153,7 +153,7 @@ export async function saveContestResult(db: Database, input: { contestId: string
 
 async function auditQualificationImpact(db: Database, contest: Awaited<ReturnType<typeof requireScoringContest>>, actorUserId: string, entryId: string | null, category: string, now = Date.now()) {
 	const [publishedQualificationRound] = contest.kind === 'regional'
-		? await db.select({ id: schema.qualificationRounds.id }).from(schema.qualificationRounds).where(and(eq(schema.qualificationRounds.seasonId, contest.seasonId), inArray(schema.qualificationRounds.status, ['frozen', 'published']))).limit(1)
+		? await db.select({ id: schema.qualificationRounds.id }).from(schema.qualificationRounds).where(and(eq(schema.qualificationRounds.seasonId, contest.seasonId), eq(schema.qualificationRounds.status, 'published'))).limit(1)
 		: [];
 	if (publishedQualificationRound) await db.insert(schema.auditEvents).values({
 		id: crypto.randomUUID(), actorUserId, contestId: contest.id, entityType: 'qualification_round', entityId: publishedQualificationRound.id,

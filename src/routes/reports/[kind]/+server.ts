@@ -1,3 +1,4 @@
+import { usesDivisions } from '$lib/events';
 import { error } from '@sveltejs/kit';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { canCoordinateState, canScoreContest } from '$lib/server/auth/capabilities';
@@ -35,7 +36,7 @@ export const GET: RequestHandler = async ({ locals, platform, params, url }) => 
 		if (!canReviewUnpublished && !(isCoach && contest.resultsPublishedAt !== null)) throw error(403, 'You cannot export these results before publication.');
 		try {
 			const result = contest.kind === 'regional' ? await getRegionalRankings(db, contestId) : await getStateRankings(db, contestId);
-			const rows = Object.values(result.rankings).flat().map((row) => ['wsmc.results.v1', contestId, row.category, row.division, row.rank, row.actualGradeRank ?? null, row.schoolName, row.studentName, row.entryNumber, row.score, row.part1, row.part2, row.placement]);
+			const rows = Object.values(result.rankings).flat().map((row) => ['wsmc.results.v1', contestId, row.category, usesDivisions(row.category) ? row.division : null, row.rank, row.actualGradeRank ?? null, row.schoolName, row.studentName, row.entryNumber, row.score, row.part1, row.part2, row.placement]);
 			csv = exportReportCsv(['report_version', 'contest_id', 'category', 'division', 'rank', 'actual_grade_rank', 'school_name', 'student_name', 'entry_number', 'score', 'part1', 'part2', 'placement'], rows);
 			filename = `wsmc-${contestId}-results.csv`;
 		} catch (cause) { if (cause instanceof ScoringError) throw error(409, cause.message); throw cause; }
@@ -52,7 +53,7 @@ export const GET: RequestHandler = async ({ locals, platform, params, url }) => 
 		const reasons = ids.length ? await db.select().from(schema.qualificationReasons).where(inArray(schema.qualificationReasons.qualificationId, ids)) : [];
 		csv = exportReportCsv(['report_version', 'season_id', 'round_kind', 'round_id', 'qualification_id', 'active', 'entry_id', 'category', 'division', 'school_name', 'student_name', 'reason_kind', 'reason_rank', 'reason_scope', 'actual_grade', 'threshold'], qualifications.flatMap(({ qualification, round, entry, schoolName, studentName }) => {
 			const matching = reasons.filter((reason) => reason.qualificationId === qualification.id);
-			return (matching.length ? matching : [null]).map((reason) => ['wsmc.qualifications.v1', seasonId, round.kind, round.id, qualification.id, qualification.active ? 'yes' : 'no', entry.id, entry.category, entry.division, schoolName || 'Statewide entry', studentName, reason?.kind ?? null, reason?.rank ?? null, reason?.scope ?? null, reason?.actualGrade ?? null, reason?.threshold ?? null]);
+			return (matching.length ? matching : [null]).map((reason) => ['wsmc.qualifications.v1', seasonId, round.kind, round.id, qualification.id, qualification.active ? 'yes' : 'no', entry.id, entry.category, usesDivisions(entry.category) ? entry.division : null, schoolName || 'Statewide entry', studentName, reason?.kind ?? null, reason?.rank ?? null, reason?.scope ?? null, reason?.actualGrade ?? null, reason?.threshold ?? null]);
 		}));
 		filename = `wsmc-${seasonId}-qualifications.csv`;
 	} else {

@@ -6,19 +6,28 @@ function row(overrides: Partial<RegionalResultRow> = {}): RegionalResultRow {
 }
 
 describe('regional rankings', () => {
-	it('uses competition rank for category ties within each division', () => {
+	it.each(['team_contest', 'topical_team'] as const)('uses competition rank within each division for %s', (category) => {
 		const result = rankRegionalResults([
-			row({ entryId: 'a', score: 100 }), row({ entryId: 'b', score: 90 }), row({ entryId: 'c', score: 90 }), row({ entryId: 'd', score: 80 }), row({ entryId: 'e', division: 2, score: 95 }),
+			row({ category, entryId: 'a', score: 100 }), row({ category, entryId: 'b', score: 90 }), row({ category, entryId: 'c', score: 90 }), row({ category, entryId: 'd', score: 80 }), row({ category, entryId: 'e', division: 2, score: 95 }),
 		]);
-		expect(result.project.map((entry) => entry.rank)).toEqual([1, 2, 2, 4, 1]);
-		expect(result.project.filter((entry) => entry.division === 2).map((entry) => entry.rank)).toEqual([1]);
+		expect(result[category].map((entry) => entry.rank)).toEqual([1, 2, 2, 4, 1]);
+		expect(result[category].filter((entry) => entry.division === 2).map((entry) => entry.rank)).toEqual([1]);
+	});
+
+	it('ranks Projects together across school divisions, including ties at the qualification boundary', () => {
+		const result = rankRegionalResults([
+			row({ entryId: 'a', score: 100 }), row({ entryId: 'b', division: 2, score: 95 }),
+			row({ entryId: 'c', score: 90 }), row({ entryId: 'd', division: 2, score: 90 }),
+			row({ entryId: 'e', division: 2, score: 80 }),
+		]);
+		expect(result.project.map(entry => [entry.entryId, entry.rank])).toEqual([['a', 1], ['b', 2], ['c', 3], ['d', 3], ['e', 5]]);
 	});
 
 	it('provides overall and actual-grade Topical Individual placement', () => {
 		const result = rankRegionalResults([
 			row({ entryId: 'entry-senior', studentId: 'senior', category: 'topical_individual', score: 140, part1: 70, part2: 70, studentName: 'Senior', actualGrade: 12 }),
 			row({ entryId: 'entry-junior', studentId: 'junior', category: 'topical_individual', score: 130, part1: 65, part2: 65, studentName: 'Junior', actualGrade: 11 }),
-			row({ entryId: 'entry-other-senior', studentId: 'other-senior', category: 'topical_individual', score: 120, part1: 60, part2: 60, studentName: 'Other Senior', actualGrade: 12 }),
+			row({ entryId: 'entry-other-senior', studentId: 'other-senior', division: 2, category: 'topical_individual', score: 120, part1: 60, part2: 60, studentName: 'Other Senior', actualGrade: 12 }),
 		]);
 		expect(result.topical_individual.map((entry) => [entry.studentId, entry.rank, entry.actualGradeRank])).toEqual([['senior', 1, 1], ['junior', 2, 1], ['other-senior', 3, 2]]);
 	});

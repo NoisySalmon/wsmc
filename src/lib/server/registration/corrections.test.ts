@@ -154,6 +154,8 @@ describe('contest-day registration corrections', { timeout: 15_000 }, () => {
 		await reopenContest(db, { contestId: scope.contestId, actorUserId: principal.id, reason: 'Correct actual participants' });
 		expect(await load(event())).toMatchObject({ readOnly: false, contest: { lifecycle: 'scoring', resultsPublishedAt: null } });
 		await d1.prepare("INSERT INTO qualification_rounds (id, season_id, kind, status, created_by) VALUES ('frozen', 'season-2026', 'state_cutoff', 'frozen', ?)").bind(principal.id).run();
+		expect(await load(event())).toMatchObject({ readOnly: false });
+		await d1.prepare("UPDATE qualification_rounds SET status='published' WHERE id='frozen'").run();
 		expect(await load(event())).toMatchObject({ readOnly: true });
 		await expect(actions.addStudent(event())).rejects.toMatchObject({ status: 409 });
 		await d1.prepare("UPDATE seasons SET status = 'archived'").run();

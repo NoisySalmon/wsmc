@@ -199,7 +199,7 @@ for (const source of manifest.regions) {
 }
 // Store the example's editable values as a draft, rather than UI-only defaults.
 add('qualification_rounds', { id: 'round-cutoff-draft-2026', season_id: seasonId, kind: 'state_cutoff', status: 'draft',
- thresholds_json: JSON.stringify({ project: { 1: 0, 2: 0 }, team_contest: { 1: 14, 2: 10 }, topical_team: { 1: 89, 2: 68 }, topical_individual: { 1: 50, 2: 50 } }), created_by: admin });
+ thresholds_json: JSON.stringify({ project: 0, team_contest: { 1: 14, 2: 10 }, topical_team: { 1: 89, 2: 68 }, topical_individual: 50 }), created_by: admin });
 if (seenRegions.size !== 11) throw new Error('Expected all 11 regional workbooks');
 add('contests', { id: 'contest-state-2026', season_id: seasonId, region_id: null, kind: 'state', name: '2026 State Contest', lifecycle: 'setup', starts_at: null });
 report.sqlSha256 = createHash('sha256').update(sql.join('\n') + '\n').digest('hex');

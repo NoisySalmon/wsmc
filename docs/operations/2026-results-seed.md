@@ -29,11 +29,11 @@ and a report without connecting to a database.
 - Season 2026 is in `qualifications`.
 - All 11 regional contests are `finalized`, with publication pending.
 - The state contest is in `setup`, with no invented contest date.
-- One editable cutoff draft stores Project 0 / 0, Team Contest 14 / 10,
-  Topical Team 89 / 68, and Topical Individual 50 / 50. No qualification
+- One editable cutoff draft stores Project 0, Team Contest 14 / 10,
+  Topical Team 89 / 68, and Topical Individual 50. No qualification
   decisions, attendance, or state rosters exist yet. Saving the qualification
-  draft builds the combined placement/cutoff list; freezing locks it and
-  publication advances the season to the state contest.
+  draft builds the combined placement/cutoff list. It remains editable until
+  publication locks it and advances the season to the state contest.
 - All 53 named school sheets and 517 base student records are loaded. Resolved
   play-up records share the original annual student identity; team-problem and
   topical memberships remain independent.

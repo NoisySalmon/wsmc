@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { usesDivisions } from '$lib/events';
 	import ContestStatus from '$lib/components/ContestStatus.svelte';
 	import ContestSettings from '$lib/components/ContestSettings.svelte';
 	let { data, form } = $props();
@@ -9,6 +10,7 @@
 		['topical_individual', 'Topical Individual'],
 		['knowdown', 'Knowdown'],
 	] as const;
+	let entryCategory = $state('project');
 	const grades = [9, 10, 11, 12];
 
 	function categoryLabel(category: string) { return categories.find(([value]) => value === category)?.[1] ?? category; }
@@ -75,16 +77,16 @@
 		<h2>State entries</h2>
 		<p class="help">Entries are explicit and contest-scoped. A blank owner creates a mixed-school Team Contest only; mixed-school Topical Teams are not allowed.</p>
 		<form class="form-grid" method="POST" action="?/createEntry">
-			<label>Category <select name="category">{#each categories as category}<option value={category[0]}>{category[1]}</option>{/each}</select></label>
+			<label>Category <select name="category" bind:value={entryCategory}>{#each categories as category}<option value={category[0]}>{category[1]}</option>{/each}</select></label>
 			<label>Owner school <select name="ownerSchoolId"><option value="">Cross-school Team Contest</option>{#each data.qualifiedSchools as school}<option value={school.schoolId}>{school.schoolName}</option>{/each}</select></label>
-			<label>Division <select name="division"><option value="1">Division 1</option><option value="2">Division 2</option></select></label>
+			{#if usesDivisions(entryCategory)}<label>Division <select name="division"><option value="1">Division 1</option><option value="2">Division 2</option></select></label>{/if}
 			<label>Entry number <input type="number" name="entryNumber" min="1" placeholder="Optional" /></label>
 			<button type="submit">Create state entry</button>
 		</form>
 		<div class="entry-list">
 			{#each data.entries as entry}
 				<article class="entry-card">
-					<header><div><h3>{categoryLabel(entry.category)}</h3><span>{entry.id} · {entry.ownerSchoolId ? schoolName(entry.ownerSchoolId) : 'Cross-school'} · Division {entry.division}</span></div></header>
+					<header><div><h3>{categoryLabel(entry.category)}</h3><span>{entry.id} · {entry.ownerSchoolId ? schoolName(entry.ownerSchoolId) : 'Cross-school'}{#if usesDivisions(entry.category)} · Division {entry.division}{/if}</span></div></header>
 					<ul>{#each membersFor(entry.id) as row}<li>{row.student.name} · actual grade {row.student.actualGrade}{#if row.member.competingGrade} · competing grade {row.member.competingGrade}{/if}<form method="POST" action="?/removeMember"><input type="hidden" name="entryId" value={entry.id} /><input type="hidden" name="annualStudentId" value={row.member.annualStudentId} /><button class="remove" type="submit" aria-label="Remove {row.student.name} from {categoryLabel(entry.category)}">Remove</button></form></li>{/each}</ul>
 					<form class="member-form" method="POST" action="?/addMember"><input type="hidden" name="entryId" value={entry.id} /><label>Rostered student <select name="annualStudentId" required>{#each data.roster as row}<option value={row.member.annualStudentId}>{row.student.name} · {schoolName(row.member.schoolId)}</option>{/each}</select></label>{#if entry.entryKind === 'team'}<label>Competing grade <select name="competingGrade">{#each grades as grade}<option value={grade}>{grade}</option>{/each}</select></label>{/if}<button type="submit">Add member</button></form>
 				</article>

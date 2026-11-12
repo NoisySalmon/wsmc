@@ -189,16 +189,16 @@ Qualification occurs in two stages. A qualification is a stored, publishable dec
 
 After a regional contest is finalized:
 
-- First, second, and third place Project teams in each division qualify.
-- First, second, and third place Team Contest teams in each division qualify.
-- First, second, and third place Topical Teams in each division qualify.
-- First, second, and third place Topical Individuals overall in each division qualify.
-- First, second, and third place Topical Individuals within each actual grade in each division qualify.
+- First, second, and third place Project teams qualify overall; the Project score cutoff can include additional teams.
+- First-place Team Contest teams in each division qualify; additional teams qualify through the statewide score cutoff.
+- First-place Topical Teams in each division qualify; additional teams qualify through the statewide score cutoff.
+- First, second, and third place Topical Individuals overall qualify, without division separation.
+- After removing overall qualifiers, the highest remaining Topical Individual score within each actual grade qualifies as distinguished freshman, sophomore, junior, or senior.
 - First, second, and third place Knowdown students qualify.
 - Fourth-place Knowdown is recorded as an inactive alternate.
 - All entries tied at a qualifying placement qualify.
 
-A student can qualify through multiple overall/grade/category achievements. The system presents one state-eligible student while preserving every qualification reason.
+A student can qualify in multiple categories. Topical Individual overall and distinguished selection are mutually exclusive, so each Individual qualifier has one automatic basis. Statewide cutoff additions exclude already-qualified entries.
 
 Automatic regional qualifiers can be published before statewide score cutoffs are chosen.
 

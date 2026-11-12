@@ -13,7 +13,7 @@ function requireAccess(locals: App.Locals, seasonId: string) {
 function failure(cause: unknown) { return fail(400, { error: cause instanceof CutoffError ? cause.message : 'Qualification workflow could not be completed.' }); }
 function thresholds(data: FormData) {
 	const value = (name: string) => { const raw = String(data.get(name) ?? '').trim(); if (!raw) return null; const parsed = Number(raw); if (!Number.isFinite(parsed) || parsed < 0) throw new CutoffError('invalid_threshold', 'Cutoffs must be blank or non-negative numbers.'); return parsed; };
-	return { project: { 1: value('projectDivision1'), 2: value('projectDivision2') }, team_contest: { 1: value('teamContestDivision1'), 2: value('teamContestDivision2') }, topical_team: { 1: value('topicalTeamDivision1'), 2: value('topicalTeamDivision2') }, topical_individual: { 1: value('topicalIndividualDivision1'), 2: value('topicalIndividualDivision2') } };
+	return { project: value('projectCutoff'), team_contest: { 1: value('teamContestDivision1'), 2: value('teamContestDivision2') }, topical_team: { 1: value('topicalTeamDivision1'), 2: value('topicalTeamDivision2') }, topical_individual: value('topicalIndividualCutoff') };
 }
 export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	requireAccess(locals, params.seasonId);
@@ -30,16 +30,16 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	return { season, planning, workflow, qualifications: [...placements.qualifications, ...cutoffs.qualifications, ...manual.qualifications] };
 };
 
-const save = (freeze: boolean): Actions[string] => async ({ locals, platform, params, request }) => {
+const save: Actions[string] = async ({ locals, platform, params, request }) => {
 	requireAccess(locals, params.seasonId);
 	if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 	try {
-		await saveQualificationDraft(getDb(platform.env.DB), { seasonId: params.seasonId, actorUserId: locals.principal!.id, thresholds: thresholds(await request.formData()), freeze });
-		return { success: freeze ? 'Qualifications frozen. Review the saved list, then publish when ready.' : 'Qualification draft saved, including automatic qualifiers and cutoff additions.' };
+		await saveQualificationDraft(getDb(platform.env.DB), { seasonId: params.seasonId, actorUserId: locals.principal!.id, thresholds: thresholds(await request.formData()) });
+		return { success: 'Qualification draft saved, including automatic qualifiers and cutoff additions.' };
 	} catch (cause) { return failure(cause); }
 };
 export const actions: Actions = {
-	save: save(false), freeze: save(true),
+	save,
 	publish: async ({ locals, platform, params }) => {
 		requireAccess(locals, params.seasonId);
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
@@ -54,7 +54,7 @@ export const actions: Actions = {
 			const planning = await getQualificationPlanningData(db, params.seasonId);
 			const entryId = String(data.get('entryId') ?? '');
 			await recordManualQualificationDecision(db, { seasonId: params.seasonId, entryId, studentId: planning.rows.find(row => row.entryId === entryId)?.studentId, include: data.get('decision') === 'include', reason: String(data.get('reason') ?? ''), actorUserId: locals.principal!.id });
-			return { success: 'Exception recorded. Save or freeze the draft to apply it to the qualification list.' };
+			return { success: 'Exception recorded. Save the draft to apply it to the qualification list.' };
 		} catch (cause) { return failure(cause); }
 	},
 };

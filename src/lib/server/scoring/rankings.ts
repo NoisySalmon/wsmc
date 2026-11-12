@@ -1,3 +1,4 @@
+import { eventDivisions } from '$lib/events';
 import { rankByScore, rankIndividuals, type IndividualRankingEntry } from '$lib/rankings';
 import type { ScoreCategory } from './service';
 
@@ -21,8 +22,8 @@ export type RegionalRankings = Record<'project' | 'team_contest' | 'topical_team
 
 function rankedCategory(rows: RegionalResultRow[], category: ScoreCategory): RegionalRankedResult[] {
 	const byDivision: RegionalRankedResult[] = [];
-	for (const division of [1, 2]) {
-		const scored = rows.filter((row) => row.category === category && row.division === division && row.score !== null) as (RegionalResultRow & { score: number })[];
+	for (const division of eventDivisions(category)) {
+		const scored = rows.filter((row) => row.category === category && (division === undefined || row.division === division) && row.score !== null) as (RegionalResultRow & { score: number })[];
 		byDivision.push(...rankByScore(scored, division));
 	}
 	return byDivision;
@@ -30,15 +31,13 @@ function rankedCategory(rows: RegionalResultRow[], category: ScoreCategory): Reg
 
 function rankedTopicalIndividuals(rows: RegionalResultRow[]): RegionalRankedResult[] {
 	const output: RegionalRankedResult[] = [];
-	for (const division of [1, 2]) {
-		const source = rows.filter((row) => row.category === 'topical_individual' && row.division === division && row.score !== null && row.part1 !== null && row.part2 !== null && row.studentName !== null && row.actualGrade !== null);
-		const individuals: IndividualRankingEntry[] = source.map((row) => ({ studentId: row.studentId!, name: row.studentName!, schoolName: row.schoolName, division: row.division, competingGrade: row.actualGrade!, part1: row.part1!, part2: row.part2!, total: row.score! }));
-		const overall = rankIndividuals(individuals, { division });
-		for (const entry of overall) {
-			const gradeRank = rankIndividuals(individuals, { division: entry.division, grade: entry.competingGrade }).find((candidate) => candidate.studentId === entry.studentId)?.rank;
-			const resultRow = source.find((candidate) => candidate.studentId === entry.studentId)!;
-			output.push({ ...resultRow, rank: entry.rank, actualGradeRank: gradeRank });
-		}
+	const source = rows.filter((row) => row.category === 'topical_individual' && row.score !== null && row.part1 !== null && row.part2 !== null && row.studentName !== null && row.actualGrade !== null);
+	const individuals: IndividualRankingEntry[] = source.map((row) => ({ studentId: row.studentId!, name: row.studentName!, schoolName: row.schoolName, division: row.division, competingGrade: row.actualGrade!, part1: row.part1!, part2: row.part2!, total: row.score! }));
+	const overall = rankIndividuals(individuals);
+	for (const entry of overall) {
+		const gradeRank = rankIndividuals(individuals, { grade: entry.competingGrade }).find((candidate) => candidate.studentId === entry.studentId)?.rank;
+		const resultRow = source.find((candidate) => candidate.studentId === entry.studentId)!;
+		output.push({ ...resultRow, rank: entry.rank, actualGradeRank: gradeRank });
 	}
 	return output;
 }

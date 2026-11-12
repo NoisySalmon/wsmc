@@ -43,7 +43,7 @@ async function requireRegistrationSeason(db: Database, seasonId: string, contest
 		.innerJoin(schema.qualificationRounds, eq(schema.qualificationRounds.id, schema.qualifications.roundId))
 		.innerJoin(schema.entries, eq(schema.entries.id, schema.qualifications.entryId))
 		.where(and(eq(schema.entries.contestId, contestId), eq(schema.qualificationRounds.status, 'published')));
-	if (published.length || rounds.some(round => round.status === 'frozen' || (round.kind === 'state_cutoff' && round.status === 'published'))) throw new RegistrationError('qualifications_locked', 'Qualifications are frozen or published. Registration corrections require a separate qualification review.');
+	if (published.length || rounds.some(round => round.kind === 'state_cutoff' && round.status === 'published')) throw new RegistrationError('qualifications_locked', 'Qualifications are published. Registration corrections require a separate qualification review.');
 }
 
 async function requireParticipation(db: Database, contestId: string, schoolId: string) {
@@ -553,7 +553,7 @@ export async function saveContestWorksheet(
 	const removedIds = removed.length ? sql.join(removed.map(e => sql`${e.id}`), sql`, `) : sql`NULL`;
 	const guard = sql`EXISTS (SELECT 1 FROM contests JOIN seasons ON seasons.id = contests.season_id
 		WHERE contests.id = ${contest.id} AND contests.lifecycle = ${contest.lifecycle} AND seasons.status <> 'archived')
-		AND NOT EXISTS (SELECT 1 FROM qualification_rounds WHERE season_id = ${contest.seasonId} AND (status = 'frozen' OR (kind = 'state_cutoff' AND status = 'published')))
+		AND NOT EXISTS (SELECT 1 FROM qualification_rounds WHERE season_id = ${contest.seasonId} AND (kind = 'state_cutoff' AND status = 'published'))
 		AND NOT EXISTS (SELECT 1 FROM qualifications JOIN qualification_rounds ON qualification_rounds.id = qualifications.round_id JOIN entries ON entries.id = qualifications.entry_id WHERE entries.contest_id = ${contest.id} AND qualification_rounds.status = 'published')
 		AND EXISTS (SELECT 1 FROM school_participations WHERE id = ${participation.id} AND withdrawn_at IS NULL)
 		AND (SELECT COUNT(*) FROM results WHERE entry_id IN (${removedIds})) = ${removals.length}

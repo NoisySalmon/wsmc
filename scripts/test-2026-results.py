@@ -33,7 +33,7 @@ with tempfile.TemporaryDirectory(prefix="wsmc-results-check-") as temp:
         assert scalar("SELECT count(*) FROM qualification_rounds") == 1
         draft = db.execute("SELECT status,thresholds_json FROM qualification_rounds WHERE kind='state_cutoff'").fetchone()
         assert draft[0] == 'draft'
-        assert json.loads(draft[1]) == {"project": {"1": 0, "2": 0}, "team_contest": {"1": 14, "2": 10}, "topical_team": {"1": 89, "2": 68}, "topical_individual": {"1": 50, "2": 50}}
+        assert json.loads(draft[1]) == {"project": 0, "team_contest": {"1": 14, "2": 10}, "topical_team": {"1": 89, "2": 68}, "topical_individual": 50}
         assert scalar("SELECT count(*) FROM qualifications") == 0
         assert scalar("SELECT count(*) FROM state_roster_members") == 0
         assert scalar("SELECT count(*) FROM statewide_assignments a JOIN users u ON u.id=a.user_id WHERE u.email='coordinator@wsmc.example' AND u.status='active'") == 1
