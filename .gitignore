@@ -22,6 +22,7 @@ vite.config.ts.timestamp-*
 # Private source data and historical results
 /legacy/
 /scripts/data/2026-regionals/
+/.local/
 State Math
 
 # Editor and Python temporary files
@@ -29,3 +30,12 @@ State Math
 ~$*
 __pycache__/
 *.py[cod]
+
+# Historical reconciliation tools and student-specific analyses stay private.
+/scripts/extract-2026-regionals.py
+/scripts/reconcile-2026-results.py
+/scripts/generate-2026-results.mjs
+/scripts/test-2026-results.py
+/docs/analysis/2026-reconciliation.md
+/docs/analysis/2026-qualifications.md
+/docs/operations/2026-results-seed.md

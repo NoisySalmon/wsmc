@@ -5,9 +5,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 scenario="${1:-showcase}"
-if (( $# > 1 )); then echo 'Usage: demo-preview.sh [showcase|first-season|new-season|2026-results]' >&2; exit 1; fi
+if (( $# > 1 )); then echo 'Usage: demo-preview.sh [showcase|first-season|new-season]' >&2; exit 1; fi
 case "$scenario" in
- showcase|first-season|new-season|2026-results) ;;
+ showcase|first-season|new-season) ;;
  *) echo "Unknown scenario: $scenario" >&2; exit 1 ;;
 esac
 port="${WSMC_DEMO_PORT:-8797}"
@@ -52,8 +52,6 @@ if [[ "$scenario" == showcase ]]; then
  echo 'Showcase roles: regional1 through regional11 @wsmc.example; coach.hanford@wsmc.example.'
 elif [[ "$scenario" == first-season ]]; then
  echo 'No seasons exist. Sign in as the state coordinator and create your first season on Home.'
-elif [[ "$scenario" == 2026-results ]]; then
- echo 'Historical 2026 results: all regionals finalized, qualification analysis ready. Review scripts/data/2026-regionals/seed-report.json for unresolved source inputs.'
 else
  echo '2026 is archived demo history. Sign in as the state coordinator and create 2027 on Home.'
 fi

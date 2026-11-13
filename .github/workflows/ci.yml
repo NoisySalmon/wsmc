@@ -28,6 +28,8 @@ jobs:
         run: npm run build
       - name: Verify D1 schema and restore
         run: npm run test:db
+      - name: Verify qualification and state workflows with synthetic data
+        run: npm run test:qualifications
       - name: Run dress rehearsal
         run: npm run rehearsal
       - name: Run authenticated Pages journey
