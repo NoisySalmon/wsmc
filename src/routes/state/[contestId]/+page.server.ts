@@ -1,3 +1,5 @@
+import { getAdHocDashboard, regenerateAdHocTeams } from '$lib/server/state/ad-hoc';
+import type { AdHocCategory } from '$lib/ad-hoc';
 import { changeStateSchoolAttendance, getStateWorksheet, saveStateWorksheet } from '$lib/server/state/worksheet';
 import { error, fail } from '@sveltejs/kit';
 import { canCoordinateState, canCoachSchool } from '$lib/server/auth/capabilities';
@@ -18,16 +20,27 @@ export const load: PageServerLoad = async ({ locals, platform, params, url }) =>
 	if (canCoordinateState(locals.principal, dashboard.contest.seasonId)) {
 		const schoolId = url.searchParams.get('schoolId');
 		if (schoolId && !dashboard.qualifiedSchools.some(school => school.schoolId === schoolId)) throw error(404, 'Qualified school not found.');
-		return { ...(schoolId ? scopeStateDashboard(dashboard, new Set([schoolId])) : dashboard), canManageContest: dashboard.seasonStatus !== 'archived', isCoordinator: true, schoolView: Boolean(schoolId), registration: schoolId ? await getStateWorksheet(getDb(platform.env.DB), params.contestId, schoolId) : null };
+		return { ...(schoolId ? scopeStateDashboard(dashboard, new Set([schoolId])) : dashboard), canManageContest: dashboard.seasonStatus !== 'archived', isCoordinator: true, schoolView: Boolean(schoolId), adHoc: await getAdHocDashboard(getDb(platform.env.DB), params.contestId, schoolId ?? undefined), registration: schoolId ? await getStateWorksheet(getDb(platform.env.DB), params.contestId, schoolId) : null };
 	}
 	const schoolIds = new Set(locals.principal.coachAssignments.map((assignment) => assignment.schoolId));
 	if (!dashboard.qualifiedSchools.some((school) => schoolIds.has(school.schoolId))) throw error(403, 'You cannot view this state contest.');
 	const schoolId = url.searchParams.get('schoolId') ?? dashboard.qualifiedSchools.find(s => schoolIds.has(s.schoolId))?.schoolId;
 	if (!schoolId || !schoolIds.has(schoolId)) throw error(403, 'You cannot view this school registration.');
-	return { ...scopeStateDashboard(dashboard, schoolIds), canManageContest: false, isCoordinator: false, schoolView: true, registration: await getStateWorksheet(getDb(platform.env.DB), params.contestId, schoolId) };
+	return { ...scopeStateDashboard(dashboard, schoolIds), canManageContest: false, isCoordinator: false, schoolView: true, adHoc: await getAdHocDashboard(getDb(platform.env.DB), params.contestId, schoolId), registration: await getStateWorksheet(getDb(platform.env.DB), params.contestId, schoolId) };
 };
 
 export const actions: Actions = {
+ regenerateAdHoc: async ({ locals, platform, params, request }) => {
+  if (!locals.principal) throw error(401, 'Sign in required.');
+  if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+  const db = getDb(platform.env.DB);
+  const dashboard = await getStateDashboard(db, params.contestId);
+  if (!canCoordinateState(locals.principal, dashboard.contest.seasonId)) throw error(403, 'State coordinator access required.');
+  try {
+   const result = await regenerateAdHocTeams(db, { contestId: params.contestId, category: text(await request.formData(), 'category') as AdHocCategory, actorUserId: locals.principal.id });
+   return { success: `${result.teams} ad-hoc teams saved.${result.unassigned ? ` ${result.unassigned} students remain unassigned: there are not enough students from other schools to form pairs.` : ''}` };
+  } catch (cause) { return failure(cause); }
+ },
  bulkAttendance: async ({ locals, platform, params, request }) => {
   if (!locals.principal) throw error(401, 'Sign in required.');
   if (!locals.principal.isAdmin) throw error(403, 'Only state coordinators can update all schools.');

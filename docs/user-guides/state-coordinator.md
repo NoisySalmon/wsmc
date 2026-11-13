@@ -59,8 +59,8 @@ Open **Home**.
    seasons remain available for viewing, are read-only, and cannot be reopened.
 
 The stages are **Regional contests → Qualifications → State contest → Archived**.
-There are no per-season policy switches. Topical Individual is allowed; Topical
-Teams remain within one school.
+There are no per-season policy switches. Topical Individual is allowed; Qualified Topical
+Teams remain within one school; ad-hoc teams combine schools.
 
 ## 2. Maintain the school directory
 
@@ -217,30 +217,49 @@ verification.
 
 From **Home**, select **State contest**.
 
-All attendance and state-entry changes require the state contest to be
-`registration_open`.
+Schools use their state registration worksheets to confirm attendance, choose
+events, and supply substitutes. Coaches can edit during `registration_open`.
+Administrators can withdraw or resume a school after rosters lock, before
+scoring begins.
 
-1. Under **Qualified-school attendance**, record each eligible school's intent
-   as Undecided, Attending, or Not attending.
-2. For a published team qualification, use **Exercise a qualified team berth**
-   to create its state team entry.
-3. Under **State roster**, add each student with an explicit admission basis:
-   - **Individual qualification** requires that student's qualification;
-   - **Team berth** requires the exercised state team entry.
-4. Under **State entries**, create school-owned entries or a cross-school Team
-   Contest entry, then add confirmed roster members.
-5. For team members, choose competing grades that are at least their actual
-   grades and distinct within the team.
-6. Download the state roster CSV as a review artifact.
-7. Use the state contest page to lock rosters, then start scoring.
-8. Return to state administration and select **Open state scoring**. Score,
-   finalize, review, and publish using the same process as a regional contest.
+### Build ad-hoc teams
 
-A blank owner currently creates a mixed-school Team Contest entry.
-School-owned entries must use the division recorded on the school's state
-participation.
+The state contest overview has independent **Ad Hoc Team Problem** and
+**Ad Hoc Topical** sections. Each uses only its saved signup pool.
 
-Topical Individual is allowed. Cross-school Topical Teams are not allowed.
+1. Select **Build teams** in each section. Teams combine school divisions and
+   have three students where possible. Four remaining students form two pairs.
+   Students on a team must come from different schools. Actual grades are used;
+   varied grades are preferred, but repeated grades are allowed.
+2. Review the team numbers and members. Students who cannot form even a pair
+   with a student from another school remain visibly unassigned.
+3. During registration, select **Regenerate teams** after schools change their
+   signups. Existing teams and numbers are preserved wherever the remaining
+   pool permits. Regeneration does not provide a fresh shuffle or manual moves.
+4. Coaches see their students’ assigned teams with every teammate’s name,
+   school, and actual grade on their school worksheet. Assignments are tentative
+   during registration and while registration changes await regeneration.
+5. Lock rosters and regenerate as necessary before starting scoring. Assignments
+   are then settled. Ad-hoc generation is unavailable once scoring starts.
+
+A registration change immediately removes a student from an assignment they
+have left; staff regeneration fills and rebalances the affected teams. School
+withdrawal also removes its students from both signup pools.
+
+### Score and publish
+
+Start scoring from the state overview. Registration changes must be reflected
+in the ad-hoc assignments first. If school imbalance prevents assigning
+someone even after regeneration, that student remains listed as unassigned.
+
+**Ad Hoc Team Problem** accepts one score. **Ad Hoc Topical** accepts Part 1
+and Part 2, using the same ranges as the corresponding school events. Both are
+separate scoring sections; every generated team requires a complete score
+before finalization. Numeric zero counts as entered.
+
+Finalize and publish from scoring. Published state results and the results CSV
+include two separate ad-hoc ranking boards across divisions, with member names
+and schools. Ad-hoc scores do not enter the school-team ranking boards.
 
 ## 9. Review and export reports
 

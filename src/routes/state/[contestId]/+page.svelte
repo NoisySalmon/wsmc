@@ -1,4 +1,5 @@
 <script lang="ts">
+ import AdHocTeams from '$lib/components/AdHocTeams.svelte';
  import ContestSettings from '$lib/components/ContestSettings.svelte';
  import ContestStatus from '$lib/components/ContestStatus.svelte';
  import StateRegistration from '$lib/components/StateRegistration.svelte';
@@ -19,7 +20,7 @@
 </script>
 <svelte:head><title>{data.registration?.school.schoolName ?? data.contest.name} · State registration — WSMC</title></svelte:head>
 {#if data.registration}
- <StateRegistration registration={data.registration} {form} isCoordinator={data.isCoordinator} />
+ <StateRegistration registration={data.registration} {form} isCoordinator={data.isCoordinator} adHoc={data.adHoc} />
 {:else}
  <main>
   <a href="/">← Home</a><h1>{data.contest.name}</h1>
@@ -45,6 +46,7 @@
     {#each group.schools as school}<article><div><strong>{school.schoolName}</strong><small>Division {school.division} · {data.attendance.find(a => a.schoolId === school.schoolId)?.intent.replaceAll('_', ' ') ?? 'Attendance undecided'}</small></div><a href="/state/{data.contest.id}?schoolId={school.schoolId}#roster">Open state registration →</a></article>{/each}
    </section>
   {/each}</section>
+  <AdHocTeams pools={data.adHoc} lifecycle={data.contest.lifecycle} canRegenerate={data.isCoordinator && data.seasonStatus === 'state'} />
  </main>
 {/if}
 <style>

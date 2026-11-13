@@ -13,11 +13,12 @@
 	let placeError = $state('');
 	type Entry = typeof data.entries[number];
 	const labels: Record<string, string> = { team_contest: 'Team Contest', topical_team: 'Topical Team', topical_individual: 'Topical Individual', project: 'Project', knowdown: 'Knowdown' };
-	let topical = $derived(categoryFilter === 'topical_team' || categoryFilter === 'topical_individual');
+	let topical = $derived(categoryFilter === 'topical_team' || categoryFilter === 'topical_individual' || categoryFilter === 'ad_hoc_topical_team');
+	const sections = $derived(data.contest.kind === 'state' ? { team_contest: labels.team_contest, ad_hoc_team_contest: 'Ad Hoc Team Problem', topical_team: labels.topical_team, topical_individual: labels.topical_individual, ad_hoc_topical_team: 'Ad Hoc Topical', project: labels.project, knowdown: labels.knowdown } : labels);
 	let individual = $derived(categoryFilter === 'topical_individual');
 	let locked = $derived(data.contest.lifecycle !== 'scoring');
 	function missing(entry: Entry) { return entry.category.startsWith('topical_') ? entry.part1 === null || entry.part2 === null : entry.score === null; }
-	function names(entry: Entry) { return entry.members.map((member) => member.name).join(', '); }
+	function names(entry: Entry) { return entry.members.map((member) => entry.adHoc ? `${member.name} (${member.schoolName})` : member.name).join(', '); }
 	function sortValue(entry: Entry): string | number | null {
 		if (sort === 'members') return names(entry);
 		return entry[sort as 'schoolName' | 'entryNumber' | 'score' | 'part1' | 'part2'];
@@ -27,7 +28,7 @@
 		const order = x === null ? (y === null ? 0 : 1) : y === null ? -1 : typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), undefined, { numeric: true });
 		return (descending ? -order : order) || a.schoolName.localeCompare(b.schoolName) || (a.entryNumber ?? 0) - (b.entryNumber ?? 0) || names(a).localeCompare(names(b));
 	}
-	let rows = $derived(data.entries.filter((entry) => entry.category === categoryFilter && (!missingOnly || missing(entry)) && `${entry.schoolName} ${names(entry)} ${entry.entryNumber ?? ''}`.toLowerCase().includes(search.toLowerCase())).sort(compare));
+	let rows = $derived(data.entries.filter((entry) => entry.section === categoryFilter && (!missingOnly || missing(entry)) && `${entry.schoolName} ${names(entry)} ${entry.entryNumber ?? ''}`.toLowerCase().includes(search.toLowerCase())).sort(compare));
 	let knowdown = $derived(data.entries.filter((entry) => entry.category === 'knowdown').sort((a, b) => a.schoolName.localeCompare(b.schoolName) || names(a).localeCompare(names(b))));
 	let schools = $derived([...new Set(knowdown.map((entry) => entry.schoolName))]);
 	function sortBy(field: string) { descending = sort === field ? !descending : false; sort = field; }
@@ -54,16 +55,17 @@
 	{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
 
 	<section class="summary" aria-label="Scoring completeness">
-		<strong>{data.finalization.missing.length === 0 ? 'Complete' : `${data.finalization.missing.length} missing result${data.finalization.missing.length === 1 ? '' : 's'}`}</strong>
+		<strong>{data.finalization.complete ? 'Complete' : `${data.finalization.missing.length} missing result${data.finalization.missing.length === 1 ? '' : 's'}`}</strong>
+		{#if data.finalization.adHocNeedsAttention}<span class="error">Ad-hoc assignments need attention before finalization.</span>{/if}
 		<span>Blank scores are missing; 0 is an entered score. Unselected Knowdown students count as eliminated.</span>
 		{#if data.finalization.duplicateKnowdownPlaces.length}<span class="error">Duplicate Knowdown places: {data.finalization.duplicateKnowdownPlaces.map((item) => item.placement).join(', ')}. Places must be unique.</span>{/if}
 	</section>
 
 	<nav class="categories" aria-label="Scoring category">
-		{#each Object.entries(labels) as [value, name]}<button class:active={categoryFilter === value} aria-pressed={categoryFilter === value} onclick={() => { categoryFilter = value; missingOnly = false; search = ''; }}>{name}</button>{/each}
+		{#each Object.entries(sections) as [value, name]}<button class:active={categoryFilter === value} aria-pressed={categoryFilter === value} onclick={() => { categoryFilter = value; missingOnly = false; search = ''; }}>{name}</button>{/each}
 	</nav>
 	<section class="entry-section" aria-label="Score entry">
-		<h2>{labels[categoryFilter]}</h2>
+		<h2>{sections[categoryFilter]}</h2>
 		{#if categoryFilter === 'knowdown'}
 			<p>Select the students who placed. Each selection saves immediately. All other students are eliminated.</p>
 			{#if placeError}<p class="error" role="alert">{placeError} Please select the student again to retry.</p>{/if}
@@ -80,7 +82,7 @@
 		{:else}
 			<p id="score-help">Click a score to edit. Enter saves and moves down; Tab saves and moves across. Escape cancels. Hover over a score for its last editor.</p>
 			<div class="filters"><label>Find school or student <input type="search" bind:value={search} placeholder="School, name, or team number" /></label><label class="checkbox"><input type="checkbox" bind:checked={missingOnly} /> Missing only</label><span>{rows.length} entries</span></div>
-			<div class="table-scroll"><table aria-label={`${labels[categoryFilter]} scores`} aria-describedby="score-help"><thead><tr>
+			<div class="table-scroll"><table aria-label={`${sections[categoryFilter]} scores`} aria-describedby="score-help"><thead><tr>
 				<th scope="col" aria-sort={sortState('schoolName')}><button onclick={() => sortBy('schoolName')}>School {sort === 'schoolName' ? descending ? '↓' : '↑' : '↕'}</button></th>
 				{#if !individual}<th scope="col" aria-sort={sortState('entryNumber')}><button onclick={() => sortBy('entryNumber')}>Team # ↕</button></th>{/if}
 				<th scope="col" aria-sort={sortState('members')}><button onclick={() => sortBy('members')}>{individual ? 'Student' : 'Team members'} ↕</button></th>

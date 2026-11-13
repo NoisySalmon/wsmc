@@ -1,3 +1,4 @@
+import { isAdHocEntry } from '$lib/ad-hoc';
 import { canCoachSchool, canCoordinateState, type Principal } from '$lib/server/auth/capabilities';
 import { and, eq, inArray } from 'drizzle-orm';
 import { schema, type Database } from '$lib/server/db';
@@ -99,10 +100,15 @@ async function persistStateWorksheet(db: Database, input: WorksheetInput, resume
  const oldIds = oldEntries.map(e => e.id);
  if (oldIds.length && (await db.select().from(schema.results).where(inArray(schema.results.entryId, oldIds))).length) throw new StateError('scored', 'Scored entries cannot be replaced from registration.');
  const external = await db.select().from(schema.entryMembers).innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId)).innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.entryMembers.annualStudentId)).where(and(eq(schema.entries.contestId, input.contestId), eq(schema.annualStudents.schoolId, input.schoolId)));
- if (external.some(e => e.entries.ownerSchoolId !== input.schoolId)) throw new StateError('mixed_team', 'Contact the state coordinator to update existing cross-school entries before saving this worksheet.');
+ if (external.some(e => e.entries.ownerSchoolId !== input.schoolId && !isAdHocEntry(e.entries))) throw new StateError('mixed_team', 'Contact the state coordinator to update existing cross-school entries before saving this worksheet.');
  const now = Date.now();
  const active = groups.filter(g => g.rows.length).map(g => ({ ...g, entryId: g.option.berth?.stateEntryId ?? crypto.randomUUID() }));
  const operations: any[] = [];
+ for (const { entries: entry, entry_members: member } of external) {
+  if (isAdHocEntry(entry) && !rows.some(r => r.id === member.annualStudentId && r.attending && r.events[entry.category as StateEvent] === 'ad_hoc')) {
+   operations.push(db.delete(schema.entryMembers).where(and(eq(schema.entryMembers.entryId, entry.id), eq(schema.entryMembers.annualStudentId, member.annualStudentId))));
+  }
+ }
  for (const student of additions) operations.push(db.insert(schema.annualStudents).values({ id: student.id, name: student.name.trim(), actualGrade: student.actualGrade, seasonId: sheet.contest.seasonId, schoolId: input.schoolId, createdAt: now, updatedAt: now }));
  operations.push(db.delete(schema.stateAdHocSignups).where(and(eq(schema.stateAdHocSignups.contestId, input.contestId), eq(schema.stateAdHocSignups.schoolId, input.schoolId))));
  operations.push(db.delete(schema.stateRosterMembers).where(and(eq(schema.stateRosterMembers.contestId, input.contestId), eq(schema.stateRosterMembers.schoolId, input.schoolId))));

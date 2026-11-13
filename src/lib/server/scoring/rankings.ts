@@ -4,6 +4,7 @@ import type { ScoreCategory } from './service';
 
 export type RegionalResultRow = {
 	entryId: string;
+	adHoc?: boolean;
 	category: ScoreCategory;
 	division: number;
 	entryNumber: number | null;
@@ -19,6 +20,8 @@ export type RegionalResultRow = {
 
 export type RegionalRankedResult = RegionalResultRow & { rank: number; actualGradeRank?: number };
 export type RegionalRankings = Record<'project' | 'team_contest' | 'topical_team' | 'topical_individual' | 'knowdown', RegionalRankedResult[]>;
+
+export type StateRankings = RegionalRankings & Record<'ad_hoc_team_contest' | 'ad_hoc_topical_team', RegionalRankedResult[]>;
 
 function rankedCategory(rows: RegionalResultRow[], category: ScoreCategory): RegionalRankedResult[] {
 	const byDivision: RegionalRankedResult[] = [];
@@ -55,5 +58,14 @@ export function rankRegionalResults(rows: RegionalResultRow[]): RegionalRankings
 		topical_team: rankedCategory(rows, 'topical_team'),
 		topical_individual: rankedTopicalIndividuals(rows),
 		knowdown: rankedKnowdown(rows),
+	};
+}
+
+/** Ad-hoc boards combine divisions and never contribute to school-team boards. */
+export function rankStateResults(rows: RegionalResultRow[]): StateRankings {
+	return {
+		...rankRegionalResults(rows.filter(row => !row.adHoc)),
+		ad_hoc_team_contest: rankByScore(rows.filter(row => row.adHoc && row.category === 'team_contest' && row.score !== null) as (RegionalResultRow & { score: number })[]),
+		ad_hoc_topical_team: rankByScore(rows.filter(row => row.adHoc && row.category === 'topical_team' && row.score !== null) as (RegionalResultRow & { score: number })[]),
 	};
 }

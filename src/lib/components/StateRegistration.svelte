@@ -1,8 +1,10 @@
 <script lang="ts">
+ import AdHocTeams from './AdHocTeams.svelte';
+ import type { getAdHocDashboard } from '$lib/server/state/ad-hoc';
  import { defaultStateAdHoc, type AdHocEvent } from '$lib/state-registration';
  import { enhance } from '$app/forms';
  import type { getStateWorksheet, StateEvent, StateRow, NewStateStudent } from '$lib/server/state/worksheet';
- let { registration, form, isCoordinator }: { registration: Awaited<ReturnType<typeof getStateWorksheet>>; form: { error?: string; success?: string } | null; isCoordinator: boolean } = $props();
+ let { registration, form, isCoordinator, adHoc: adHocPools }: { registration: Awaited<ReturnType<typeof getStateWorksheet>>; form: { error?: string; success?: string } | null; isCoordinator: boolean; adHoc: Awaited<ReturnType<typeof getAdHocDashboard>> } = $props();
  const columns: { key: StateEvent; label: string }[] = [{key:'team_contest',label:'Team Contest'}, {key:'topical_team',label:'Topical Team'}, {key:'topical_individual',label:'Topical Individual'}, {key:'knowdown',label:'Knowdown'}];
  let rows = $state<StateRow[]>([]);
  let newStudents = $state<NewStateStudent[]>([]);
@@ -118,7 +120,8 @@
   </article>{/each}</div>
  </section>
  {/if}
- <aside><h2>The rest of the day</h2><p>Students can join Ad Hoc teams with players from other schools. Choose Ad Hoc under Team Contest or Topical Team to sign up here. Mixed-school teams will be generated later. Math + Art displays and math activities are also available.</p></aside>
+ <AdHocTeams pools={adHocPools} lifecycle={registration.contest.lifecycle} schoolView />
+ <aside><h2>The rest of the day</h2><p>Students can join Ad Hoc teams with players from other schools. Choose Ad Hoc under Team Contest or Topical Team to sign up here. See your assigned teams above; assignments are tentative until registration locks. Math + Art displays and math activities are also available.</p></aside>
 </main>
 <style>
  .school-attendance{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem 1.5rem;padding:1rem;border:1px solid #dce1e8;border-radius:8px;margin:1.5rem 0}.school-attendance>p,.school-attendance>form{flex-basis:100%;margin:0}.school-attendance p{color:#596273;line-height:1.5}.withdraw-confirmation{margin-top:1rem}

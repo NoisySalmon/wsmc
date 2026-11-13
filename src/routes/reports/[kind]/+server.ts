@@ -36,7 +36,7 @@ export const GET: RequestHandler = async ({ locals, platform, params, url }) => 
 		if (!canReviewUnpublished && !(isCoach && contest.resultsPublishedAt !== null)) throw error(403, 'You cannot export these results before publication.');
 		try {
 			const result = contest.kind === 'regional' ? await getRegionalRankings(db, contestId) : await getStateRankings(db, contestId);
-			const rows = Object.values(result.rankings).flat().map((row) => ['wsmc.results.v1', contestId, row.category, usesDivisions(row.category) ? row.division : null, row.rank, row.actualGradeRank ?? null, row.schoolName, row.studentName, row.entryNumber, row.score, row.part1, row.part2, row.placement]);
+			const rows = Object.entries(result.rankings).flatMap(([category, board]) => board.map((row) => ['wsmc.results.v1', contestId, category, usesDivisions(category) ? row.division : null, row.rank, row.actualGradeRank ?? null, row.schoolName, row.studentName, row.entryNumber, row.score, row.part1, row.part2, row.placement]));
 			csv = exportReportCsv(['report_version', 'contest_id', 'category', 'division', 'rank', 'actual_grade_rank', 'school_name', 'student_name', 'entry_number', 'score', 'part1', 'part2', 'placement'], rows);
 			filename = `wsmc-${contestId}-results.csv`;
 		} catch (cause) { if (cause instanceof ScoringError) throw error(409, cause.message); throw cause; }

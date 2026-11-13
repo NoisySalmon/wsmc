@@ -1,9 +1,11 @@
+import { getAdHocDashboard } from '$lib/server/state/ad-hoc';
+import { scoringSection, isAdHocEntry } from '$lib/ad-hoc';
 import { activeEntry } from '$lib/server/program/participation';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
 import { PersistenceRuleError, saveResult } from '$lib/server/db/repositories';
-import { rankRegionalResults, type RegionalRankings, type RegionalResultRow } from './rankings';
+import { rankRegionalResults, rankStateResults, type RegionalRankings, type StateRankings, type RegionalResultRow } from './rankings';
 
 export type ScoreCategory = 'project' | 'team_contest' | 'topical_team' | 'topical_individual' | 'knowdown';
 export type KnowdownOutcome = 'placed' | 'eliminated';
@@ -106,6 +108,8 @@ export async function getScoringSnapshot(db: Database, contestId: string) {
 			return {
 				id: entry.id,
 				category: entry.category as ScoreCategory,
+				section: scoringSection(entry),
+				adHoc: isAdHocEntry(entry),
 				entryKind: entry.entryKind,
 				entryNumber: entry.entryNumber,
 				division: entry.division,
@@ -218,13 +222,15 @@ export async function getFinalizationReport(db: Database, contestId: string) {
 		return result?.score === null || result?.score === undefined;
 	}).map(({ entry, result, schoolName }) => ({ entryId: entry.id, category: entry.category, entryNumber: entry.entryNumber, division: entry.division, schoolName: schoolName || 'Statewide entry', resultVersion: result?.version ?? 0 }));
 	const duplicateKnowdownPlaces = findDuplicateKnowdownPlaces(rows.map(({ entry, result }) => ({ entryId: entry.id, category: entry.category, placement: result?.placement ?? null, knowdownOutcome: result?.knowdownOutcome ?? null })));
-	return { contest, missing, duplicateKnowdownPlaces, complete: missing.length === 0 && duplicateKnowdownPlaces.length === 0 };
+	const adHocNeedsAttention = contest.kind === 'state' && (await getAdHocDashboard(db, contestId)).some(pool => pool.needsRegeneration);
+	return { contest, missing, duplicateKnowdownPlaces, adHocNeedsAttention, complete: !adHocNeedsAttention && missing.length === 0 && duplicateKnowdownPlaces.length === 0 };
 }
 
 export async function finalizeContest(db: Database, input: { contestId: string; actorUserId: string; now?: number }) {
 	const report = await getFinalizationReport(db, input.contestId);
 	if (report.contest.lifecycle !== 'scoring') throw new ScoringError('invalid_transition', 'Only contests in scoring can be finalized.');
 	if (report.duplicateKnowdownPlaces.length) throw new ScoringError('duplicate_placement', `Knowdown places must be unique. Duplicate place${report.duplicateKnowdownPlaces.length === 1 ? '' : 's'}: ${report.duplicateKnowdownPlaces.map((item) => item.placement).join(', ')}.`);
+	if (report.adHocNeedsAttention) throw new ScoringError('ad_hoc_pending', 'Ad-hoc assignments need attention before finalization.');
 	if (report.missing.length) throw new ScoringError('incomplete', `${report.missing.length} result${report.missing.length === 1 ? '' : 's'} still need attention.`);
 	await db.update(schema.contests).set({ lifecycle: 'finalized', updatedAt: input.now ?? Date.now() }).where(and(eq(schema.contests.id, input.contestId), eq(schema.contests.lifecycle, 'scoring')));
 	await db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: input.contestId, entityType: 'contest', entityId: input.contestId, action: 'contest_finalized', detailsJson: '{}', createdAt: input.now ?? Date.now() });
@@ -275,16 +281,16 @@ export async function getRegionalRankings(db: Database, contestId: string): Prom
 	return { contest: snapshot.contest, rankings: rankRegionalResults(rows), knowdownOutcomes: knowdownOutcomeRows(snapshot) };
 }
 
-export async function getStateRankings(db: Database, contestId: string): Promise<{ contest: Awaited<ReturnType<typeof getScoringSnapshot>>['contest']; rankings: RegionalRankings; knowdownOutcomes: ReturnType<typeof knowdownOutcomeRows> }> {
+export async function getStateRankings(db: Database, contestId: string): Promise<{ contest: Awaited<ReturnType<typeof getScoringSnapshot>>['contest']; rankings: StateRankings; knowdownOutcomes: ReturnType<typeof knowdownOutcomeRows> }> {
 	const snapshot = await getScoringSnapshot(db, contestId);
 	if (snapshot.contest.kind !== 'state') throw new ScoringError('not_state', 'Only state contests have state rankings.');
 	if (snapshot.contest.lifecycle !== 'finalized') throw new ScoringError('not_finalized', 'State rankings are available after finalization.');
 	const rows: RegionalResultRow[] = snapshot.entries.map((entry) => ({
-		entryId: entry.id, category: entry.category, division: entry.division, entryNumber: entry.entryNumber, schoolName: entry.schoolName,
+		entryId: entry.id, category: entry.category, adHoc: entry.adHoc, division: entry.division, entryNumber: entry.entryNumber, schoolName: entry.schoolName,
 		score: entry.score, part1: entry.part1, part2: entry.part2, placement: entry.placement,
 		studentId: entry.category === 'topical_individual' || entry.category === 'knowdown' ? entry.members[0]?.id ?? null : null,
-		studentName: entry.category === 'topical_individual' || entry.category === 'knowdown' ? entry.members[0]?.name ?? null : null,
+		studentName: entry.adHoc ? entry.members.map(m => `${m.name} (${m.schoolName})`).join(', ') : entry.category === 'topical_individual' || entry.category === 'knowdown' ? entry.members[0]?.name ?? null : null,
 		actualGrade: entry.category === 'topical_individual' ? entry.members[0]?.actualGrade ?? null : null,
 	}));
-	return { contest: snapshot.contest, rankings: rankRegionalResults(rows), knowdownOutcomes: knowdownOutcomeRows(snapshot) };
+	return { contest: snapshot.contest, rankings: rankStateResults(rows), knowdownOutcomes: knowdownOutcomeRows(snapshot) };
 }

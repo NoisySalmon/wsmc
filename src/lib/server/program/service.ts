@@ -1,3 +1,4 @@
+import { getAdHocDashboard } from '$lib/server/state/ad-hoc';
 import { getRegistrationReadiness } from '$lib/server/registration/readiness';
 import { and, eq, ne, sql } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
@@ -108,5 +109,6 @@ export async function setContestLifecycle(db: Database, contestId: string, seaso
 		const readiness = await getRegistrationReadiness(db, contestId);
 		if (readiness.some(school => school.status === 'Needs attention')) throw new ProgramError('incomplete_registration', 'Resolve registrations marked Needs attention before locking rosters.');
 	}
+	if (contest.kind === 'state' && lifecycle === 'scoring' && (await getAdHocDashboard(db, contestId)).some(pool => pool.needsRegeneration)) throw new ProgramError('ad_hoc_pending', 'Regenerate ad-hoc teams to incorporate registration changes before starting scoring.');
 	await db.update(schema.contests).set({ lifecycle, updatedAt: now }).where(eq(schema.contests.id, contestId));
 }

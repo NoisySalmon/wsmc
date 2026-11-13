@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { eventDivisions } from '$lib/events';
 	let { data } = $props();
-	const labels: Record<string, string> = { project: 'Project', team_contest: 'Team Contest', topical_team: 'Topical Team', topical_individual: 'Topical Individual', knowdown: 'Knowdown' };
+	const labels: Record<string, string> = { project: 'Project', team_contest: 'Team Contest', topical_team: 'Topical Team', topical_individual: 'Topical Individual', knowdown: 'Knowdown', ad_hoc_team_contest: 'Ad Hoc Team Problem', ad_hoc_topical_team: 'Ad Hoc Topical' };
 	function board(category: string, division?: number) { return data.rankings[category as keyof typeof data.rankings].filter((row) => division === undefined || row.division === division); }
 </script>
 
@@ -10,8 +10,8 @@
 	<p><a href="/">← WSMC</a></p>
 	<h1>{data.contest.name}</h1>
 	<p class="subheading">Published state results</p>
-	{#each ['project', 'team_contest', 'topical_team'] as category}
-		<section><h2>{labels[category]}</h2>{#each eventDivisions(category) as division}{#if division}<h3>Division {division}</h3>{/if}{#if board(category, division).length}<table><thead><tr><th>Rank</th><th>School/team</th><th>Entry</th><th>Score</th></tr></thead><tbody>{#each board(category, division) as row}<tr><td>{row.rank}</td><td>{row.schoolName}</td><td>{row.entryNumber ?? '—'}</td><td>{row.score ?? '—'}</td></tr>{/each}</tbody></table>{:else}<p class="empty">No completed results.</p>{/if}{/each}</section>
+	{#each ['project', 'team_contest', 'topical_team', 'ad_hoc_team_contest', 'ad_hoc_topical_team'] as category}
+		<section><h2>{labels[category]}</h2>{#each eventDivisions(category) as division}{#if division}<h3>Division {division}</h3>{/if}{#if board(category, division).length}<table><thead><tr><th>Rank</th><th>School/team</th><th>Entry</th><th>Score</th></tr></thead><tbody>{#each board(category, division) as row}<tr><td>{row.rank}</td><td>{category.startsWith('ad_hoc_') ? row.studentName : row.schoolName}</td><td>{row.entryNumber ?? '—'}</td><td>{row.score ?? '—'}</td></tr>{/each}</tbody></table>{:else}<p class="empty">No completed results.</p>{/if}{/each}</section>
 	{/each}
 	<section><h2>Topical Individual</h2>{#if board('topical_individual').length}<table><thead><tr><th>Overall</th><th>Actual grade</th><th>Grade rank</th><th>Student</th><th>School</th><th>Total</th></tr></thead><tbody>{#each board('topical_individual') as row}<tr><td>{row.rank}</td><td>{row.actualGrade ?? '—'}</td><td>{row.actualGradeRank ?? '—'}</td><td>{row.studentName ?? '—'}</td><td>{row.schoolName}</td><td>{row.score ?? '—'}</td></tr>{/each}</tbody></table>{:else}<p class="empty">No completed results.</p>{/if}</section>
 	<section><h2>Knowdown</h2>{#if board('knowdown').length}<table><thead><tr><th>Place</th><th>Student</th><th>School</th></tr></thead><tbody>{#each board('knowdown') as row}<tr><td>{row.rank}</td><td>{row.studentName ?? '—'}</td><td>{row.schoolName}</td></tr>{/each}</tbody></table>{:else}<p class="empty">No ranked places.</p>{/if}{#if data.knowdownOutcomes.some((row) => row.outcome === 'eliminated')}<h3>Eliminated</h3><ul>{#each data.knowdownOutcomes.filter((row) => row.outcome === 'eliminated') as row}<li>{row.studentName ?? '—'} — {row.schoolName}</li>{/each}</ul>{/if}</section>
