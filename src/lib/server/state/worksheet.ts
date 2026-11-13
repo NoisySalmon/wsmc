@@ -6,8 +6,10 @@ import { getStateDashboard, StateError } from './service';
 import { adHocEvents, defaultStateAdHoc, stateEvents, type StateRow, type StateEvent, type NewStateStudent } from '$lib/state-registration';
 export type { StateRow, StateEvent, NewStateStudent } from '$lib/state-registration';
 
-export async function getStateWorksheet(db: Database, contestId: string, schoolId: string) {
- const dashboard = await getStateDashboard(db, contestId);
+type StateDashboard = Awaited<ReturnType<typeof getStateDashboard>>;
+
+export async function getStateWorksheet(db: Database, contestId: string, schoolId: string, cachedDashboard?: StateDashboard) {
+ const dashboard = cachedDashboard ?? await getStateDashboard(db, contestId);
  const school = dashboard.qualifiedSchools.find(s => s.schoolId === schoolId);
  if (!school) throw new StateError('school_not_qualified', 'This school has no published state qualifications.');
  const qualifications = [...new Map(dashboard.stateQualifications.filter(q => q.schoolId === schoolId).map(q => [q.entryId, q])).values()];
@@ -52,12 +54,12 @@ export async function getStateWorksheet(db: Database, contestId: string, schoolI
 
 type WorksheetInput = { contestId: string; schoolId: string; rows: StateRow[]; newStudents?: NewStateStudent[]; actorUserId: string };
 
-export async function saveStateWorksheet(db: Database, input: WorksheetInput) {
- return persistStateWorksheet(db, input);
+export async function saveStateWorksheet(db: Database, input: WorksheetInput, dashboard?: StateDashboard) {
+ return persistStateWorksheet(db, input, false, false, dashboard);
 }
 
-async function persistStateWorksheet(db: Database, input: WorksheetInput, resume = false, allowLocked = false) {
- const sheet = await getStateWorksheet(db, input.contestId, input.schoolId);
+async function persistStateWorksheet(db: Database, input: WorksheetInput, resume = false, allowLocked = false, dashboard?: StateDashboard) {
+ const sheet = await getStateWorksheet(db, input.contestId, input.schoolId, dashboard);
  if (sheet.seasonStatus !== 'state' || (sheet.contest.lifecycle !== 'registration_open' && !(allowLocked && sheet.contest.lifecycle === 'roster_locked'))) throw new StateError('locked', 'State registration is closed.');
  if (sheet.withdrawn && !resume) throw new StateError('withdrawn', 'Resume school registration before editing the worksheet.');
  const additions = input.newStudents ?? [];

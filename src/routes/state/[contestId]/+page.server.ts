@@ -28,6 +28,32 @@ export const load: PageServerLoad = async ({ locals, platform, params, url }) =>
 };
 
 export const actions: Actions = {
+ bulkAttendance: async ({ locals, platform, params, request }) => {
+  if (!locals.principal) throw error(401, 'Sign in required.');
+  if (!locals.principal.isAdmin) throw error(403, 'Only state coordinators can update all schools.');
+  if (!platform?.env.DB) throw error(503, 'Database unavailable.');
+  const intent = text(await request.formData(), 'intent');
+  if (intent !== 'attending' && intent !== 'not_attending') return fail(400, { error: 'Choose attending or not attending.' });
+  const db = getDb(platform.env.DB);
+  const dashboard = await getStateDashboard(db, params.contestId);
+  if (dashboard.seasonStatus !== 'state' || dashboard.contest.lifecycle !== 'registration_open') return fail(400, { error: 'State registration is closed.' });
+  const schools = dashboard.qualifiedSchools.filter(school => {
+   const attendance = dashboard.attendance.find(a => a.schoolId === school.schoolId);
+   return (!attendance || attendance.intent === 'undecided') && !dashboard.participations.some(p => p.participation.schoolId === school.schoolId && p.participation.withdrawnAt != null);
+  });
+  let updated = 0;
+  const errors: string[] = [];
+  for (const school of schools) {
+   try {
+    const sheet = await getStateWorksheet(db, params.contestId, school.schoolId, dashboard);
+    await saveStateWorksheet(db, { contestId: params.contestId, schoolId: school.schoolId, rows: sheet.rows.map(row => intent === 'attending' ? row : { ...row, attending: false }), actorUserId: locals.principal.id }, dashboard);
+    updated++;
+   } catch (cause) {
+    errors.push(`${school.schoolName}: ${cause instanceof StateError ? cause.message : 'Registration could not be saved.'}`);
+   }
+  }
+  return { success: `${updated} ${updated === 1 ? 'school' : 'schools'} ${intent === 'attending' ? 'opted in' : 'opted out'}.`, ...(errors.length ? { error: errors.join(' ') } : {}) };
+ },
  changeSchoolAttendance: async ({ locals, platform, params, request }) => {
   if (!locals.principal) throw error(401, 'Sign in required.');
   if (!platform?.env.DB) throw error(503, 'Database unavailable.');

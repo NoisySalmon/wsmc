@@ -160,6 +160,14 @@ print(json.dumps(statements))
  await d1.prepare("UPDATE contests SET lifecycle='scoring' WHERE id=?").bind(stateId).run();
  assert.equal((await attendance('withdraw',admin)).status,400);
  assert.deepEqual(await activeCounts(),active);
+ // Large state rosters must load beyond D1's 100-bound-parameter limit.
+ const beforeLargeRoster = await getStateDashboard(db, stateId);
+ for (let i = 0; i < 101; i++) {
+  await d1.prepare("INSERT INTO entries (id, contest_id, owner_school_id, category, entry_kind, division) VALUES (?, ?, ?, 'project', 'team', ?)").bind(`large-roster-${i}`, stateId, schoolId, beforeLargeRoster.qualifiedSchools.find(s => s.schoolId === schoolId).division).run();
+ }
+ const largeRoster = await getStateDashboard(db, stateId);
+ assert.equal(largeRoster.entries.length, beforeLargeRoster.entries.length + 101);
+ assert.deepEqual(largeRoster.members, beforeLargeRoster.members);
  console.log('Synthetic D1 qualification and state-registration workflow passed.');
 } finally {
  await vite.close();await mf.dispose();rmSync(temp,{recursive:true,force:true});

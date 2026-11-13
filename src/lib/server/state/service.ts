@@ -69,8 +69,10 @@ export async function getStateDashboard(db: Database, contestId: string) {
 	const qualifiedSchools = [...new Map(qualifiedRows.filter((row) => row.entry.ownerSchoolId).map((row) => [row.entry.ownerSchoolId!, { schoolId: row.entry.ownerSchoolId!, schoolName: row.schoolName || row.entry.ownerSchoolId!, division: row.schoolDivision ?? row.entry.division, regionId: row.regionId, regionNumber: row.regionNumber, regionName: row.regionName }])).values()];
 	const stateQualifications = qualifiedRows.map(({ qualification, entry, schoolName }) => ({ id: qualification.id, entryId: entry.id, studentId: qualification.studentId, category: entry.category, division: entry.division, schoolId: entry.ownerSchoolId, schoolName: schoolName || entry.ownerSchoolId || 'Cross-school entry' }));
 	const teamBerths = await qualifiedTeamBerths(db, contest.seasonId);
-	const entryIds = entries.map((entry) => entry.id);
-	const members = entryIds.length ? await db.select({ member: schema.entryMembers, student: schema.annualStudents }).from(schema.entryMembers).innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.entryMembers.annualStudentId)).where(inArray(schema.entryMembers.entryId, entryIds)) : [];
+	const members = await db.select({ member: schema.entryMembers, student: schema.annualStudents }).from(schema.entryMembers)
+		.innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId))
+		.innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.entryMembers.annualStudentId))
+		.where(eq(schema.entries.contestId, contestId));
 	return { contest, seasonStatus: (await db.select().from(schema.seasons).where(eq(schema.seasons.id, contest.seasonId)))[0]?.status, participations, qualifiedSchools, stateQualifications, teamBerths, attendance, roster, entries, members, students: students.map(({ student, schoolName }) => ({ ...student, schoolName: schoolName || student.schoolId })) };
 }
 
