@@ -74,6 +74,7 @@ export async function publishQualificationDraft(db: Database, input: { seasonId:
 	await db.batch([
 		db.update(schema.qualificationRounds).set({ status: 'published', publishedAt: now }).where(and(eq(schema.qualificationRounds.seasonId, input.seasonId), inArray(schema.qualificationRounds.status, ['draft', 'frozen']))),
 		db.update(schema.seasons).set({ status: 'state', updatedAt: now }).where(eq(schema.seasons.id, input.seasonId)),
+		db.update(schema.contests).set({ lifecycle: 'registration_open', updatedAt: now }).where(and(eq(schema.contests.seasonId, input.seasonId), eq(schema.contests.kind, 'state'), eq(schema.contests.lifecycle, 'setup'))),
 		db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.actorUserId, entityType: 'season', entityId: input.seasonId, action: 'qualifications_published', detailsJson: '{}', createdAt: now }),
 	]);
 }

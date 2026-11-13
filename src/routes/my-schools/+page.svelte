@@ -6,7 +6,17 @@
 <svelte:head><title>My schools — WSMC</title></svelte:head>
 <main>
 	<h1>My schools</h1>
-	<p>View regional contest assignments for your schools.</p>
+	<p>Manage regional and state registration for your schools.</p>
+	{#if data.stateRegistrations.length}
+		<h2>State registration</h2>
+		{#each data.stateRegistrations as registration}
+			<article>
+				<h2>{registration.schoolName} · {registration.seasonYear}</h2>
+				<p>{registration.contestName} · Division {registration.division} · <ContestStatus status={registration.contestLifecycle} /></p>
+				<a href="/state/{registration.contestId}?schoolId={registration.schoolId}">Open state registration</a>
+			</article>
+		{/each}
+	{/if}
 	{#if data.participations.length}
 		{#each data.participations as participation}
 			<article>
@@ -16,7 +26,7 @@
 				{#if participation.contestKind === 'regional'}<a href="/registration/{participation.contestId}/{participation.schoolId}">Open school registration</a>{/if}
 			</article>
 		{/each}
-	{:else}
+	{:else if !data.stateRegistrations.length}
 		<p>No contest participations are assigned to your coach account yet.</p>
 	{/if}
 </main>

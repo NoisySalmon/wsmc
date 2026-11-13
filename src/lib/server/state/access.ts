@@ -14,7 +14,7 @@ export function scopeStateDashboard(dashboard: StateDashboard, schoolIds: Set<st
 		participations: dashboard.participations.filter(({ participation }) => schoolIds.has(participation.schoolId)),
 		qualifiedSchools,
 		stateQualifications: dashboard.stateQualifications.filter((qualification) => Boolean(qualification.schoolId && schoolIds.has(qualification.schoolId))),
-		teamBerths: [],
+		teamBerths: dashboard.teamBerths.filter(({ berth }) => schoolIds.has(berth.schoolId)),
 		attendance: dashboard.attendance.filter((item) => schoolIds.has(item.schoolId)),
 		roster,
 		entries,

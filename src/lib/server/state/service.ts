@@ -26,6 +26,28 @@ async function requireQualifiedSchool(db: Database, contestId: string, schoolId:
 		.innerJoin(schema.entries, eq(schema.entries.id, schema.qualifications.entryId))
 		.where(and(eq(schema.qualificationRounds.status, 'published'), eq(schema.qualifications.active, true), eq(schema.qualificationRounds.seasonId, (await requireStateContest(db, contestId)).seasonId)));
 	if (!rows.some((row) => row.schoolId === schoolId)) throw new StateError('school_not_qualified', 'This school has no active published qualification.');
+	await ensureStateParticipation(db, contestId, schoolId);
+	const [participation] = await db.select().from(schema.schoolParticipations).where(and(eq(schema.schoolParticipations.contestId, contestId), eq(schema.schoolParticipations.schoolId, schoolId)));
+	if (participation?.withdrawnAt != null) throw new StateError('withdrawn', 'Resume school registration before changing state participation.');
+}
+
+async function ensureStateParticipation(db: Database, contestId: string, schoolId: string) {
+	const [school] = await db.select().from(schema.schools).where(eq(schema.schools.id, schoolId));
+	if (!school) throw new StateError('not_found', 'School not found.');
+	await db.insert(schema.schoolParticipations).values({ id: crypto.randomUUID(), contestId, schoolId, division: school.division }).onConflictDoNothing();
+}
+
+async function qualifiedTeamBerths(db: Database, seasonId: string) {
+	const rows = await db.select({ qualification: schema.qualifications, berth: schema.stateTeamBerths, entry: schema.entries })
+		.from(schema.qualifications)
+		.innerJoin(schema.qualificationRounds, eq(schema.qualificationRounds.id, schema.qualifications.roundId))
+		.innerJoin(schema.entries, eq(schema.entries.id, schema.qualifications.entryId))
+		.leftJoin(schema.stateTeamBerths, eq(schema.stateTeamBerths.qualificationId, schema.qualifications.id))
+		.where(and(eq(schema.qualificationRounds.seasonId, seasonId), eq(schema.qualificationRounds.status, 'published'), eq(schema.qualifications.active, true), inArray(schema.entries.category, ['project', 'team_contest', 'topical_team'])));
+	return rows.filter(row => row.entry.ownerSchoolId).map(({ qualification, berth, entry }) => ({
+		qualification, entryNumber: entry.entryNumber, persisted: Boolean(berth),
+		berth: berth ?? { id: `qualification:${qualification.id}`, qualificationId: qualification.id, stateEntryId: null, schoolId: entry.ownerSchoolId!, category: entry.category as 'project' | 'team_contest' | 'topical_team', createdAt: qualification.createdAt },
+	}));
 }
 
 export async function getStateDashboard(db: Database, contestId: string) {
@@ -37,18 +59,14 @@ export async function getStateDashboard(db: Database, contestId: string) {
 		db.select().from(schema.entries).where(eq(schema.entries.contestId, contestId)),
 		db.select({ student: schema.annualStudents, schoolName: schema.schools.shortName }).from(schema.annualStudents).innerJoin(schema.schools, eq(schema.schools.id, schema.annualStudents.schoolId)).where(eq(schema.annualStudents.seasonId, contest.seasonId)),
 	]);
-	const qualifiedRows = await db.select({ qualification: schema.qualifications, entry: schema.entries, round: schema.qualificationRounds, schoolName: schema.schools.shortName }).from(schema.qualifications)
+	const qualifiedRows = await db.select({ qualification: schema.qualifications, entry: schema.entries, round: schema.qualificationRounds, schoolName: schema.schools.shortName, schoolDivision: schema.schools.division }).from(schema.qualifications)
 		.innerJoin(schema.qualificationRounds, eq(schema.qualificationRounds.id, schema.qualifications.roundId))
 		.innerJoin(schema.entries, eq(schema.entries.id, schema.qualifications.entryId))
 		.leftJoin(schema.schools, eq(schema.schools.id, schema.entries.ownerSchoolId))
 		.where(and(eq(schema.qualificationRounds.seasonId, contest.seasonId), eq(schema.qualificationRounds.status, 'published'), eq(schema.qualifications.active, true)));
-	const qualifiedSchools = [...new Map(qualifiedRows.filter((row) => row.entry.ownerSchoolId).map((row) => [row.entry.ownerSchoolId!, { schoolId: row.entry.ownerSchoolId!, schoolName: row.schoolName || row.entry.ownerSchoolId! }])).values()];
+	const qualifiedSchools = [...new Map(qualifiedRows.filter((row) => row.entry.ownerSchoolId).map((row) => [row.entry.ownerSchoolId!, { schoolId: row.entry.ownerSchoolId!, schoolName: row.schoolName || row.entry.ownerSchoolId!, division: row.schoolDivision ?? row.entry.division }])).values()];
 	const stateQualifications = qualifiedRows.map(({ qualification, entry, schoolName }) => ({ id: qualification.id, entryId: entry.id, studentId: qualification.studentId, category: entry.category, division: entry.division, schoolId: entry.ownerSchoolId, schoolName: schoolName || entry.ownerSchoolId || 'Cross-school entry' }));
-	const teamBerths = await db.select({ berth: schema.stateTeamBerths, qualification: schema.qualifications })
-		.from(schema.stateTeamBerths)
-		.innerJoin(schema.qualifications, eq(schema.qualifications.id, schema.stateTeamBerths.qualificationId))
-		.innerJoin(schema.qualificationRounds, eq(schema.qualificationRounds.id, schema.qualifications.roundId))
-		.where(and(eq(schema.qualificationRounds.seasonId, contest.seasonId), eq(schema.qualificationRounds.status, 'published'), eq(schema.qualifications.active, true)));
+	const teamBerths = await qualifiedTeamBerths(db, contest.seasonId);
 	const entryIds = entries.map((entry) => entry.id);
 	const members = entryIds.length ? await db.select({ member: schema.entryMembers, student: schema.annualStudents }).from(schema.entryMembers).innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.entryMembers.annualStudentId)).where(inArray(schema.entryMembers.entryId, entryIds)) : [];
 	return { contest, seasonStatus: (await db.select().from(schema.seasons).where(eq(schema.seasons.id, contest.seasonId)))[0]?.status, participations, qualifiedSchools, stateQualifications, teamBerths, attendance, roster, entries, members, students: students.map(({ student, schoolName }) => ({ ...student, schoolName: schoolName || student.schoolId })) };
@@ -87,10 +105,9 @@ export async function setStateAttendance(db: Database, input: { contestId: strin
 
 export async function createStateTeamForBerth(db: Database, input: { contestId: string; berthId: string; actorUserId: string; now?: number }) {
 	const contest = await requireStateContest(db, input.contestId, true);
-	const [berth] = await db.select({ berth: schema.stateTeamBerths, qualification: schema.qualifications, round: schema.qualificationRounds }).from(schema.stateTeamBerths)
-		.innerJoin(schema.qualifications, eq(schema.qualifications.id, schema.stateTeamBerths.qualificationId)).innerJoin(schema.qualificationRounds, eq(schema.qualificationRounds.id, schema.qualifications.roundId))
-		.where(and(eq(schema.stateTeamBerths.id, input.berthId), eq(schema.qualificationRounds.status, 'published'), eq(schema.qualifications.active, true), eq(schema.qualifications.seasonId, contest.seasonId)));
+	const berth = (await qualifiedTeamBerths(db, contest.seasonId)).find(item => item.berth.id === input.berthId);
 	if (!berth) throw new StateError('berth_out_of_scope', 'Qualified team berth is not available for this state contest.');
+	await requireQualifiedSchool(db, contest.id, berth.berth.schoolId);
 	if (berth.berth.stateEntryId) throw new StateError('already_created', 'This state team berth already has an entry.');
 	const [participation] = await db.select().from(schema.schoolParticipations).where(and(eq(schema.schoolParticipations.contestId, contest.id), eq(schema.schoolParticipations.schoolId, berth.berth.schoolId)));
 	if (!participation) throw new StateError('not_participating', 'The qualified school is not participating at state.');
@@ -98,7 +115,7 @@ export async function createStateTeamForBerth(db: Database, input: { contestId: 
 	const entryId = crypto.randomUUID();
 	await db.batch([
 		db.insert(schema.entries).values({ id: entryId, contestId: contest.id, ownerSchoolId: berth.berth.schoolId, category: berth.berth.category, entryKind: 'team', entryNumber: null, division: participation.division, createdAt: now, updatedAt: now }),
-		db.update(schema.stateTeamBerths).set({ stateEntryId: entryId }).where(eq(schema.stateTeamBerths.id, input.berthId)),
+		berth.persisted ? db.update(schema.stateTeamBerths).set({ stateEntryId: entryId }).where(eq(schema.stateTeamBerths.id, berth.berth.id)) : db.insert(schema.stateTeamBerths).values({ ...berth.berth, stateEntryId: entryId }),
 		db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: contest.id, schoolId: berth.berth.schoolId, entityType: 'state_entry', entityId: entryId, action: 'state_team_entry_created', detailsJson: JSON.stringify({ berthId: input.berthId, category: berth.berth.category }), createdAt: now }),
 	] as [any, ...any[]]);
 	return entryId;

@@ -10,7 +10,7 @@ import type { RequestHandler } from './$types';
 const roles: Record<string, { email: string; destination: string }> = {
 	state: { email: 'coordinator@wsmc.example', destination: '/' },
 	regional: { email: 'regional5@wsmc.example', destination: '/scoring/contest-region-5' },
-	coach: { email: 'coach.hanford@wsmc.example', destination: '/registration/contest-region-2/school-hanford' },
+	coach: { email: 'coach.hanford@wsmc.example', destination: '/my-schools' },
 };
 
 /** Reusable fixture sign-in for a loopback Vite server only. Never enabled in a build. */
@@ -20,7 +20,8 @@ export const GET: RequestHandler = async ({ params, platform, cookies, locals, u
 	const role = Object.hasOwn(roles, params.role) ? roles[params.role] : undefined;
 	if (!role) throw error(404, 'Unknown demo role');
 	const db = getDb(platform!.env.DB);
-	const user = await findUserByEmail(db, role.email);
+	const user = await findUserByEmail(db, role.email)
+		?? (params.role === 'coach' ? await findUserByEmail(db, 'coach-r2-s1@wsmc.example') : null);
 	if (!user || user.status !== 'active') throw error(404, 'Active showcase account not found');
 	const token = await issueSignInToken(db, { userId: user.id });
 	const session = await consumeSignInToken(db, token.rawToken);

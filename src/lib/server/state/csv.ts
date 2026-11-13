@@ -17,7 +17,7 @@ export type StateRosterCsvRow = {
 	annualStudentId: string;
 	studentName: string;
 	actualGrade: number;
-	admissionBasis: 'individual_qualification' | 'team_berth';
+	admissionBasis: 'individual_qualification' | 'team_berth' | 'ad_hoc';
 	qualificationId: string | null;
 	stateEntryId: string | null;
 };

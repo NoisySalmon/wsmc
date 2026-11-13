@@ -14,6 +14,9 @@ sqlite3 "$database_path" < drizzle/0005_season_year.sql
 sqlite3 "$database_path" < drizzle/0006_persistent_access.sql
 sqlite3 "$database_path" < drizzle/0007_participation_withdrawal.sql
 sqlite3 "$database_path" < drizzle/0008_contest_knowdown_limit.sql
+sqlite3 "$database_path" < drizzle/0009_state_worksheets.sql
+sqlite3 "$database_path" < drizzle/0010_state_ad_hoc_signups.sql
+sqlite3 "$database_path" < drizzle/0011_ad_hoc_event_categories.sql
 sqlite3 "$database_path" < scripts/seed.sql
 
 counts="$(sqlite3 -noheader -separator '|' "$database_path" "SELECT (SELECT COUNT(*) FROM seasons), (SELECT COUNT(*) FROM regions), (SELECT COUNT(*) FROM contests), (SELECT COUNT(*) FROM schools), (SELECT COUNT(*) FROM annual_students), (SELECT COUNT(*) FROM entries), (SELECT COUNT(*) FROM entry_members);")"

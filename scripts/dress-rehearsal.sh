@@ -13,6 +13,9 @@ sqlite3 "$database_path" < drizzle/0005_season_year.sql
 sqlite3 "$database_path" < drizzle/0006_persistent_access.sql
 sqlite3 "$database_path" < drizzle/0007_participation_withdrawal.sql
 sqlite3 "$database_path" < drizzle/0008_contest_knowdown_limit.sql
+sqlite3 "$database_path" < drizzle/0009_state_worksheets.sql
+sqlite3 "$database_path" < drizzle/0010_state_ad_hoc_signups.sql
+sqlite3 "$database_path" < drizzle/0011_ad_hoc_event_categories.sql
 sqlite3 "$database_path" < scripts/seed.sql
 
 # Add 21 additional state-participating schools with 11 annual students each,

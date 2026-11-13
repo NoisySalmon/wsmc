@@ -231,7 +231,7 @@ export const stateRosterMembers = sqliteTable('state_roster_members', {
 	contestId: text('contest_id').notNull().references(() => contests.id, { onDelete: 'cascade' }),
 	schoolId: text('school_id').notNull().references(() => schools.id, { onDelete: 'restrict' }),
 	annualStudentId: text('annual_student_id').notNull().references(() => annualStudents.id, { onDelete: 'restrict' }),
-	admissionBasis: text('admission_basis', { enum: ['individual_qualification', 'team_berth'] }).notNull(),
+	admissionBasis: text('admission_basis', { enum: ['individual_qualification', 'team_berth', 'ad_hoc'] }).notNull(),
 	qualificationId: text('qualification_id').references(() => qualifications.id, { onDelete: 'set null' }),
 	stateEntryId: text('state_entry_id').references(() => entries.id, { onDelete: 'set null' }),
 	createdAt: integer('created_at').notNull().default(timestamp()),
@@ -260,3 +260,20 @@ export const auditEvents = sqliteTable('audit_events', {
 	detailsJson: text('details_json').notNull().default('{}'),
 	createdAt: integer('created_at').notNull().default(timestamp()),
 }, (table) => [index('audit_events_contest_created_idx').on(table.contestId, table.createdAt), index('audit_events_entity_idx').on(table.entityType, table.entityId)]);
+
+// Retains absences and event opt-outs separately from active competition entries.
+export const stateWorksheets = sqliteTable('state_worksheets', {
+ contestId: text('contest_id').notNull().references(() => contests.id, { onDelete: 'cascade' }),
+ schoolId: text('school_id').notNull().references(() => schools.id, { onDelete: 'restrict' }),
+ rowsJson: text('rows_json').notNull(),
+ updatedAt: integer('updated_at').notNull(),
+}, table => [primaryKey({ columns: [table.contestId, table.schoolId] })]);
+
+// Explicit signup pool; mixed-school teams are assigned in a later workflow.
+export const stateAdHocSignups = sqliteTable('state_ad_hoc_signups', {
+ contestId: text('contest_id').notNull().references(() => contests.id, { onDelete: 'cascade' }),
+ schoolId: text('school_id').notNull().references(() => schools.id, { onDelete: 'restrict' }),
+ annualStudentId: text('annual_student_id').notNull().references(() => annualStudents.id, { onDelete: 'restrict' }),
+ category: text('category', { enum: ['team_contest', 'topical_team'] }).notNull(),
+ createdAt: integer('created_at').notNull().default(timestamp()),
+}, table => [primaryKey({ columns: [table.contestId, table.annualStudentId, table.category] })]);

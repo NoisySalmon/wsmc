@@ -224,7 +224,7 @@
 				>{data.participation.withdrawnAt != null ? 'Withdrawn' : readOnly ? 'Read only' : correctionAvailable ? 'Coordinator editing' : 'Registration open'}</span
 			></a
 		>{#if data.stateContest}<a
-				href={`/state/${data.stateContest.id}`}
+				href={`/state/${data.stateContest.id}?schoolId=${data.school.id}`}
 				onclick={guardNavigation}
 				><span class="contest-number">02</span><span
 					><strong>State contest ↗</strong><small
