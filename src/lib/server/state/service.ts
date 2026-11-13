@@ -59,12 +59,14 @@ export async function getStateDashboard(db: Database, contestId: string) {
 		db.select().from(schema.entries).where(eq(schema.entries.contestId, contestId)),
 		db.select({ student: schema.annualStudents, schoolName: schema.schools.shortName }).from(schema.annualStudents).innerJoin(schema.schools, eq(schema.schools.id, schema.annualStudents.schoolId)).where(eq(schema.annualStudents.seasonId, contest.seasonId)),
 	]);
-	const qualifiedRows = await db.select({ qualification: schema.qualifications, entry: schema.entries, round: schema.qualificationRounds, schoolName: schema.schools.shortName, schoolDivision: schema.schools.division }).from(schema.qualifications)
+	const qualifiedRows = await db.select({ qualification: schema.qualifications, entry: schema.entries, round: schema.qualificationRounds, schoolName: schema.schools.shortName, schoolDivision: schema.schools.division, regionId: schema.regions.id, regionNumber: schema.regions.number, regionName: schema.regions.name }).from(schema.qualifications)
 		.innerJoin(schema.qualificationRounds, eq(schema.qualificationRounds.id, schema.qualifications.roundId))
 		.innerJoin(schema.entries, eq(schema.entries.id, schema.qualifications.entryId))
+		.innerJoin(schema.contests, eq(schema.contests.id, schema.entries.contestId))
+		.leftJoin(schema.regions, eq(schema.regions.id, schema.contests.regionId))
 		.leftJoin(schema.schools, eq(schema.schools.id, schema.entries.ownerSchoolId))
 		.where(and(eq(schema.qualificationRounds.seasonId, contest.seasonId), eq(schema.qualificationRounds.status, 'published'), eq(schema.qualifications.active, true)));
-	const qualifiedSchools = [...new Map(qualifiedRows.filter((row) => row.entry.ownerSchoolId).map((row) => [row.entry.ownerSchoolId!, { schoolId: row.entry.ownerSchoolId!, schoolName: row.schoolName || row.entry.ownerSchoolId!, division: row.schoolDivision ?? row.entry.division }])).values()];
+	const qualifiedSchools = [...new Map(qualifiedRows.filter((row) => row.entry.ownerSchoolId).map((row) => [row.entry.ownerSchoolId!, { schoolId: row.entry.ownerSchoolId!, schoolName: row.schoolName || row.entry.ownerSchoolId!, division: row.schoolDivision ?? row.entry.division, regionId: row.regionId, regionNumber: row.regionNumber, regionName: row.regionName }])).values()];
 	const stateQualifications = qualifiedRows.map(({ qualification, entry, schoolName }) => ({ id: qualification.id, entryId: entry.id, studentId: qualification.studentId, category: entry.category, division: entry.division, schoolId: entry.ownerSchoolId, schoolName: schoolName || entry.ownerSchoolId || 'Cross-school entry' }));
 	const teamBerths = await qualifiedTeamBerths(db, contest.seasonId);
 	const entryIds = entries.map((entry) => entry.id);

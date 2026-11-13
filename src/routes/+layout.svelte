@@ -1,6 +1,8 @@
 <script lang="ts">
 	let { children, data } = $props();
 	const nav = $derived(data?.nav as { isAdmin: boolean; isRegional: boolean; isCoach: boolean; isScorekeeper: boolean } | null | undefined);
+	let administrationOpen = $state(false);
+	const activeStateContest = $derived(data?.activeStateContest);
 	const principal = $derived(data?.principal);
 	// Administrators have the school directory; regional coordinators
 	// manage schools through their contest overview instead.
@@ -15,8 +17,11 @@
 <a class="skip-link" href="#main-content">Skip to main content</a>
 <nav aria-label="Primary navigation">
 	<a href="/">WSMC</a>
-	{#if showDirectory}<a href="/schools">Schools</a>{/if}
-	{#if showDirectory}<a href="/regions">Regions</a>{/if}
+	{#if activeStateContest}<a href="/state/{activeStateContest.id}">State contest</a>{/if}
+	{#if showDirectory}
+  {#if activeStateContest}<details class="administration" bind:open={administrationOpen}><summary>Administration</summary><div><a href="/schools" onclick={() => administrationOpen=false}>Schools</a><a href="/regions" onclick={() => administrationOpen=false}>Regions</a></div></details>
+  {:else}<a href="/schools">Schools</a><a href="/regions">Regions</a>{/if}
+ {/if}
 	{#if nav?.isCoach}<a href="/my-schools">My schools</a>{/if}
 	{#if showUsers}<a href="/admin/users">Users &amp; access</a>{/if}
 	{#each data?.roleLinks ?? [] as link}<a href={link.href}>{link.label}</a>{/each}
@@ -64,7 +69,7 @@
 		text-decoration: none;
 		font-weight: 500;
 	}
-	nav a:first-child {
+	nav > a:first-child {
 		font-weight: 700;
 		font-size: 1.1rem;
 		color: #fff;
@@ -72,6 +77,7 @@
 	nav a:hover {
 		color: #fff;
 	}
+ .administration{position:relative;color:#e0e0e0}.administration summary{cursor:pointer;font-weight:500}.administration summary:hover{color:white}.administration>div{position:absolute;top:calc(100% + .75rem);left:0;z-index:20;min-width:160px;display:grid;gap:.25rem;padding:.5rem;background:#1a1a2e;border:1px solid #555;border-radius:6px;box-shadow:0 6px 18px #0003}.administration a{padding:.5rem .75rem}.administration a:hover{background:#303047;border-radius:4px}
 	nav form { margin-left: auto; }
 	nav button { background: transparent; border: 1px solid #777; color: #e0e0e0; border-radius: 4px; padding: 0.35rem 0.6rem; cursor: pointer; }
 	@media (max-width: 620px) {

@@ -411,14 +411,56 @@ access_audit="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_d
 node -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"))[0].results; if(r.length!==2 || r[0].action!=="assignment_revoked" || r[0].entity_id!=="user-regional-coordinator-2" || r[1].action!=="assignment_granted" || r[1].entity_id!=="user-scorekeeper-2" || r.some(x=>x.actor_user_id!=="user-coordinator")) throw new Error("Reassignment audit is incomplete");' <<< "$access_audit"
 
 
+# Check the rendered page order and role-aware primary navigation together.
+assert_season_navigation() {
+ local session_id="$1" stage="$2" administrator="$3"
+ assert_status GET / 200 "$session_id"
+ python3 - "$response_file" "$stage" "$administrator" <<'PY_NAV'
+from html.parser import HTMLParser
+from pathlib import Path
+import sys
+class Page(HTMLParser):
+ def __init__(self):
+  super().__init__(); self.headings=[]; self.heading=None; self.primary=False; self.details=0; self.links=[]
+ def handle_starttag(self, tag, attrs):
+  attrs=dict(attrs)
+  if tag=='h3': self.heading=''
+  if tag=='nav': self.primary=attrs.get('aria-label')=='Primary navigation'
+  if self.primary and tag=='details': self.details+=1
+  if self.primary and tag=='a': self.links.append((attrs.get('href',''), self.details==0))
+ def handle_data(self, value):
+  if self.heading is not None: self.heading+=value
+ def handle_endtag(self, tag):
+  if tag=='h3' and self.heading is not None: self.headings.append(self.heading.strip()); self.heading=None
+  if self.primary and tag=='details': self.details-=1
+  if tag=='nav': self.primary=False
+page=Page(); page.feed(Path(sys.argv[1]).read_text())
+stage=sys.argv[2]; admin=sys.argv[3]=='yes'
+expected={'regional':['Regional contests','State qualifications','State contest'], 'qualifications':['State qualifications','Regional contests','State contest'], 'state':['State contest','State qualifications','Regional contests']}[stage]
+if not admin: expected.remove('State qualifications')
+assert page.headings[:len(expected)]==expected, page.headings
+links=dict(page.links)
+if admin:
+ assert '/schools' in links and '/regions' in links
+ assert links['/schools']==(stage!='state') and links['/regions']==(stage!='state'), page.links
+ assert any(href.startswith('/state/') and direct for href,direct in page.links)==(stage=='state'), page.links
+else:
+ assert not any(href.startswith('/state/') or href in ['/schools','/regions'] for href,_ in page.links), page.links
+PY_NAV
+}
+
 # Season progression is administrator-controlled and shared with the homepage.
 new_season_id="$(npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" --json --command="SELECT id FROM seasons WHERE year = 2027;" | node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(0,"utf8"))[0].results[0].id)')"
 assert_action_failure POST '/?/setSeasonStatus' 400 "$coordinator" --data "seasonId=$new_season_id&status=state"
 assert_action_failure POST '/?/setSeasonStatus' 400 "$coordinator" --data "seasonId=$new_season_id&status=qualifications"
 d1 --command="UPDATE contests SET lifecycle = 'finalized' WHERE season_id = '$new_season_id' AND kind = 'regional';"
+assert_season_navigation "$coordinator" regional yes
 assert_status POST '/?/setSeasonStatus' 200 "$coordinator" --data "seasonId=$new_season_id&status=qualifications"
 assert_page_contains GET / "$coordinator" 'Administrators are settling state qualifications.'
+assert_season_navigation "$coordinator" qualifications yes
 assert_status POST '/?/setSeasonStatus' 200 "$coordinator" --data "seasonId=$new_season_id&status=state"
 assert_page_contains GET / "$coordinator" 'Qualifications are settled.'
+assert_season_navigation "$coordinator" state yes
+assert_season_navigation "$coach" state no
 
 echo "authenticated Pages end-to-end preview passed"

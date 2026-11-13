@@ -125,6 +125,9 @@ print(json.dumps(statements))
 	await addStateRosterMember(db, { contestId: dashboard.contest.id, schoolId: team.berth.schoolId, annualStudentId: student.id, admissionBasis: 'team_berth', stateEntryId: created.berth.stateEntryId, actorUserId: coach.id });
 	await addStateEntryMember(db, { contestId: dashboard.contest.id, entryId: created.berth.stateEntryId, annualStudentId: student.id, competingGrade: student.actualGrade, actorUserId: coach.id });
 	const registered = await getStateDashboard(db, dashboard.contest.id);
+	assert.equal(registered.qualifiedSchools.find(school => school.schoolId === 'r2-S1').regionNumber, 2);
+	assert.equal(registered.qualifiedSchools.find(school => school.schoolId === 'r5-S1').regionNumber, 5);
+	assert(registered.qualifiedSchools.some(school => school.regionNumber === 11 && school.regionName === 'Virtual'));
 	assert(registered.roster.some(row => row.member.annualStudentId === student.id));
 	assert(registered.members.some(row => row.member.entryId === created.berth.stateEntryId && row.student.id === student.id));
 	// Coach worksheet starts with the qualified regional roster, not blank forms.

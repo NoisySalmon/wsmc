@@ -5,13 +5,17 @@ import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async ({ locals, platform }) => {
 	const principal = locals.principal;
-	if (!principal || !platform?.env.DB) return { principal, roleLinks: [], nav: null };
+	if (!principal || !platform?.env.DB) return { principal, roleLinks: [], nav: null, activeStateContest: null };
 
 	const db = getDb(platform.env.DB);
 	const isAdmin = canAdministerUsers(principal);
 	const isRegional = principal.regionalContestIds.length > 0;
 	const isCoach = principal.coachAssignments.length > 0;
 	const isScorekeeper = principal.scorekeeperContestIds.length > 0;
+
+ const [activeStateContest] = isAdmin ? await db.select({ id: schema.contests.id }).from(schema.contests)
+  .innerJoin(schema.seasons, eq(schema.seasons.id, schema.contests.seasonId))
+  .where(and(eq(schema.contests.kind, 'state'), eq(schema.seasons.status, 'state'))) : [];
 
 	const contestIds = [...new Set([...principal.regionalContestIds, ...principal.scorekeeperContestIds])];
 	const assignedContests = contestIds.length
@@ -33,6 +37,7 @@ export const load: LayoutServerLoad = async ({ locals, platform }) => {
 
 	return {
 		principal,
+		activeStateContest: activeStateContest ?? null,
 		roleLinks,
 		nav: { isAdmin, isRegional, isCoach, isScorekeeper },
 	};
