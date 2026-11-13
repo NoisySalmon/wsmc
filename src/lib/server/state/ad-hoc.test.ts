@@ -25,7 +25,8 @@ async function fixture() {
 }
 
 const context = { contestId: 'contest-state-2026', actorUserId: 'user-coordinator' };
-describe('ad-hoc state contest workflow', () => {
+// Real D1 startup and worksheet round trips can exceed five seconds on CI.
+describe('ad-hoc state contest workflow', { timeout: 15_000 }, () => {
  it('allows coaches to save assigned rosters and removes event opt-outs before regeneration', async () => {
   const { db, d1 } = await fixture();
   await d1.prepare("UPDATE contests SET lifecycle='registration_open' WHERE id=?").bind(context.contestId).run();
