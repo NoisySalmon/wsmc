@@ -44,8 +44,11 @@ The generated showcase creates 40 coaches, 11 regional coordinators and one
 statewide coordinator with `.example` emails, plus 320 fictional annual
 students. It does not reuse historical student or staff names. There are no
 scorekeeper users or assignments. Each school outside a setup region has eight
-rostered students and 16 entries across all five categories, with distinct
-competing grades on teams and no Topical Team/Individual overlap.
+rostered students and entries in Team Contest, Topical Team, Topical Individual,
+and Knowdown, with distinct competing grades on teams and no Topical
+Team/Individual overlap. Only six schools also enter a Project team: Mt. Spokane,
+Goldendale, Ephrata, King's, Bishop Blanchet, and Discovery. These six fictional
+projects span six regions and are split evenly between Divisions I and II.
 
 | Region | Contest state |
 |---|---|

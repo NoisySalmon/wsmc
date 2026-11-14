@@ -48,6 +48,11 @@ for (const { number, name } of directory.regions) {
 add('contests', { id: 'contest-state-2026', season_id: season, region_id: null, kind: 'state', name: '2026 State Contest', starts_at: Date.parse('2026-04-18T09:30:00-07:00'), lifecycle: 'setup' });
 const firstNames = ['Avery', 'Jordan', 'Riley', 'Casey', 'Taylor', 'Quinn', 'Cameron', 'Sage'];
 const lastNames = ['Bennett', 'Chen', 'Diaz', 'Evans', 'Flores', 'Gupta', 'Harris', 'Ito', 'Jones', 'Kim', 'Lopez', 'Martin', 'Nguyen', 'Ortiz', 'Patel', 'Reed', 'Singh', 'Turner', 'Walker'];
+// Six fictional Project teams across six regions, split evenly between divisions.
+const projectSchools = new Set([
+ 'school-mt-spokane', 'school-goldendale', 'school-ephrata',
+ 'school-king-s', 'school-bishop-blanchet', 'school-discovery'
+]);
 const knowdownCounts = new Map();
 for (const [index, school] of directory.schools.entries()) {
  const { id, name, division, region } = school;
@@ -66,7 +71,8 @@ for (const [index, school] of directory.schools.entries()) {
  }
  if (stage === 'setup') continue;
  const definitions = [
-  ['project', students.slice(0, 3)], ['team_contest', students.slice(0, 3)], ['topical_team', students.slice(0, 3)],
+  ...(projectSchools.has(id) ? [['project', students.slice(0, 3)]] : []),
+  ['team_contest', students.slice(0, 3)], ['topical_team', students.slice(0, 3)],
   ...students.slice(3).map(s => ['topical_individual', [s]]), ...students.slice(0, 3).map(s => ['knowdown', [s]])
  ];
  const counts = new Map();
