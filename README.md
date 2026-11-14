@@ -126,7 +126,7 @@ and pull requests.
 The project is configured for Cloudflare Pages.
 
 The production D1 already has the v2 demo fixture. Before deploying these
-local changes, back it up, apply the Knowdown outcome migration, and follow
+local changes, back it up, apply all pending migrations, and follow
 the production checks in the [D1 runbook](docs/operations/d1-runbook.md).
 
 1. Build the project:

@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { error, fail } from '@sveltejs/kit';
 import { canEditRoster, canFinalizeContest } from '$lib/server/auth/capabilities';
 import { getDb, schema } from '$lib/server/db';
@@ -51,11 +51,13 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	if (!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)) throw error(403, 'You cannot view this school registration.');
 	const [students, rosterRows, entries] = await Promise.all([
 		db.select().from(schema.annualStudents).where(and(eq(schema.annualStudents.seasonId, contest.seasonId), eq(schema.annualStudents.schoolId, school.id))),
-		db.select().from(schema.contestRosterMembers).where(eq(schema.contestRosterMembers.contestId, contest.id)),
+		db.select().from(schema.contestRosterMembers).where(and(eq(schema.contestRosterMembers.contestId, contest.id), eq(schema.contestRosterMembers.participationId, participation.id))),
 		db.select().from(schema.entries).where(and(eq(schema.entries.contestId, contest.id), eq(schema.entries.ownerSchoolId, school.id))),
 	]);
-	const entryIds = entries.map((entry) => entry.id);
-	const members = entryIds.length ? await db.select().from(schema.entryMembers).where(inArray(schema.entryMembers.entryId, entryIds)) : [];
+	const memberRows = await db.select({ member: schema.entryMembers }).from(schema.entryMembers)
+		.innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId))
+		.where(and(eq(schema.entries.contestId, contest.id), eq(schema.entries.ownerSchoolId, school.id)));
+	const members = memberRows.map(row => row.member);
 	const rosterIds = new Set(rosterRows.map((row) => row.annualStudentId));
 	const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, contest.seasonId));
 	const [stateContest] = await db.select().from(schema.contests).where(and(eq(schema.contests.seasonId, contest.seasonId), eq(schema.contests.kind, 'state')));

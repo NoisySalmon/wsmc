@@ -11,6 +11,13 @@
 	let descending = $state(false);
 	let savingPlace = $state(false);
 	let placeError = $state('');
+	let pendingCells = $state(new Set<string>());
+	let editsPending = $derived(savingPlace || pendingCells.size > 0);
+	function pendingCell(key: string, pending: boolean) {
+		const next = new Set(pendingCells);
+		if (pending) next.add(key); else next.delete(key);
+		pendingCells = next;
+	}
 	type Entry = typeof data.entries[number];
 	const labels: Record<string, string> = { team_contest: 'Team Contest', topical_team: 'Topical Team', topical_individual: 'Topical Individual', project: 'Project', knowdown: 'Knowdown' };
 	let topical = $derived(categoryFilter === 'topical_team' || categoryFilter === 'topical_individual' || categoryFilter === 'ad_hoc_topical_team');
@@ -90,7 +97,7 @@
 			</tr></thead><tbody>
 				{#each rows as entry (entry.id)}<tr>
 					<td>{entry.schoolName}</td>{#if !individual}<td class="team-number">{entry.entryNumber ?? '—'}</td>{/if}<td>{names(entry) || 'No named members'}</td>
-					{#each topical ? ['part1', 'part2'] as const : ['score'] as const as field}<td class="numeric"><ScoreCell entryId={entry.id} {field} value={entry[field]} name={`${entry.schoolName}, ${individual ? names(entry) : `team ${entry.entryNumber}`}, ${field === 'part1' ? 'Part 1' : field === 'part2' ? 'Part 2' : 'Score'}`} editor={entry.lastEditedBy} updatedAt={entry.updatedAt} disabled={locked} max={topical ? 75 : undefined} /></td>{/each}
+					{#each topical ? ['part1', 'part2'] as const : ['score'] as const as field}<td class="numeric"><ScoreCell entryId={entry.id} {field} value={entry[field]} name={`${entry.schoolName}, ${individual ? names(entry) : `team ${entry.entryNumber}`}, ${field === 'part1' ? 'Part 1' : field === 'part2' ? 'Part 2' : 'Score'}`} editor={entry.lastEditedBy} updatedAt={entry.updatedAt} disabled={locked} max={topical ? 75 : undefined} onPendingChange={(pending) => pendingCell(`${entry.id}:${field}`, pending)} /></td>{/each}
 					{#if topical}<td class="numeric total">{entry.score ?? '—'}</td>{/if}
 				</tr>{:else}<tr><td colspan={individual ? 5 : topical ? 6 : 4} class="empty">No entries match.</td></tr>{/each}
 			</tbody></table></div>
@@ -99,8 +106,9 @@
 
 	{#if data.canFinalize}
 		<section class="controls"><h2>Contest controls</h2>
-			<p>{data.finalization.complete ? 'All required scores are entered. Confirm the Knowdown places before finalizing.' : 'Finalization is blocked until all required scores are entered and all Knowdown places are unique.'}</p>
-			<form method="POST" action="?/finalize"><button type="submit" disabled={data.contest.lifecycle !== 'scoring' || !data.finalization.complete}>Finalize results</button></form>
+				{#if editsPending}<p role="status">Finish saving score edits before finalizing results.</p>{/if}
+			<p>{data.finalization.complete ? 'All required scores are entered. Results are ready to finalize.' : 'Finalization is blocked until all required scores are entered and all Knowdown places are unique.'}</p>
+			<form method="POST" action="?/finalize" onsubmit={(event) => { if (editsPending) event.preventDefault(); }}><button type="submit" disabled={editsPending || data.contest.lifecycle !== 'scoring' || !data.finalization.complete}>Finalize results</button></form>
 			{#if data.contest.lifecycle === 'finalized'}
 				{#if !data.contest.resultsPublishedAt}<form method="POST" action="?/publish"><button type="submit">Publish results</button></form>{/if}
 				<form method="POST" action="?/reopen"><label>Reason to reopen <textarea name="reason" required></textarea></label><button class="quiet" type="submit">Reopen for correction</button></form>

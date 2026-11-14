@@ -65,12 +65,29 @@ sign-in link.
 
 ## Production deployment preflight
 
-The configured Pages project is `wsmc` at `wsmc.pages.dev`. The production
-database already runs the v2 baseline with the demo fixture. Before deploying
-this local change, export the production D1, apply
-`0002_knowdown_outcomes.sql`, and verify that existing Knowdown placements
-were backfilled as `placed`. The production Pages environment has the required
-email settings and encrypted key; verify them again during deployment review.
+The configured Pages project is `wsmc` at `wsmc.pages.dev`. Before deploying,
+export the target D1 database and review its recorded migrations. Apply all
+pending migrations in order, rather than selecting an individual SQL file:
+
+```bash
+npx wrangler d1 migrations list wsmc-db --remote
+npx wrangler d1 migrations apply wsmc-db --remote
+```
+
+Review upgrade effects before running these commands. Migration `0006` resets
+staff assignments; if it is pending, preserve the intended assignments and use
+the [bootstrap procedure](auth-bootstrap.md) to restore administrator access.
+Migration `0012` adds scoring revisions used to reject changes during
+finalization. Migration `0013` requires one qualification round per kind and
+season; it intentionally fails if competing rounds already exist, so inspect
+and reconcile duplicates rather than deleting decisions automatically.
+Existing unpublished qualification drafts must be saved and reviewed again
+after this upgrade; published qualifications remain intact.
+
+Verify coordinator access, email environment values and encrypted credentials,
+Knowdown outcomes, and publication state against the migrated database before
+launch. Run migrations before deploying code that selects the new columns.
+Local checks never establish the remote database's current migration state.
 
 After those prerequisites are verified, deploy the built Pages output and run
 the post-deploy smoke command below. The current remote target has not been

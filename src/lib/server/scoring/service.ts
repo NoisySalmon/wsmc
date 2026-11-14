@@ -4,6 +4,7 @@ import { activeEntry } from '$lib/server/program/participation';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
+import { guardedResultInsert, scoringAudit, scoringWriteAllowed } from '$lib/server/db/scoring-writes';
 import { PersistenceRuleError, saveResult } from '$lib/server/db/repositories';
 import { rankRegionalResults, rankStateResults, type RegionalRankings, type StateRankings, type RegionalResultRow } from './rankings';
 
@@ -141,16 +142,12 @@ export async function saveContestResult(db: Database, input: { contestId: string
 	}
 	let saved;
 	try {
-		saved = await saveResult(db, { contestId: contest.id, entryId: entry.id, expectedVersion: input.expectedVersion, ...values, lastEditedBy: input.actorUserId });
+		saved = await saveResult(db, { contestId: contest.id, entryId: entry.id, expectedVersion: input.expectedVersion, ...values, lastEditedBy: input.actorUserId, audit: { actorUserId: input.actorUserId, detailsJson: JSON.stringify({ category: entry.category, ...values, version: (input.expectedVersion ?? 0) + 1 }), now: input.now ?? Date.now() } });
 	} catch (cause) {
 		if (cause instanceof PersistenceRuleError) throw new ScoringError(cause.code, cause.message);
 		throw cause;
 	}
 	const [result] = saved;
-	await db.insert(schema.auditEvents).values({
-		id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: contest.id, entityType: 'result', entityId: entry.id,
-		action: 'score_saved', detailsJson: JSON.stringify({ category: entry.category, score: values.score, part1: values.part1, part2: values.part2, placement: values.placement, knowdownOutcome: values.knowdownOutcome, version: result?.version ?? null }), createdAt: input.now ?? Date.now(),
-	});
 	await auditQualificationImpact(db, contest, input.actorUserId, entry.id, entry.category, input.now);
 	return result;
 }
@@ -176,9 +173,10 @@ export async function saveScoreCell(db: Database, input: { contestId: string; en
 	validateScoreInput(entry.category as ScoreCategory, { [field]: input.value });
 	const now = Date.now();
 	const total = field === 'part1' ? sql`${input.value} + ${schema.results.part2}` : sql`${schema.results.part1} + ${input.value}`;
-	const saved = db.insert(schema.results).values({ entryId: entry.id, [field]: input.value, lastEditedBy: input.actorUserId, updatedAt: now })
-		.onConflictDoUpdate({ target: schema.results.entryId, set: { [field]: input.value, ...(topical ? { score: total } : {}), version: sql`${schema.results.version} + 1`, lastEditedBy: input.actorUserId, updatedAt: now } }).returning();
-	await db.batch([saved, db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: contest.id, entityType: 'result', entityId: entry.id, action: 'score_saved', detailsJson: JSON.stringify({ field, value: input.value }), createdAt: now })]);
+	const saved = guardedResultInsert(db, { entryId: entry.id, [field]: input.value, lastEditedBy: input.actorUserId, updatedAt: now }, contest.id)
+		.onConflictDoUpdate({ target: schema.results.entryId, setWhere: scoringWriteAllowed(contest.id, entry.id), set: { [field]: input.value, ...(topical ? { score: total } : {}), version: sql`${schema.results.version} + 1`, lastEditedBy: input.actorUserId, updatedAt: now } }).returning();
+	const [written] = await db.batch([saved, scoringAudit(db, { actorUserId: input.actorUserId, contestId: contest.id, entityType: 'result', entityId: entry.id, action: 'score_saved', detailsJson: JSON.stringify({ field, value: input.value }), now })]);
+	if (!written.length) throw new ScoringError('locked', 'The contest or entry changed. Refresh before saving.');
 	await auditQualificationImpact(db, contest, input.actorUserId, entry.id, entry.category);
 }
 
@@ -191,14 +189,19 @@ export async function saveKnowdownPlace(db: Database, input: { contestId: string
 		if (!entry) throw new ScoringError('entry_out_of_scope', 'Choose a Knowdown student from this contest.');
 	}
 	const now = Date.now();
+	const guard = db.update(schema.contests).set({ updatedAt: now }).where(and(eq(schema.contests.id, contest.id), scoringWriteAllowed(contest.id, input.entryId ?? undefined))).returning({ id: schema.contests.id });
 	const clear = db.update(schema.results).set({ placement: null, knowdownOutcome: 'eliminated', version: sql`${schema.results.version} + 1`, lastEditedBy: input.actorUserId, updatedAt: now })
-		.where(and(eq(schema.results.placement, input.placement), inArray(schema.results.entryId, db.select({ id: schema.entries.id }).from(schema.entries).where(and(activeEntry(), eq(schema.entries.contestId, contest.id), eq(schema.entries.category, 'knowdown'))))));
-	const audit = db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: contest.id, entityType: 'result', entityId: input.entryId ?? contest.id, action: 'knowdown_place_saved', detailsJson: JSON.stringify({ placement: input.placement, entryId: input.entryId }), createdAt: now });
+		.where(and(scoringWriteAllowed(contest.id, input.entryId ?? undefined), eq(schema.results.placement, input.placement), inArray(schema.results.entryId, db.select({ id: schema.entries.id }).from(schema.entries).where(and(activeEntry(), eq(schema.entries.contestId, contest.id), eq(schema.entries.category, 'knowdown'))))));
+	const audit = scoringAudit(db, { actorUserId: input.actorUserId, contestId: contest.id, entityType: 'result', entityId: input.entryId ?? contest.id, action: 'knowdown_place_saved', detailsJson: JSON.stringify({ placement: input.placement, entryId: input.entryId }), now });
 	if (input.entryId) {
-		const assign = db.insert(schema.results).values({ entryId: input.entryId, placement: input.placement, knowdownOutcome: 'placed', lastEditedBy: input.actorUserId, updatedAt: now })
-			.onConflictDoUpdate({ target: schema.results.entryId, set: { placement: input.placement, knowdownOutcome: 'placed', version: sql`${schema.results.version} + 1`, lastEditedBy: input.actorUserId, updatedAt: now } });
-		await db.batch([clear, assign, audit]);
-	} else await db.batch([clear, audit]);
+		const assign = guardedResultInsert(db, { entryId: input.entryId, placement: input.placement, knowdownOutcome: 'placed', lastEditedBy: input.actorUserId, updatedAt: now }, contest.id)
+			.onConflictDoUpdate({ target: schema.results.entryId, setWhere: scoringWriteAllowed(contest.id, input.entryId), set: { placement: input.placement, knowdownOutcome: 'placed', version: sql`${schema.results.version} + 1`, lastEditedBy: input.actorUserId, updatedAt: now } }).returning();
+		const [admitted, , written] = await db.batch([guard, clear, assign, audit]);
+		if (!admitted.length || !written.length) throw new ScoringError('locked', 'The contest or entry changed. Refresh before saving.');
+	} else {
+		const [admitted] = await db.batch([guard, clear, audit]);
+		if (!admitted.length) throw new ScoringError('locked', 'The contest changed. Refresh before saving.');
+	}
 	await auditQualificationImpact(db, contest, input.actorUserId, input.entryId, 'knowdown');
 }
 
@@ -232,8 +235,11 @@ export async function finalizeContest(db: Database, input: { contestId: string; 
 	if (report.duplicateKnowdownPlaces.length) throw new ScoringError('duplicate_placement', `Knowdown places must be unique. Duplicate place${report.duplicateKnowdownPlaces.length === 1 ? '' : 's'}: ${report.duplicateKnowdownPlaces.map((item) => item.placement).join(', ')}.`);
 	if (report.adHocNeedsAttention) throw new ScoringError('ad_hoc_pending', 'Ad-hoc assignments need attention before finalization.');
 	if (report.missing.length) throw new ScoringError('incomplete', `${report.missing.length} result${report.missing.length === 1 ? '' : 's'} still need attention.`);
-	await db.update(schema.contests).set({ lifecycle: 'finalized', updatedAt: input.now ?? Date.now() }).where(and(eq(schema.contests.id, input.contestId), eq(schema.contests.lifecycle, 'scoring')));
-	await db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: input.contestId, entityType: 'contest', entityId: input.contestId, action: 'contest_finalized', detailsJson: '{}', createdAt: input.now ?? Date.now() });
+	const now = input.now ?? Date.now();
+	const transition = db.update(schema.contests).set({ lifecycle: 'finalized', updatedAt: now })
+		.where(and(eq(schema.contests.id, input.contestId), eq(schema.contests.lifecycle, 'scoring'), eq(schema.contests.scoringRevision, report.contest.scoringRevision), sql`EXISTS (SELECT 1 FROM seasons WHERE id = ${report.contest.seasonId} AND status <> 'archived')`)).returning({ id: schema.contests.id });
+	const [changed] = await db.batch([transition, scoringAudit(db, { actorUserId: input.actorUserId, contestId: input.contestId, entityType: 'contest', entityId: input.contestId, action: 'contest_finalized', detailsJson: '{}', now })]);
+	if (!changed.length) throw new ScoringError('stale_contest', 'Results or registration changed during finalization. Refresh and review them again.');
 }
 
 export async function reopenContest(db: Database, input: { contestId: string; actorUserId: string; reason: string; now?: number }) {
@@ -242,17 +248,23 @@ export async function reopenContest(db: Database, input: { contestId: string; ac
 	const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, input.contestId));
 	if (!contest) throw new ScoringError('contest_not_found', 'Contest not found.');
 	if (contest.lifecycle !== 'finalized') throw new ScoringError('invalid_transition', 'Only finalized contests can be reopened.');
-	await db.update(schema.contests).set({ lifecycle: 'scoring', resultsPublishedAt: null, updatedAt: input.now ?? Date.now() }).where(and(eq(schema.contests.id, input.contestId), eq(schema.contests.lifecycle, 'finalized')));
-	await db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: input.contestId, entityType: 'contest', entityId: input.contestId, action: 'contest_reopened', detailsJson: JSON.stringify({ reason }), createdAt: input.now ?? Date.now() });
+	const now = input.now ?? Date.now();
+	const transition = db.update(schema.contests).set({ lifecycle: 'scoring', resultsPublishedAt: null, updatedAt: now })
+		.where(and(eq(schema.contests.id, input.contestId), eq(schema.contests.lifecycle, 'finalized'), sql`EXISTS (SELECT 1 FROM seasons WHERE id = ${contest.seasonId} AND status <> 'archived')`)).returning({ id: schema.contests.id });
+	const [changed] = await db.batch([transition, scoringAudit(db, { actorUserId: input.actorUserId, contestId: input.contestId, entityType: 'contest', entityId: input.contestId, action: 'contest_reopened', detailsJson: JSON.stringify({ reason }), now })]);
+	if (!changed.length) throw new ScoringError('stale_contest', 'The contest changed or was archived. Refresh before reopening.');
 }
 
 export async function publishContestResults(db: Database, input: { contestId: string; actorUserId: string; now?: number }) {
 	const [contest] = await db.select().from(schema.contests).where(eq(schema.contests.id, input.contestId));
 	if (!contest) throw new ScoringError('contest_not_found', 'Contest not found.');
 	if (contest.lifecycle !== 'finalized') throw new ScoringError('not_finalized', 'A contest must be finalized before results are published.');
-	const publishedAt = contest.resultsPublishedAt ?? input.now ?? Date.now();
-	await db.update(schema.contests).set({ resultsPublishedAt: publishedAt, updatedAt: input.now ?? Date.now() }).where(eq(schema.contests.id, input.contestId));
-	await db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.actorUserId, contestId: input.contestId, entityType: 'contest', entityId: input.contestId, action: 'results_published', detailsJson: JSON.stringify({ publishedAt }), createdAt: input.now ?? Date.now() });
+	if (contest.resultsPublishedAt !== null) return;
+	const now = input.now ?? Date.now();
+	const transition = db.update(schema.contests).set({ resultsPublishedAt: now, updatedAt: now })
+		.where(and(eq(schema.contests.id, input.contestId), eq(schema.contests.lifecycle, 'finalized'), eq(schema.contests.scoringRevision, contest.scoringRevision), sql`${schema.contests.resultsPublishedAt} IS NULL`, sql`EXISTS (SELECT 1 FROM seasons WHERE id = ${contest.seasonId} AND status <> 'archived')`)).returning({ id: schema.contests.id });
+	const [changed] = await db.batch([transition, scoringAudit(db, { actorUserId: input.actorUserId, contestId: input.contestId, entityType: 'contest', entityId: input.contestId, action: 'results_published', detailsJson: JSON.stringify({ publishedAt: now }), now })]);
+	if (!changed.length) throw new ScoringError('stale_contest', 'The contest changed or was archived. Refresh before publishing.');
 }
 
 function knowdownOutcomeRows(snapshot: Awaited<ReturnType<typeof getScoringSnapshot>>) {

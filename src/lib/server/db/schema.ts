@@ -59,6 +59,7 @@ export const contests = sqliteTable('contests', {
 	knowdownLimit: integer('knowdown_limit').notNull().default(3),
 	lifecycle: text('lifecycle', { enum: ['setup', 'registration_open', 'roster_locked', 'scoring', 'finalized'] }).notNull().default('setup'),
 	resultsPublishedAt: integer('results_published_at'),
+	scoringRevision: integer('scoring_revision').notNull().default(0),
 	createdAt: integer('created_at').notNull().default(timestamp()),
 	updatedAt: integer('updated_at').notNull().default(timestamp()),
 }, (table) => [
@@ -182,11 +183,13 @@ export const qualificationRounds = sqliteTable('qualification_rounds', {
 	seasonId: text('season_id').notNull().references(() => seasons.id, { onDelete: 'cascade' }),
 	kind: text('kind', { enum: ['regional_placements', 'state_cutoff', 'manual_review'] }).notNull(),
 	status: text('status', { enum: ['draft', 'frozen', 'published'] }).notNull().default('draft'),
+	// Fingerprint of regional lifecycle/scoring revisions and manual decisions reviewed in this draft.
+	sourceRevision: text('source_revision'),
 	thresholdsJson: text('thresholds_json').notNull().default('{}'),
 	publishedAt: integer('published_at'),
 	createdBy: text('created_by').notNull().references(() => users.id, { onDelete: 'restrict' }),
 	createdAt: integer('created_at').notNull().default(timestamp()),
-}, (table) => [index('qualification_rounds_season_status_idx').on(table.seasonId, table.status)]);
+}, (table) => [uniqueIndex('qualification_rounds_season_kind_uq').on(table.seasonId, table.kind), index('qualification_rounds_season_status_idx').on(table.seasonId, table.status)]);
 
 export const qualifications = sqliteTable('qualifications', {
 	id: text('id').primaryKey(),

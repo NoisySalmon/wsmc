@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { schema, type Database } from '$lib/server/db';
 import { adHocCategories, isAdHocEntry, type AdHocCategory } from '$lib/ad-hoc';
 import { planAdHocTeams } from './ad-hoc-planner';
@@ -12,7 +12,9 @@ export async function getAdHocDashboard(db: Database, contestId: string, schoolI
   .innerJoin(schema.stateRosterMembers, and(eq(schema.stateRosterMembers.contestId, schema.stateAdHocSignups.contestId), eq(schema.stateRosterMembers.annualStudentId, schema.stateAdHocSignups.annualStudentId)))
   .where(eq(schema.stateAdHocSignups.contestId, contestId));
  const entries = (await db.select().from(schema.entries).where(eq(schema.entries.contestId, contestId))).filter(isAdHocEntry);
- const members = entries.length ? await db.select().from(schema.entryMembers).where(inArray(schema.entryMembers.entryId, entries.map(e => e.id))) : [];
+ const members = entries.length ? (await db.select({ member: schema.entryMembers }).from(schema.entryMembers)
+  .innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId))
+  .where(and(eq(schema.entries.contestId, contestId), isNull(schema.entries.ownerSchoolId), inArray(schema.entries.category, adHocCategories)))).map(row => row.member) : [];
  return adHocCategories.map(category => {
   const pool = signups.filter(s => s.signup.category === category).map(({ student, schoolName }) => ({ id: student.id, name: student.name, schoolId: student.schoolId, actualGrade: student.actualGrade, schoolName }));
   const teams = entries.filter(e => e.category === category).map(entry => ({ id: entry.id, number: entry.entryNumber ?? 0,
@@ -37,8 +39,9 @@ export async function regenerateAdHocTeams(db: Database, input: { contestId: str
  if (season?.status !== 'state' || !['registration_open', 'roster_locked'].includes(contest.lifecycle)) throw new StateError('locked', 'Ad-hoc teams can be regenerated during registration or rosters locked, before scoring starts.');
  const [pool] = (await getAdHocDashboard(db, input.contestId)).filter(p => p.category === input.category);
  const entries = (await db.select().from(schema.entries).where(and(eq(schema.entries.contestId, input.contestId), eq(schema.entries.category, input.category)))).filter(isAdHocEntry);
- const ids = entries.map(e => e.id);
- if (ids.length && (await db.select().from(schema.results).where(inArray(schema.results.entryId, ids))).length) throw new StateError('scored', 'Scored ad-hoc teams cannot be regenerated.');
+ const poolEntries = and(eq(schema.entries.contestId, input.contestId), eq(schema.entries.category, input.category), isNull(schema.entries.ownerSchoolId));
+ if (entries.length && (await db.select({ entryId: schema.results.entryId }).from(schema.results)
+  .innerJoin(schema.entries, eq(schema.entries.id, schema.results.entryId)).where(poolEntries).limit(1)).length) throw new StateError('scored', 'Scored ad-hoc teams cannot be regenerated.');
  const students = [...pool.teams.flatMap(t => t.members), ...pool.unassigned];
  const plan = planAdHocTeams(students, pool.teams.map(t => ({ ...t, members: t.members.map(s => s.id) })));
  // Concurrent builders from the same snapshot share an audit ID. D1 rolls the
@@ -48,7 +51,7 @@ export async function regenerateAdHocTeams(db: Database, input: { contestId: str
  const generationId = `ad-hoc:${Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('')}`;
  const now = Math.max(Date.now(), (pool.generatedAt ?? 0) + 1);
  const operations = [];
- if (ids.length) operations.push(db.delete(schema.entries).where(inArray(schema.entries.id, ids)));
+ if (entries.length) operations.push(db.delete(schema.entries).where(poolEntries));
  for (const team of plan.teams) {
   // Division is a storage placeholder. Ad-hoc entries always score/rank across divisions.
   operations.push(db.insert(schema.entries).values({ id: team.id, contestId: input.contestId, ownerSchoolId: null, category: input.category, entryKind: 'team', entryNumber: team.number, division: 1, createdAt: entries.find(e => e.id === team.id)?.createdAt ?? now, updatedAt: now }));

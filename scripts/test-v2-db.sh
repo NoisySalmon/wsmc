@@ -5,18 +5,9 @@ database_path="$(mktemp /tmp/wsmc-v2-db-XXXXXX.sqlite)"
 restore_path="$(mktemp /tmp/wsmc-v2-restore-XXXXXX.sqlite)"
 trap 'rm -f "$database_path" "$database_path-wal" "$database_path-shm" "$restore_path" "$restore_path-wal" "$restore_path-shm"' EXIT
 
-sqlite3 "$database_path" < drizzle/0000_woozy_bruce_banner.sql
-sqlite3 "$database_path" < drizzle/0001_v2_baseline.sql
-sqlite3 "$database_path" < drizzle/0002_knowdown_outcomes.sql
-sqlite3 "$database_path" < drizzle/0003_school_division.sql
-sqlite3 "$database_path" < drizzle/0004_program_stages.sql
-sqlite3 "$database_path" < drizzle/0005_season_year.sql
-sqlite3 "$database_path" < drizzle/0006_persistent_access.sql
-sqlite3 "$database_path" < drizzle/0007_participation_withdrawal.sql
-sqlite3 "$database_path" < drizzle/0008_contest_knowdown_limit.sql
-sqlite3 "$database_path" < drizzle/0009_state_worksheets.sql
-sqlite3 "$database_path" < drizzle/0010_state_ad_hoc_signups.sql
-sqlite3 "$database_path" < drizzle/0011_ad_hoc_event_categories.sql
+for migration in drizzle/*.sql; do
+	sqlite3 "$database_path" < "$migration"
+done
 sqlite3 "$database_path" < scripts/seed.sql
 
 counts="$(sqlite3 -noheader -separator '|' "$database_path" "SELECT (SELECT COUNT(*) FROM seasons), (SELECT COUNT(*) FROM regions), (SELECT COUNT(*) FROM contests), (SELECT COUNT(*) FROM schools), (SELECT COUNT(*) FROM annual_students), (SELECT COUNT(*) FROM entries), (SELECT COUNT(*) FROM entry_members);")"

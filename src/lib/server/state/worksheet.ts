@@ -1,6 +1,6 @@
 import { isAdHocEntry } from '$lib/ad-hoc';
 import { canCoachSchool, canCoordinateState, type Principal } from '$lib/server/auth/capabilities';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, or } from 'drizzle-orm';
 import { schema, type Database } from '$lib/server/db';
 import { getStateDashboard, StateError } from './service';
 
@@ -14,8 +14,11 @@ export async function getStateWorksheet(db: Database, contestId: string, schoolI
  const school = dashboard.qualifiedSchools.find(s => s.schoolId === schoolId);
  if (!school) throw new StateError('school_not_qualified', 'This school has no published state qualifications.');
  const qualifications = [...new Map(dashboard.stateQualifications.filter(q => q.schoolId === schoolId).map(q => [q.entryId, q])).values()];
- const sourceIds = qualifications.map(q => q.entryId);
- const originals = sourceIds.length ? await db.select({ member: schema.entryMembers, entry: schema.entries }).from(schema.entryMembers).innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId)).where(inArray(schema.entryMembers.entryId, sourceIds)) : [];
+ const sourceIds = db.select({ entryId: schema.qualifications.entryId }).from(schema.qualifications)
+  .innerJoin(schema.qualificationRounds, eq(schema.qualificationRounds.id, schema.qualifications.roundId))
+  .innerJoin(schema.entries, eq(schema.entries.id, schema.qualifications.entryId))
+  .where(and(eq(schema.qualificationRounds.seasonId, dashboard.contest.seasonId), eq(schema.qualificationRounds.status, 'published'), eq(schema.qualifications.active, true), eq(schema.entries.ownerSchoolId, schoolId)));
+ const originals = qualifications.length ? await db.select({ member: schema.entryMembers, entry: schema.entries }).from(schema.entryMembers).innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId)).where(inArray(schema.entryMembers.entryId, sourceIds)) : [];
  const options = qualifications.map(q => {
   const berth = dashboard.teamBerths.find(b => b.qualification.entryId === q.entryId);
   const members = originals.filter(m => m.member.entryId === q.entryId);
@@ -96,9 +99,9 @@ async function persistStateWorksheet(db: Database, input: WorksheetInput, resume
   if (new Set(group.rows.map(r => r.grades[group.option.category])).size !== group.rows.length) throw new StateError('duplicate_grade', 'Team members must compete in different grades.');
   if (!group.rows.some(r => group.option.originalIds.includes(r.id))) throw new StateError('original_member_required', 'Each participating team must retain at least one original regional team member. Withdraw the team by choosing No event for all its members.');
  }
- const oldEntries = await db.select().from(schema.entries).where(and(eq(schema.entries.contestId, input.contestId), eq(schema.entries.ownerSchoolId, input.schoolId)));
- const oldIds = oldEntries.map(e => e.id);
- if (oldIds.length && (await db.select().from(schema.results).where(inArray(schema.results.entryId, oldIds))).length) throw new StateError('scored', 'Scored entries cannot be replaced from registration.');
+ const ownedScope = and(eq(schema.entries.contestId, input.contestId), eq(schema.entries.ownerSchoolId, input.schoolId));
+ if ((await db.select({ entryId: schema.results.entryId }).from(schema.results)
+  .innerJoin(schema.entries, eq(schema.entries.id, schema.results.entryId)).where(ownedScope).limit(1)).length) throw new StateError('scored', 'Scored entries cannot be replaced from registration.');
  const external = await db.select().from(schema.entryMembers).innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId)).innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.entryMembers.annualStudentId)).where(and(eq(schema.entries.contestId, input.contestId), eq(schema.annualStudents.schoolId, input.schoolId)));
  if (external.some(e => e.entries.ownerSchoolId !== input.schoolId && !isAdHocEntry(e.entries))) throw new StateError('mixed_team', 'Contact the state coordinator to update existing cross-school entries before saving this worksheet.');
  const now = Date.now();
@@ -115,7 +118,7 @@ async function persistStateWorksheet(db: Database, input: WorksheetInput, resume
  operations.push(db.insert(schema.schoolParticipations).values({ id: crypto.randomUUID(), contestId: input.contestId, schoolId: input.schoolId, division: sheet.school.division }).onConflictDoNothing());
  if (resume) operations.push(db.update(schema.schoolParticipations).set({ withdrawnAt: null, updatedAt: now }).where(and(eq(schema.schoolParticipations.contestId, input.contestId), eq(schema.schoolParticipations.schoolId, input.schoolId))));
  operations.push(db.insert(schema.stateAttendances).values({ contestId: input.contestId, schoolId: input.schoolId, intent: rows.some(r => r.attending) ? 'attending' : 'not_attending', updatedBy: input.actorUserId, updatedAt: now }).onConflictDoUpdate({ target: [schema.stateAttendances.contestId, schema.stateAttendances.schoolId], set: { intent: rows.some(r => r.attending) ? 'attending' : 'not_attending', updatedBy: input.actorUserId, updatedAt: now } }));
- if (oldIds.length) operations.push(db.delete(schema.entries).where(inArray(schema.entries.id, oldIds)));
+ operations.push(db.delete(schema.entries).where(ownedScope));
  for (const group of active) {
   operations.push(db.insert(schema.entries).values({ id: group.entryId, contestId: input.contestId, ownerSchoolId: input.schoolId, category: group.option.category, entryKind: group.option.team ? 'team' : 'individual', entryNumber: group.option.team ? group.option.number : null, division: sheet.school.division, createdAt: now, updatedAt: now }));
   if (group.option.berth) operations.push(db.insert(schema.stateTeamBerths).values({ ...group.option.berth, stateEntryId: group.entryId }).onConflictDoUpdate({ target: schema.stateTeamBerths.qualificationId, set: { stateEntryId: group.entryId } }));
@@ -156,20 +159,24 @@ export async function changeStateSchoolAttendance(db: Database, input: { contest
  }
  if (input.change !== 'withdraw') throw new StateError('invalid_change', 'Choose withdrawal or resume.');
  if (sheet.withdrawn) return;
- const ownedEntries = await db.select().from(schema.entries).where(and(eq(schema.entries.contestId, input.contestId), eq(schema.entries.ownerSchoolId, input.schoolId)));
+ const ownedScope = and(eq(schema.entries.contestId, input.contestId), eq(schema.entries.ownerSchoolId, input.schoolId));
  const memberships = await db.select({ member: schema.entryMembers }).from(schema.entryMembers)
   .innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId))
   .innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.entryMembers.annualStudentId))
   .where(and(eq(schema.entries.contestId, input.contestId), eq(schema.annualStudents.schoolId, input.schoolId)));
- const affectedIds = [...new Set([...ownedEntries.map(entry => entry.id), ...memberships.map(row => row.member.entryId)])];
- if (affectedIds.length && (await db.select().from(schema.results).where(inArray(schema.results.entryId, affectedIds))).length) throw new StateError('scored', 'Scored entries must be corrected through scoring before withdrawing a school.');
+ const memberEntryIds = db.select({ entryId: schema.entryMembers.entryId }).from(schema.entryMembers)
+  .innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.entryMembers.annualStudentId))
+  .where(eq(schema.annualStudents.schoolId, input.schoolId));
+ if ((await db.select({ entryId: schema.results.entryId }).from(schema.results)
+  .innerJoin(schema.entries, eq(schema.entries.id, schema.results.entryId))
+  .where(and(eq(schema.entries.contestId, input.contestId), or(eq(schema.entries.ownerSchoolId, input.schoolId), inArray(schema.entries.id, memberEntryIds)))).limit(1)).length) throw new StateError('scored', 'Scored entries must be corrected through scoring before withdrawing a school.');
  const now = Date.now();
  const operations: any[] = [
   db.delete(schema.stateAdHocSignups).where(and(eq(schema.stateAdHocSignups.contestId, input.contestId), eq(schema.stateAdHocSignups.schoolId, input.schoolId))),
   db.delete(schema.stateRosterMembers).where(and(eq(schema.stateRosterMembers.contestId, input.contestId), eq(schema.stateRosterMembers.schoolId, input.schoolId))),
  ];
  for (const { member } of memberships) operations.push(db.delete(schema.entryMembers).where(and(eq(schema.entryMembers.entryId, member.entryId), eq(schema.entryMembers.annualStudentId, member.annualStudentId))));
- if (ownedEntries.length) operations.push(db.delete(schema.entries).where(inArray(schema.entries.id, ownedEntries.map(entry => entry.id))));
+ operations.push(db.delete(schema.entries).where(ownedScope));
  operations.push(db.insert(schema.schoolParticipations).values({ id: crypto.randomUUID(), contestId: input.contestId, schoolId: input.schoolId, division: sheet.school.division, withdrawnAt: now, updatedAt: now }).onConflictDoUpdate({ target: [schema.schoolParticipations.contestId, schema.schoolParticipations.schoolId], set: { withdrawnAt: now, updatedAt: now } }));
  operations.push(db.insert(schema.stateAttendances).values({ contestId: input.contestId, schoolId: input.schoolId, intent: 'not_attending', updatedBy: input.principal.id, updatedAt: now }).onConflictDoUpdate({ target: [schema.stateAttendances.contestId, schema.stateAttendances.schoolId], set: { intent: 'not_attending', updatedBy: input.principal.id, updatedAt: now } }));
  operations.push(db.insert(schema.auditEvents).values({ id: crypto.randomUUID(), actorUserId: input.principal.id, contestId: input.contestId, schoolId: input.schoolId, entityType: 'state_worksheet', entityId: `${input.contestId}:${input.schoolId}`, action: 'state_registration_withdrawn', createdAt: now }));

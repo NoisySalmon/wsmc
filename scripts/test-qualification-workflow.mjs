@@ -80,6 +80,13 @@ print(json.dumps(statements))
  await d1.prepare("UPDATE contests SET lifecycle='scoring' WHERE id=?").bind(regional.id).run();
  await assert.rejects(publishQualificationDraft(db, input), {code:'incomplete'});
  await d1.prepare("UPDATE contests SET lifecycle='finalized' WHERE id=?").bind(regional.id).run();
+ // Lifecycle-only reopening is harmless; a real score correction requires review again.
+ const corrected = await first('SELECT e.id FROM entries e JOIN results r ON r.entry_id=e.id WHERE e.contest_id=? AND r.score IS NOT NULL LIMIT 1', regional.id);
+ await d1.prepare("UPDATE contests SET lifecycle='scoring' WHERE id=?").bind(regional.id).run();
+ await d1.prepare('UPDATE results SET score=score+1,version=version+1 WHERE entry_id=?').bind(corrected.id).run();
+ await d1.prepare("UPDATE contests SET lifecycle='finalized' WHERE id=?").bind(regional.id).run();
+ await assert.rejects(publishQualificationDraft(db, input), {code:'stale_draft'});
+ await saveQualificationDraft(db, input);
  const snapshot = async () => (await d1.prepare('SELECT id,entry_id,active FROM qualifications ORDER BY id').all()).results;
  const before = await snapshot();
  await publishQualificationDraft(db, input);

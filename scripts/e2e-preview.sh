@@ -26,18 +26,9 @@ d1() {
 	npx wrangler d1 execute wsmc-db --local --persist-to "$persist_dir" "$@" >/dev/null
 }
 
-d1 --file=drizzle/0000_woozy_bruce_banner.sql
-d1 --file=drizzle/0001_v2_baseline.sql
-d1 --file=drizzle/0002_knowdown_outcomes.sql
-d1 --file=drizzle/0003_school_division.sql
-d1 --file=drizzle/0004_program_stages.sql
-d1 --file=drizzle/0005_season_year.sql
-d1 --file=drizzle/0006_persistent_access.sql
-d1 --file=drizzle/0007_participation_withdrawal.sql
-d1 --file=drizzle/0008_contest_knowdown_limit.sql
-d1 --file=drizzle/0009_state_worksheets.sql
-d1 --file=drizzle/0010_state_ad_hoc_signups.sql
-d1 --file=drizzle/0011_ad_hoc_event_categories.sql
+for migration in drizzle/*.sql; do
+	d1 --file="$migration"
+done
 d1 --file=scripts/seed.sql
 
 # Exercise scoring in the open state while retaining the seeded regional and

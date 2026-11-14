@@ -36,6 +36,24 @@ async function fixture() {
 
 // Real D1 startup, seeding and multi-stage journeys need more than 5s on CI.
 describe('contest-day registration corrections', { timeout: 15_000 }, () => {
+	it('keeps school roster loads and replacements isolated from other participating schools', async () => {
+		const { d1, event } = await fixture();
+		const coach = { ...principal, id: 'user-coach-alpha-1', regionalContestIds: [], coachAssignments: [{ schoolId: scope.schoolId }] };
+		const schoolRoster = await load(event(coach)) as any;
+		expect(schoolRoster.rosterIds.sort()).toEqual(students().map(row => row.studentId).sort());
+		expect(schoolRoster.readiness.rosterCount).toBe(3);
+		// Beta already has category entries: those must not block Alpha's save.
+		const data = new FormData();
+		for (const row of students()) data.append('studentIds', row.studentId);
+		expect(await actions.saveRoster!(event(coach, data))).toMatchObject({ success: expect.any(String) });
+		await d1.prepare("INSERT INTO annual_students (id, season_id, school_id, name, actual_grade) VALUES ('alpha-unassigned', 'season-2026', 'school-alpha', 'Alpha Unassigned', 9), ('beta-unassigned', 'season-2026', 'school-beta', 'Beta Unassigned', 9)").run();
+		await d1.prepare("INSERT INTO contest_roster_members (contest_id, participation_id, annual_student_id) VALUES ('contest-region-1', 'participation-r1-alpha', 'alpha-unassigned'), ('contest-region-1', 'participation-r1-beta', 'beta-unassigned')").run();
+		const betaBefore = (await d1.prepare("SELECT * FROM contest_roster_members WHERE participation_id = 'participation-r1-beta' ORDER BY annual_student_id").all()).results;
+		expect(await actions.saveRoster!(event(coach, data))).toMatchObject({ success: 'Roster saved: 0 added, 1 removed.' });
+		expect(await d1.prepare("SELECT * FROM contest_roster_members WHERE annual_student_id = 'alpha-unassigned'").first()).toBeNull();
+		expect((await d1.prepare("SELECT * FROM contest_roster_members WHERE participation_id = 'participation-r1-beta' ORDER BY annual_student_id").all()).results).toEqual(betaBefore);
+	});
+
 	it('saves the regional Knowdown limit with the date and enforces it through registration and finalization', async () => {
 		const { db, d1, event } = await fixture();
 		await d1.prepare("INSERT INTO annual_students (id, season_id, school_id, name, actual_grade) VALUES ('fourth', 'season-2026', 'school-alpha', 'Fourth Student', 9)").run();

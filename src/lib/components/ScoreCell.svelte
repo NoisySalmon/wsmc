@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { deserialize } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
-	import { tick } from 'svelte';
-	let { entryId, field, value, name, editor, updatedAt, disabled = false, max }: {
+	import { onDestroy, tick } from 'svelte';
+	let { entryId, field, value, name, editor, updatedAt, disabled = false, max, onPendingChange }: {
 		entryId: string; field: string; value: number | null; name: string; editor: string | null;
-		updatedAt: number | null; disabled?: boolean; max?: number;
+		updatedAt: number | null; disabled?: boolean; max?: number; onPendingChange?: (pending: boolean) => void;
 	} = $props();
 	let editing = $state(false);
 	let draft = $state('');
 	let saving = $state(false);
+	let destroyed = false;
 	let error = $state('');
 	let input = $state<HTMLInputElement>()!;
 	let button = $state<HTMLButtonElement>()!;
@@ -16,14 +17,14 @@
 	async function edit() {
 		draft = value === null ? '' : String(value);
 		error = '';
-		editing = true;
+		editing = true; onPendingChange?.(true);
 		await tick();
 		input.focus(); input.select();
 	}
 	async function save() {
 		if (!editing || saving) return false;
 		if (!input.checkValidity()) { error = input.validationMessage; input.reportValidity(); return false; }
-		if (draft === (value === null ? '' : String(value))) { editing = false; return true; }
+		if (draft === (value === null ? '' : String(value))) { editing = false; onPendingChange?.(false); return true; }
 		saving = true; error = '';
 		try {
 			const body = new FormData();
@@ -32,13 +33,13 @@
 			const result = deserialize(await response.text());
 			if (result.type !== 'success') throw new Error(result.type === 'failure' ? String(result.data?.error ?? 'Could not save score.') : 'Could not save score.');
 			await invalidateAll();
-			editing = false;
+			editing = false; onPendingChange?.(false);
 			return true;
 		} catch (cause) { error = cause instanceof Error ? cause.message : 'Could not save score.'; return false; }
-		finally { saving = false; }
+		finally { saving = false; if (destroyed) onPendingChange?.(false); }
 	}
 	async function keydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') { event.preventDefault(); editing = false; error = ''; await tick(); button.focus(); }
+		if (event.key === 'Escape') { event.preventDefault(); if (saving) return; editing = false; onPendingChange?.(false); error = ''; await tick(); button.focus(); }
 		if (event.key === 'Enter') {
 			event.preventDefault();
 			const row = input.closest('tr');
@@ -47,6 +48,7 @@
 			if (saved) { await tick(); (next ?? button).focus(); }
 		}
 	}
+	onDestroy(() => { destroyed = true; if (!saving) onPendingChange?.(false); });
 	function wheel(event: WheelEvent) {
 		// Blur before the number input can step; leave the wheel event free to scroll the table.
 		(event.currentTarget as HTMLInputElement).blur();

@@ -1,6 +1,6 @@
 import { usesDivisions } from '$lib/events';
 import { error } from '@sveltejs/kit';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { canCoordinateState, canScoreContest } from '$lib/server/auth/capabilities';
 import { getDb, schema } from '$lib/server/db';
 import { exportReportCsv } from '$lib/server/reports/csv';
@@ -49,8 +49,12 @@ export const GET: RequestHandler = async ({ locals, platform, params, url }) => 
 			.leftJoin(schema.schools, eq(schema.schools.id, schema.entries.ownerSchoolId))
 			.leftJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.qualifications.studentId))
 			.where(and(eq(schema.qualifications.seasonId, seasonId), eq(schema.qualificationRounds.status, 'published')));
-		const ids = qualifications.map(({ qualification }) => qualification.id);
-		const reasons = ids.length ? await db.select().from(schema.qualificationReasons).where(inArray(schema.qualificationReasons.qualificationId, ids)) : [];
+		// Scope in SQL: a season can contain more than D1's 100 bound parameters.
+		const reasonRows = await db.select({ reason: schema.qualificationReasons }).from(schema.qualificationReasons)
+			.innerJoin(schema.qualifications, eq(schema.qualifications.id, schema.qualificationReasons.qualificationId))
+			.innerJoin(schema.qualificationRounds, eq(schema.qualificationRounds.id, schema.qualifications.roundId))
+			.where(and(eq(schema.qualifications.seasonId, seasonId), eq(schema.qualificationRounds.status, 'published')));
+		const reasons = reasonRows.map(({ reason }) => reason);
 		csv = exportReportCsv(['report_version', 'season_id', 'round_kind', 'round_id', 'qualification_id', 'active', 'entry_id', 'category', 'division', 'school_name', 'student_name', 'reason_kind', 'reason_rank', 'reason_scope', 'actual_grade', 'threshold'], qualifications.flatMap(({ qualification, round, entry, schoolName, studentName }) => {
 			const matching = reasons.filter((reason) => reason.qualificationId === qualification.id);
 			return (matching.length ? matching : [null]).map((reason) => ['wsmc.qualifications.v1', seasonId, round.kind, round.id, qualification.id, qualification.active ? 'yes' : 'no', entry.id, entry.category, usesDivisions(entry.category) ? entry.division : null, schoolName || 'Statewide entry', studentName, reason?.kind ?? null, reason?.rank ?? null, reason?.scope ?? null, reason?.actualGrade ?? null, reason?.threshold ?? null]);

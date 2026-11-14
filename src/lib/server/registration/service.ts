@@ -117,19 +117,20 @@ export async function setContestRoster(db: Database, input: { contestId: string;
 			if (!valid.has(studentId)) throw new RegistrationError('student_not_found', 'Student is not in this school\u2019s annual list.');
 		}
 	}
-	const current = await db.select({ annualStudentId: schema.contestRosterMembers.annualStudentId }).from(schema.contestRosterMembers).where(eq(schema.contestRosterMembers.contestId, input.contestId));
+	const current = await db.select({ annualStudentId: schema.contestRosterMembers.annualStudentId }).from(schema.contestRosterMembers).where(and(eq(schema.contestRosterMembers.contestId, input.contestId), eq(schema.contestRosterMembers.participationId, participation.id)));
 	const currentIds = new Set(current.map((row) => row.annualStudentId));
 	const wanted = new Set(uniqueIds);
 	const toAdd = uniqueIds.filter((id) => !currentIds.has(id));
 	const toRemove = [...currentIds].filter((id) => !wanted.has(id));
 	if (toRemove.length > 0) {
-		const inEntries = await db.select({ studentId: schema.entryMembers.annualStudentId }).from(schema.entryMembers).innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId)).where(and(eq(schema.entries.contestId, input.contestId), inArray(schema.entryMembers.annualStudentId, toRemove)));
-		if (inEntries.length > 0) throw new RegistrationError('student_in_entry', 'Remove the student from category entries before removing the roster selection.');
+		const inEntries = await db.select({ studentId: schema.entryMembers.annualStudentId }).from(schema.entryMembers).innerJoin(schema.entries, eq(schema.entries.id, schema.entryMembers.entryId)).where(and(eq(schema.entries.contestId, input.contestId), eq(schema.entries.ownerSchoolId, input.schoolId)));
+		const removing = new Set(toRemove);
+		if (inEntries.some(row => removing.has(row.studentId))) throw new RegistrationError('student_in_entry', 'Remove the student from category entries before removing the roster selection.');
 	}
 	const now = input.now ?? Date.now();
 	const operations: any[] = [];
 	for (const studentId of toAdd) operations.push(db.insert(schema.contestRosterMembers).values({ contestId: input.contestId, participationId: participation.id, annualStudentId: studentId, createdAt: now }));
-	for (const studentId of toRemove) operations.push(db.delete(schema.contestRosterMembers).where(and(eq(schema.contestRosterMembers.contestId, input.contestId), eq(schema.contestRosterMembers.annualStudentId, studentId))));
+	for (const studentId of toRemove) operations.push(db.delete(schema.contestRosterMembers).where(and(eq(schema.contestRosterMembers.contestId, input.contestId), eq(schema.contestRosterMembers.participationId, participation.id), eq(schema.contestRosterMembers.annualStudentId, studentId))));
 	if (operations.length > 0) await db.batch(operations as [any, ...any[]]);
 	return { added: toAdd.length, removed: toRemove.length };
 }
@@ -232,9 +233,9 @@ async function loadRosteredIds(db: Database, contestId: string): Promise<Set<str
 
 /** Bulk saves replace whole entries, so refuse when scores already exist for the category. */
 async function guardNoScores(db: Database, contestId: string, schoolId: string, categories: RegistrationCategory[]): Promise<void> {
-	const existing = await db.select({ id: schema.entries.id }).from(schema.entries).where(and(eq(schema.entries.contestId, contestId), eq(schema.entries.ownerSchoolId, schoolId), inArray(schema.entries.category, categories)));
-	if (existing.length === 0) return;
-	const scored = await db.select({ entryId: schema.results.entryId }).from(schema.results).where(inArray(schema.results.entryId, existing.map((entry) => entry.id)));
+	const scored = await db.select({ entryId: schema.results.entryId }).from(schema.results)
+		.innerJoin(schema.entries, eq(schema.entries.id, schema.results.entryId))
+		.where(and(eq(schema.entries.contestId, contestId), eq(schema.entries.ownerSchoolId, schoolId), inArray(schema.entries.category, categories))).limit(1);
 	if (scored.length > 0) throw new RegistrationError('has_scores', 'Scores are already entered for this category. Edit entries individually instead of bulk-saving.');
 }
 
@@ -493,8 +494,9 @@ export async function saveContestWorksheet(
 		eq(schema.contestRosterMembers.contestId, input.contestId),
 		eq(schema.contestRosterMembers.participationId, participation.id),
 	));
-	const members = existingIds.length ? await db.select().from(schema.entryMembers).where(inArray(schema.entryMembers.entryId, existingIds)) : [];
-	const results = existingIds.length ? await db.select().from(schema.results).where(inArray(schema.results.entryId, existingIds)) : [];
+	const schoolEntries = db.select({ id: schema.entries.id }).from(schema.entries).where(and(eq(schema.entries.contestId, input.contestId), eq(schema.entries.ownerSchoolId, input.schoolId)));
+	const members = existingIds.length ? await db.select().from(schema.entryMembers).where(inArray(schema.entryMembers.entryId, schoolEntries)) : [];
+	const results = existingIds.length ? await db.select().from(schema.results).where(inArray(schema.results.entryId, schoolEntries)) : [];
 	type PlannedEntry = { id: string; category: RegistrationCategory; entryNumber: number; entryKind: 'team' | 'individual'; members: { studentId: string; competingGrade: number | null }[] };
 	const planned: PlannedEntry[] = [];
 	function entry(category: RegistrationCategory, number: number, wantedMembers: PlannedEntry['members'], kind: 'team' | 'individual') {
