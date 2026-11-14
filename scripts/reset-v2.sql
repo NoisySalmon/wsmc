@@ -2,6 +2,8 @@
 DROP TRIGGER IF EXISTS seasons_archived_update;
 DROP INDEX IF EXISTS seasons_one_current_uq;
 UPDATE seasons SET status = 'regional';
+DELETE FROM state_ad_hoc_signups;
+DELETE FROM state_worksheets;
 DELETE FROM state_roster_members;
 DELETE FROM state_team_berths;
 DELETE FROM state_attendances;

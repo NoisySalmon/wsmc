@@ -22,7 +22,11 @@
 		"seed:first-season": "bash scripts/seed-scenario.sh first-season",
 		"seed:new-season": "bash scripts/seed-scenario.sh new-season",
 		"seed:showcase": "bash scripts/seed-showcase.sh",
-		"seed:state-registration": "python3 scripts/restore-state-registration.py"
+		"seed:state-registration": "python3 scripts/restore-state-registration.py",
+		"demo:scores": "node scripts/showcase-tools.mjs scores",
+		"demo:regionals": "node scripts/showcase-tools.mjs regionals",
+		"demo:complete": "node scripts/showcase-tools.mjs complete",
+		"test:showcase": "node scripts/test-showcase-tools.mjs"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^4.20260312.1",

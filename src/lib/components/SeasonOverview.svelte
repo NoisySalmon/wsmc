@@ -1,8 +1,10 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import ContestStatus from '$lib/components/ContestStatus.svelte';
 	import { contestDate } from '$lib/contest-date';
 	import { seasonStages, seasonLabels, seasonDescriptions } from '$lib/season';
-	let { season, contests, regions, canOpenQualifications = false, canOpenState = true } : {
+	let { season, contests, regions, canOpenQualifications = false, canOpenState = true, qualificationActions } : {
+		qualificationActions?: Snippet;
 		canOpenQualifications?: boolean;
 		canOpenState?: boolean;
 		season: { id: string; year: number; status: string };
@@ -31,7 +33,8 @@
 		</section>
 	{:else if panel === 'qualifications' && canOpenQualifications}
 		<section aria-label="State qualifications">
-			<h3>State qualifications</h3><p><a href="/qualifications/{season.id}">Plan and review qualifications →</a></p>
+			<h3>State qualifications</h3>
+			{#if qualificationActions}{@render qualificationActions()}{:else}<p><a href="/qualifications/{season.id}">{season.status === 'regional' ? 'View provisional qualifiers' : season.status === 'qualifications' ? 'Review and publish qualifications' : 'View published qualifications'} →</a></p>{/if}
 		</section>
 	{:else if panel === 'state'}
 		<section aria-label="State contest">

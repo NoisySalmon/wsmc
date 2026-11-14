@@ -35,6 +35,7 @@ print(json.dumps(statements))
  const { recordManualQualificationDecision } = await vite.ssrLoadModule('/src/lib/server/qualification/cutoff-service.ts');
  const { getStateDashboard, setStateAttendance } = await vite.ssrLoadModule('/src/lib/server/state/service.ts');
  const { getStateWorksheet, saveStateWorksheet } = await vite.ssrLoadModule('/src/lib/server/state/worksheet.ts');
+ const { load: loadQualifications } = await vite.ssrLoadModule('/src/routes/qualifications/[seasonId]/+page.server.ts');
  const { actions } = await vite.ssrLoadModule('/src/routes/state/[contestId]/+page.server.ts');
  const { defaultStateAdHoc } = await vite.ssrLoadModule('/src/lib/state-registration.ts');
  const db = getDb(d1);
@@ -42,6 +43,17 @@ print(json.dumps(statements))
  const count = async (sql, ...args) => (await first(sql, ...args)).n;
  const stateId = (await first("SELECT id FROM contests WHERE kind='state'")).id;
  const input = { seasonId:'season-2026', actorUserId:'user-coordinator', thresholds:{ project:0, team_contest:{1:0,2:0}, topical_team:{1:0,2:0}, topical_individual:0 } };
+ // During regionals, viewing live qualifiers must not create a saved draft.
+ const qualificationEvent = { locals:{principal:{id:input.actorUserId,isAdmin:true}}, platform:{env:{DB:d1}}, params:{seasonId:input.seasonId} };
+ const preview = await loadQualifications(qualificationEvent);
+ assert(preview.qualifications.length > 0);
+ assert(preview.qualifications.some(row => row.active));
+ assert.deepEqual([...new Set(preview.qualifications.map(row => row.regionNumber))].sort((a,b)=>a-b), [1,7]);
+ assert.equal(await count('SELECT count(*) n FROM qualification_rounds'), 0);
+ await assert.rejects(saveQualificationDraft(db, input), {code:'locked'});
+ const candidate = preview.qualifications.find(row => row.active);
+ await assert.rejects(recordManualQualificationDecision(db, {...input,entryId:candidate.entryId,include:false,reason:'Premature edit'}), {code:'locked'});
+ assert.equal(await count('SELECT count(*) n FROM qualification_rounds'), 0);
  await d1.prepare("UPDATE seasons SET status='qualifications'").run();
  await d1.prepare("UPDATE contests SET lifecycle='finalized' WHERE kind='regional'").run();
  await assert.rejects(publishQualificationDraft(db, input), {code:'not_saved'});
@@ -56,6 +68,14 @@ print(json.dumps(statements))
  await assert.rejects(publishQualificationDraft(db, input), {code:'unsaved_changes'});
  await saveQualificationDraft(db, input);
  assert.equal(await count('SELECT count(*) n FROM qualifications WHERE entry_id=? AND active=1', excluded.id), 0);
+ // A season returned to regionals previews live placements without changing old drafts.
+ const savedDraft = (await d1.prepare('SELECT * FROM qualifications ORDER BY id').all()).results;
+ await d1.prepare("UPDATE seasons SET status='regional'").run();
+ const resumedPreview = await loadQualifications(qualificationEvent);
+ assert(resumedPreview.qualifications.length > 0);
+ assert(resumedPreview.qualifications.every(row => row.reasons.every(reason => ['regional_placement','knowdown_alternate'].includes(reason.kind))));
+ assert.deepEqual((await d1.prepare('SELECT * FROM qualifications ORDER BY id').all()).results, savedDraft);
+ await d1.prepare("UPDATE seasons SET status='qualifications'").run();
  const regional = await first("SELECT id FROM contests WHERE kind='regional' LIMIT 1");
  await d1.prepare("UPDATE contests SET lifecycle='scoring' WHERE id=?").bind(regional.id).run();
  await assert.rejects(publishQualificationDraft(db, input), {code:'incomplete'});

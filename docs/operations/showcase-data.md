@@ -89,3 +89,54 @@ Generate a reviewed SQL file with any required ID/name corrections, apply it
 to a restored copy first, and compare counts and assignments. Production has
 not been inspected or changed by this task. Do not run the destructive showcase
 SQL or `scripts/reset-v2.sql` against production.
+
+## Demo controls
+
+Start or reset with `npm run seed:showcase`. The helpers below only access the
+local Wrangler database and refuse data without the fictional showcase identity.
+Stop other processes writing to the database while using them. They use application
+services for registration, lifecycle transitions, scores, qualifications and publication.
+
+```bash
+# Fill blank scores in a contest with locked rosters or scoring underway.
+# Preserves entered scores, including either half of a partial topical result.
+npm run demo:scores -- --contest contest-region-5
+
+# Finish and publish all other regionals, keeping Region 2 for your live demo.
+npm run demo:regionals -- --exclude contest-region-2
+
+# After demonstrating Region 2, finish all remaining regional work.
+npm run demo:regionals
+
+# Optional shortcut/rehearsal: continue all the way to published state results.
+npm run demo:complete
+
+# Return to the original mixed regional stages.
+npm run seed:showcase
+```
+
+`demo:regionals` supplies registrations for untouched schools, fills missing
+scores, finalizes and publishes results. Existing registrations and scores remain
+intact; incomplete coach edits may need correction before locking. Withdrawn
+schools are skipped. It leaves the season at its current stage so you can
+demonstrate the qualification handoff yourself. Exclusions can be repeated.
+
+`demo:complete` finishes regionals, moves to qualifications, saves representative
+cutoffs (Project 75, Team Problem 25 in both divisions, Topical Team 100 in both
+divisions, Topical Individual 100), and publishes the qualification list. It saves
+the default state worksheets for qualified schools without a saved worksheet,
+retaining original team members and choosing default ad-hoc participation. Saved
+worksheets and withdrawals are preserved. It generates pending ad-hoc teams,
+locks rosters, fills scores, finalizes and publishes state results. The season
+remains in the state stage so results can be demonstrated; it is not archived.
+
+All helpers can be repeated; finalized results are preserved. `--seed TEXT`
+changes the deterministic generated scores for blanks only (default `2026`).
+To generate a different complete result set, reseed first. Knowdown fills unused
+places 1–4 in stable entry order and records remaining entrants as eliminated;
+existing outcomes are preserved.
+
+For an isolated demo database, pass `--persist-to /path/to/state` to the helper,
+using the same directory passed to `npm run seed:showcase -- /path/to/state`.
+Run `npm run test:showcase` for an isolated CLI journey covering preservation,
+repeat runs, an excluded region, and completion through published state results.

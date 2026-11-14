@@ -1,8 +1,19 @@
 <script lang="ts">
 	import { eventDivisions, usesDivisions } from '$lib/events';
 	import { enhance } from '$app/forms';
+	import { tick } from 'svelte';
 	import QualificationPlanner from '$lib/components/QualificationPlanner.svelte';
 	let { data, form } = $props();
+	let feedback: HTMLParagraphElement | undefined = $state();
+	$effect(() => {
+		const result = form;
+		if (result?.error || result?.success) {
+			void tick().then(() => {
+				feedback?.focus({ preventScroll: true });
+				feedback?.scrollIntoView({ block: 'center' });
+			});
+		}
+	});
 	const labels: Record<string, string> = { project: 'Project', team_contest: 'Team Contest', topical_team: 'Topical Team', topical_individual: 'Topical Individual', knowdown: 'Knowdown' };
 	const names = (entryId: string) => data.planning.members.filter(member => member.entryId === entryId).map(member => member.studentName).join(', ') || 'No student names recorded';
 	type Qualification = typeof data.qualifications[number];
@@ -55,26 +66,33 @@
 		return `Manual ${reason.kind === 'manual_include' ? 'inclusion' : 'exclusion'}${detail ? `: ${detail}` : ''}`;
 	}
 	const status = $derived(data.workflow.status);
+	const provisional = $derived(data.season.status === 'regional');
+	const canEdit = $derived(data.season.status === 'qualifications' && status === 'draft');
 	const savedEntries = $derived(new Set(data.qualifications.filter(row => row.active).map(row => row.entryId)));
 	const savedStudents = $derived(new Set(data.planning.members.filter(member => savedEntries.has(member.entryId)).map(member => member.studentId)));
 </script>
 <svelte:head><title>{data.season.year} qualifications — WSMC</title></svelte:head>
 <main>
-	<p><a href="/">← Home</a></p><h1>{data.season.year} qualifications</h1>
-	<ol aria-label="Qualification steps"><li class:current={status === 'draft'}>1. Edit draft</li><li class:current={status === 'published'}>2. Publish and open state</li></ol>
-	<p>Automatic regional placements and statewide score cutoffs form one qualification list. Save as often as needed. Review the saved draft, then publish it when ready. Publishing locks the list and opens state registration.</p>
-	{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
-	{#if status === 'draft' && ['regional', 'qualifications'].includes(data.season.status)}
+	<p><a href="/">← Home</a></p><h1>{data.season.year} {provisional ? 'provisional qualifiers' : 'qualifications'}</h1>
+	{#if provisional}
+		<p class="notice">This read-only preview includes automatic qualifiers from finalized regionals only. Draft editing becomes available when the season enters qualification review. Score cutoffs and manual exceptions are not included.</p>
+		<p><strong>{data.planning.finalized} of {data.planning.total} regionals finalized.</strong> <a href="/">Return home to begin qualification review →</a></p>
+	{:else if canEdit}
+		<ol aria-label="Qualification steps"><li class="current">1. Edit draft</li><li>2. Publish and open state</li></ol>
+		<p>Automatic regional placements and statewide score cutoffs form one qualification list. Save as often as needed. Review the saved draft, then publish it when ready. Publishing locks the list and opens state registration.</p>
+	{/if}
+	{#if form?.error}<p bind:this={feedback} class="error" role="alert" tabindex="-1">{form.error}</p>{/if}{#if form?.success}<p bind:this={feedback} class="success" role="status" tabindex="-1">{form.success}</p>{/if}
+	{#if canEdit}
 		{#key data.season.id}<QualificationPlanner planning={data.planning} savedThresholds={data.workflow.thresholdsJson} />{/key}
 		<details><summary>Manual exceptions</summary><p>Record an include/exclude decision with a reason. Save the draft afterward to apply exceptions alongside placements and cutoffs.</p>
 			<form method="POST" action="?/manualDecision" use:enhance><label>Entry<select name="entryId" required>{#each data.planning.rows as row}<option value={row.entryId}>{labels[row.category]}{#if usesDivisions(row.category)}{' '}D{row.division}{/if} · {row.schoolName} · {names(row.entryId)}</option>{/each}</select></label><label>Decision<select name="decision"><option value="include">Include</option><option value="exclude">Exclude</option></select></label><label>Reason<input name="reason" required /></label><button>Record exception</button></form>
 		</details>
 
-	{:else if status === 'published'}<p class="success">Qualifications are published and locked.</p>{/if}
-	<section><h2>{status === 'draft' ? 'Saved draft' : 'Qualification list'}</h2>
+	{:else if !provisional && status === 'published'}<p class="success">Qualifications are published and locked.</p>{/if}
+	<section><h2>{provisional ? 'Provisional qualification list' : status === 'draft' ? 'Saved draft' : 'Published qualification list'}</h2>
 		{#if data.qualifications.length}
-			<p>{savedEntries.size} qualified event entries representing {savedStudents.size} unique known students. Students may qualify through more than one event.</p>
-			{#if status === 'draft' && ['regional', 'qualifications'].includes(data.season.status)}
+			<p>{savedEntries.size} {provisional ? 'provisionally qualified' : 'qualified'} event entries representing {savedStudents.size} unique known students. Students may qualify through more than one event.</p>
+			{#if canEdit}
 				<p>Publish the saved list below when your review is complete. Save any cutoff changes or manual exceptions first. Publication locks the list and opens state registration.</p>
 				<form method="POST" action="?/publish" use:enhance><button disabled={data.season.status !== 'qualifications' || data.planning.finalized !== data.planning.total || !data.planning.total}>Publish qualifications and open state contest</button></form>
 				{#if data.season.status !== 'qualifications' || data.planning.finalized !== data.planning.total}<p>Finalize all regionals and begin the qualification stage before publishing.</p>{/if}
@@ -82,7 +100,7 @@
 			{#each savedGroups as group}
 				<section class="event-group" aria-label={labels[group.category]}>
 					<h3>{labels[group.category]}</h3>
-					{#if group.category === 'topical_individual'}<p>The regional top three qualify overall. After removing those students, the highest remaining scorer in each grade qualifies as distinguished. Ties qualify together. Remaining entries may qualify by score cutoff.</p>{/if}
+					{#if group.category === 'topical_individual'}<p>The regional top three qualify overall. After removing those students, the highest remaining scorer in each grade qualifies as distinguished. Ties qualify together. {#if !provisional}Remaining entries may qualify by score cutoff.{/if}</p>{/if}
 					{#each group.sections as section}
 						{#if section.title}<h4>{section.title}</h4>{/if}
 						<div class="scroll"><table>
@@ -95,11 +113,12 @@
 					{/each}
 				</section>
 			{/each}
-		{:else}<p>No qualification list saved yet. Saving the draft includes all automatic qualifiers and cutoff additions together.</p>{/if}
+		{:else if provisional}<p>No provisional qualifiers yet. Automatic qualifiers will appear here as regional results are finalized.</p>{:else if canEdit}<p>No qualification list saved yet. Saving the draft includes all automatic qualifiers and cutoff additions together.</p>{:else}<p>No published qualifications.</p>{/if}
 	</section>
 </main>
 <style>
 	main { max-width:1100px; margin:auto; padding:1rem; } p { line-height:1.5; } ol { display:flex; flex-wrap:wrap; gap:1rem; list-style:none; padding:0; color:#526174; } .current { font-weight:700; color:#182b55; } section,details { margin-top:1.5rem; } summary { cursor:pointer; font-weight:600; } form { display:flex; flex-wrap:wrap; align-items:end; gap:.7rem; } label { display:flex; flex-direction:column; gap:.3rem; max-width:100%; } input,select,button { min-height:2.75rem; font:inherit; padding:.6rem; max-width:100%; box-sizing:border-box; } button:disabled { opacity:.5; cursor:default; } button { background:#182b55; color:white; border:0; border-radius:4px; cursor:pointer; } .scroll { overflow-x:auto; } table { border-collapse:collapse; width:100%; } th,td { padding:.6rem; border-bottom:1px solid #ddd; text-align:left; vertical-align:top; } .error,.success { padding:.8rem; border-radius:5px; } .error { background:#fbe3e3; color:#9a2020; } .success { background:#e2f5e8; color:#176b35; }
+	.notice { background:#edf1f7; padding:1rem; border-radius:5px; }
 	.event-group { border-top:1px solid #cbd5e1; padding-top:1rem; margin-top:2rem; }
 	h3 { margin:0 0 .8rem; color:#182b55; font-size:1.2rem; } h4 { margin:1.2rem 0 .5rem; }
 	thead th { background:#f1f5f9; font-size:.85rem; } table { table-layout:fixed; min-width:760px; }

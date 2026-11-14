@@ -12,14 +12,14 @@ export class CutoffError extends Error {
 
 /** Read-only planning works before any qualification draft has been generated. */
 export async function getQualificationPlanningData(db: Database, seasonId: string) {
-	const contests = await db.select().from(schema.contests).where(and(eq(schema.contests.seasonId, seasonId), eq(schema.contests.kind, 'regional')));
-	const rows: RegionalResultRow[] = [];
+	const contests = await db.select({ id: schema.contests.id, lifecycle: schema.contests.lifecycle, regionNumber: schema.regions.number, regionName: schema.regions.name }).from(schema.contests).leftJoin(schema.regions, eq(schema.regions.id, schema.contests.regionId)).where(and(eq(schema.contests.seasonId, seasonId), eq(schema.contests.kind, 'regional')));
+	const rows: (RegionalResultRow & { regionNumber: number | null; regionName: string | null })[] = [];
 	const automaticEntryIds = new Set<string>();
 	const decisions: QualificationDecision[] = [];
 	for (const contest of contests.filter((contest) => contest.lifecycle === 'finalized')) {
 		try {
 			const { rankings } = await getRegionalRankings(db, contest.id);
-			for (const category of Object.values(rankings)) rows.push(...category);
+			for (const category of Object.values(rankings)) rows.push(...category.map(row => ({ ...row, regionNumber: contest.regionNumber, regionName: contest.regionName })));
 			const regionalDecisions = buildRegionalPlacementDecisions(rankings);
 			decisions.push(...regionalDecisions);
 			for (const decision of regionalDecisions) if (decision.active) automaticEntryIds.add(decision.entryId);
@@ -41,7 +41,7 @@ export async function getQualificationPlanningData(db: Database, seasonId: strin
 
 export async function recordManualQualificationDecision(db: Database, input: { seasonId: string; entryId: string; studentId?: string | null; include: boolean; reason: string; actorUserId: string; now?: number }) {
 	const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, input.seasonId));
-	if (!season || !['regional', 'qualifications'].includes(season.status)) throw new CutoffError('locked', 'Qualifications can only be edited before the state contest opens.');
+	if (!season || season.status !== 'qualifications') throw new CutoffError('locked', 'Qualifications can only be edited during qualification review.');
 	const locked = await db.select().from(schema.qualificationRounds).where(and(eq(schema.qualificationRounds.seasonId, input.seasonId), eq(schema.qualificationRounds.kind, 'state_cutoff'), eq(schema.qualificationRounds.status, 'published')));
 	if (locked.length) throw new CutoffError('locked', 'Published qualifications are locked.');
 	const reason = input.reason.trim();

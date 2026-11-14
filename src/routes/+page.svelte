@@ -5,9 +5,10 @@
 	const isAdmin = $derived((data.principal?.isAdmin ?? false));
 	const isCoach = $derived((data.principal?.coachAssignments ?? []).length > 0);
 	const current = $derived(data.seasons.find(s => s.status !== 'archived'));
+	const regionals = $derived(data.contests.filter(c => c.seasonId === current?.id && c.kind === 'regional'));
+	const finalizedRegionals = $derived(regionals.filter(c => c.lifecycle === 'finalized').length);
+	const canBeginReview = $derived(regionals.length > 0 && finalizedRegionals === regionals.length);
 	const archived = $derived(data.seasons.filter(s => s.status === 'archived'));
-	const nextStage: Record<string, string> = { regional:'qualifications', qualifications:'state', state:'archived' };
-	const nextLabel: Record<string, string> = { regional:'Begin qualifications', qualifications:'Open state contest', state:'Archive season permanently' };
 
 </script>
 
@@ -23,12 +24,26 @@
 		{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
 		{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
 		{#if current}
-			<section class="card"><SeasonOverview season={current} contests={data.contests} regions={data.regions} canOpenState={isAdmin || isCoach} canOpenQualifications={isAdmin} />
-				{#if isAdmin}
-			<div class="advance">
-				{#if current.status === 'regional'}<p>Plan qualifications as regional results are finalized.</p>{:else if current.status === 'qualifications'}<p>Finish the qualification draft, then publish it to open the state contest.</p>{:else}<p>Archiving permanently closes editing for this season. It cannot be reopened.</p>{/if}
-				{#if current.status === 'qualifications'}<p><a href="/qualifications/{current.id}">Review and publish qualifications →</a></p>{:else}<form use:enhance method="POST" action="?/setSeasonStatus"><input type="hidden" name="seasonId" value={current.id} /><input type="hidden" name="status" value={nextStage[current.status]} /><button type="submit">{nextLabel[current.status]}</button></form>{/if}
-			</div>
+			<section class="card">
+				<SeasonOverview season={current} contests={data.contests} regions={data.regions} canOpenState={isAdmin || isCoach} canOpenQualifications={isAdmin}>
+					{#snippet qualificationActions()}
+						{#if current.status === 'regional'}
+							<p class="guidance">{finalizedRegionals} of {regionals.length} regionals finalized. View provisional qualifiers as results come in. Begin qualification review once all regionals are finalized.</p>
+							<p><a href="/qualifications/{current.id}">View provisional qualifiers →</a></p>
+							<form use:enhance method="POST" action="?/setSeasonStatus"><input type="hidden" name="seasonId" value={current.id} /><input type="hidden" name="status" value="qualifications" /><button type="submit" disabled={!canBeginReview}>Begin qualification review</button></form>
+						{:else if current.status === 'qualifications'}
+							<p class="guidance">Finish the qualification draft, then publish it to open the state contest.</p>
+							<p><a href="/qualifications/{current.id}">Review and publish qualifications →</a></p>
+						{:else}
+							<p><a href="/qualifications/{current.id}">View published qualifications →</a></p>
+						{/if}
+					{/snippet}
+				</SeasonOverview>
+				{#if isAdmin && current.status === 'state'}
+					<div class="advance">
+						<p>Archiving permanently closes editing for this season. It cannot be reopened.</p>
+						<form use:enhance method="POST" action="?/setSeasonStatus"><input type="hidden" name="seasonId" value={current.id} /><input type="hidden" name="status" value="archived" /><button type="submit">Archive season permanently</button></form>
+					</div>
 				{/if}
 			</section>
 		{:else if isAdmin}
@@ -46,7 +61,7 @@
 <style>
 	main { max-width:900px; margin:auto; padding:2rem 1rem; } h1 { margin-bottom:.4rem; }
 	.card { border:1px solid #dce1e8; border-radius:8px; padding:1.5rem; margin:1rem 0; } .card h2 { margin-top:0; }
-	.advance { border-top:1px solid #dce1e8; margin-top:1.5rem; padding-top:.5rem; } .advance p { color:#596273; line-height:1.5; }
+	.advance { border-top:1px solid #dce1e8; margin-top:1.5rem; padding-top:.5rem; } .advance p, .guidance { color:#596273; line-height:1.5; }
 	.create { display:flex; flex-wrap:wrap; gap:1rem; align-items:end; } label { display:flex; flex-direction:column; gap:.4rem; font-weight:600; } input { padding:.6rem; font:inherit; border:1px solid #aeb6c2; border-radius:4px; max-width:100%; box-sizing:border-box; }
 	button { min-height:2.75rem; padding:.65rem 1rem; border:0; border-radius:4px; background:#1a1a2e; color:white; cursor:pointer; font:inherit; }
 	button:disabled { background:#e5e7eb; color:#596273; cursor:not-allowed; }

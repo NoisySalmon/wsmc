@@ -14,7 +14,7 @@ export async function getQualificationWorkflow(db: Database, seasonId: string) {
 /** Save a complete snapshot in one transaction, including automatic placements. */
 export async function saveQualificationDraft(db: Database, input: { seasonId: string; actorUserId: string; thresholds: CutoffThresholds }) {
 	const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, input.seasonId));
-	if (!season || !['regional', 'qualifications'].includes(season.status)) throw new CutoffError('locked', 'Qualifications can only be edited before the state contest opens.');
+	if (!season || season.status !== 'qualifications') throw new CutoffError('locked', 'Qualifications can only be edited during qualification review.');
 	const workflow = await getQualificationWorkflow(db, input.seasonId);
 	if (workflow.status !== 'draft') throw new CutoffError('locked', 'Published qualifications are locked.');
 	for (const divisionScores of Object.values(input.thresholds)) for (const value of (divisionScores !== null && typeof divisionScores === 'object' ? Object.values(divisionScores) : [divisionScores])) {

@@ -27,7 +27,32 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 		getQualificationRoundReview(db, params.seasonId, 'state_cutoff'),
 		getQualificationRoundReview(db, params.seasonId, 'manual_review'),
 	]);
-	return { season, planning, workflow, qualifications: [...placements.qualifications, ...cutoffs.qualifications, ...manual.qualifications] };
+	let qualifications = [...placements.qualifications, ...cutoffs.qualifications, ...manual.qualifications];
+	if (season.status === 'regional') {
+		// Live automatic placements only: ignore stored cutoffs and exceptions in preview.
+		qualifications = [];
+		for (const decision of planning.decisions) {
+			const row = planning.rows.find(row => row.entryId === decision.entryId);
+			if (!row) continue;
+			let qualification = qualifications.find(q => q.entryId === decision.entryId);
+			if (!qualification) {
+				qualification = {
+					id: `preview:${row.entryId}`, roundId: '', seasonId: season.id, entryId: row.entryId,
+					studentId: decision.studentId, active: decision.active, createdAt: 0,
+					category: row.category, score: row.score, regionNumber: row.regionNumber, regionName: row.regionName,
+					actualGrade: row.actualGrade, entryNumber: row.entryNumber, division: row.division,
+					schoolName: row.schoolName, studentName: row.studentName, reasons: [],
+				};
+				qualifications.push(qualification);
+			}
+			qualification.reasons.push({
+				id: `${qualification.id}:${qualification.reasons.length}`, qualificationId: qualification.id,
+				kind: decision.kind, rank: decision.rank, scope: decision.scope, actualGrade: decision.actualGrade,
+				threshold: null, detailJson: '{}', createdAt: 0,
+			});
+		}
+	}
+	return { season, planning, workflow, qualifications };
 };
 
 const save: Actions[string] = async ({ locals, platform, params, request }) => {
