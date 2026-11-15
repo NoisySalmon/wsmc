@@ -1,14 +1,18 @@
 # ADR 0001: V2 statewide foundation
 
-**Status:** Accepted for implementation
+**Status:** Accepted; historical foundation decision
+
+This records the September 2026 prototype replacement. Reset instructions and
+transitional behavior below are historical, not current deployment procedures.
+Use the [D1 runbook](../operations/d1-runbook.md) for operations and the
+[current access model](../architecture/persistent-access.md) for authorization.
 **Date:** 2026-09-06
 
 ## Context
 
 The current application is a single-regional-contest prototype. Its database
 contains only prototype/seed data, and its contest-owned schools, student-level
-competing grade, and single-role users do not support the statewide workflow in
-the product requirements.
+competing grade, and single-role users do not support the statewide workflow for the statewide workflow.
 
 ## Decisions
 
@@ -43,5 +47,4 @@ the product requirements.
 
 ## References
 
-- [Product requirements](../product-requirements.md)
-- [Execution plan](../execution-plan.md)
+- [Documentation index](../README.md)

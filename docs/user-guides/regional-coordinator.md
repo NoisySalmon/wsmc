@@ -1,10 +1,9 @@
 # Regional Coordinator Guide
 
 This guide covers the current WSMC workflow for a coordinator assigned to one
-or more regional contests. It is also a verification checklist for the first
-implementation.
+or more regions across seasons.
 
-A regional assignment permits work only in its named contest. It does not
+A regional assignment permits work in contests for its assigned region number. It does not
 grant statewide setup, school-directory, qualification, state-contest, or user
 administration access.
 
@@ -87,18 +86,11 @@ easier to identify in scoring and CSV files.
 
 ### Registration CSV
 
-1. Select **Download registration CSV**.
-2. Edit the whole file without changing format version or existing stable IDs.
-3. Upload it under **Preview CSV**. Preview validates without saving.
-4. Correct all row errors.
-5. Upload the corrected file under **Import CSV**. The import is atomic and
-   safe to repeat.
-
-The complete format is documented in `docs/registration-csv.md`.
-
-Registration CSV download, preview, and import are limited to
-`registration_open`, even though the download link remains visible after the
-roster locks.
+Download the empty template, enter new students, then preview and import.
+Uploads append accepted rows; duplicates and unreadable rows are skipped and
+reported. Correct contest-rule warnings in the worksheet. Imports do not update
+existing students or their assignments and require open, editable registration.
+See the [CSV contract](../registration-csv.md) for columns and validation.
 
 When the contest becomes `roster_locked`, the page is read-only. A regional
 coordinator can reopen a roster-locked contest from any school registration
@@ -157,39 +149,3 @@ qualification rounds or the state contest.
 
 Provide any operational context the rankings cannot express, especially a
 Knowdown alternate or a result correction made after an earlier review.
-
-## Current implementation gaps to verify
-
-- A state coordinator opens registration from Program. The regional
-  coordinator can then lock rosters and start scoring from the contest overview.
-- Scorekeeper management is limited to the assigned contest; general user
-  administration remains system-wide only.
-- Overview and stage-valid Scoring links appear in the regional coordinator's
-  top navigation; finalized results are linked from Scoring and the overview.
-- Knowdown finalization requires an outcome for every registered entrant and
-  rejects duplicate places. Missing remains distinct from eliminated.
-
-## Verification checklist
-
-- [ ] Only assigned contests appear on Participation.
-- [ ] A regional coordinator can invite an existing school to an assigned contest.
-- [ ] Coach assignment is allowed only for a participating school in scope.
-- [ ] Registration for an out-of-scope contest or school returns forbidden.
-- [ ] Registration edits are blocked outside `registration_open`.
-- [ ] Invalid team grades, team size, or Topical combinations are rejected.
-- [ ] Score edits are enabled only in `scoring`.
-- [ ] A stale browser score edit is rejected.
-- [ ] Finalization is blocked until every entry has a result.
-- [ ] Finalization, publication, and reasoned reopening succeed in contest scope.
-- [ ] Qualification and state administration pages remain forbidden.
-
-## Local verification data
-
-The seed includes `regional@wsmc.example`, assigned to Region 1, and
-`regional2@wsmc.example`, assigned to Region 2. Each account is limited to its
-own region. The Region 1 coordinator is also assigned as a coach for Alpha
-High School. Request a local sign-in link for either email from `/login`.
-
-Region 2 is seeded in `registration_open`. Region 1 is finalized. The seeded
-state coordinator has statewide access only, so use the regional accounts to
-test regional-only access boundaries.

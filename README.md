@@ -5,10 +5,8 @@ season setup, school participation, mobile registration, CSV interoperability,
 regional and state scoring, qualification review, and publication. It is built
 with SvelteKit, Drizzle ORM, and Cloudflare D1.
 
-The product requirements, architecture decisions, execution plan, and current
-implementation status are tracked in [Product Requirements](docs/product-requirements.md),
-[Execution Plan](docs/execution-plan.md), [v2 architecture decisions](docs/adr/0001-v2-foundation.md),
-and [implementation progress](docs/implementation-progress.md).
+See the [documentation index](docs/README.md) for user guides, product rules,
+architecture, and operational procedures.
 
 ## Features
 
@@ -33,7 +31,7 @@ accounts and revoke sessions.
 
 Regional coordinators use their contest's **People** page to manage scorekeepers
 and coaches for participating schools. Administrators also manage regional
-coordinators there. Coach access belongs to a school and season and survives a
+coordinators there. Coach access belongs to a school across seasons and survives a
 move between regional contests. **Participation** manages school invitations,
 responses, divisions, and registration links; it links to People for coach changes.
 
@@ -109,6 +107,7 @@ npm test -- --run
 npm run check
 npm run build
 npm run test:db
+npm run test:qualifications
 npm run rehearsal
 npm run test:e2e:preview
 ```
@@ -125,8 +124,8 @@ and pull requests.
 
 The project is configured for Cloudflare Pages.
 
-The production D1 already has the v2 demo fixture. Before deploying these
-local changes, back it up, apply all pending migrations, and follow
+Before deploying, inspect and back up the target D1 database, apply pending
+migrations, and follow
 the production checks in the [D1 runbook](docs/operations/d1-runbook.md).
 
 1. Build the project:

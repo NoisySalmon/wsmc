@@ -71,33 +71,23 @@ For each school and regional contest:
 
 ## 5. Publish qualifications
 
-1. Open **Qualifications** for the season.
-2. Generate the regional placement draft after regional contests are finalized.
-3. Review placement, actual-grade, Knowdown alternate, and duplicate-reason
-   records. Publish only after the reasons are correct; publication freezes the
-   round.
-4. Preview or save division-specific state cutoffs for Team Contest, Topical
-   Team, and Topical Individual. Review proposed additions and existing
-   placement qualifiers before publishing the cutoff round.
-5. Record any manual include/exclude decisions with a reason, then publish the
-   manual review if needed.
+1. Begin qualification review from Home after all regionals are finalized.
+2. Review automatic placements and preview cutoff additions. Project and
+   Topical Individual use one cutoff each; Team Contest and Topical Team use
+   division-specific cutoffs. Knowdown has no cutoff.
+3. Select named entries for any manual include/exclude exceptions and record
+   reasons. Save the combined draft after changes and review the saved list.
+4. Publish qualifications and open state registration. The list is then locked.
 
 ## 6. Operate the state contest
 
-1. Invite participating state schools and confirm attendance in **State
-   administration**.
-2. For each school, add qualified individual students and exercised team-berth
-   members to the state roster with an explicit admission basis.
-3. A statewide coordinator can exercise qualified team berths, replace or add
-   same-school members, and create cross-school Team Contests. Mixed-school
-   entries require explicit division confirmation; cross-school Topical Teams
-   are not allowed.
-4. Add state category entries and members only after they are on the confirmed
-   state roster. Each student can occur at most once per state category.
-5. Lock the state roster, move the state contest to **Scoring**, and use the
-   shared scoring workflow. State scoring does not create new qualifications.
-6. Finalize and publish state results. The public state leaderboard is
-   unavailable until publication and exposes result fields only.
+1. Open each qualified school's worksheet to review attendance, event choices,
+   and substitutes. Coaches can prepare their own school worksheets.
+2. Review qualified team membership and competing grades. Substitutes must join
+   a qualified team; individual qualifications remain with the student.
+3. Review Ad Hoc signup pools and generate teams. Confirm mixed-team divisions.
+4. Lock state rosters and advance to Scoring. Finalize complete results and
+   publish them separately. Public results are unavailable until publication.
 
 ## 7. Reports and recovery
 

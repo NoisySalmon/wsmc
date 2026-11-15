@@ -1,24 +1,9 @@
 # State Coordinator Guide
 
-This guide covers the current WSMC application for a state coordinator. In
-the interface and access settings, this role may be called a **statewide
-coordinator**, **system-wide coordinator**, or **season coordinator**.
-
-Use this guide both as an operating walkthrough and as a functional
-verification checklist. Sections marked **Current implementation note**
-describe behavior that is important during first-round testing.
-
-## Access levels
-
-There are two state coordinator scopes:
-
-- A **system-wide coordinator** can create seasons, administer users, and work
-  in every season.
-- A **season coordinator** can administer the seasons assigned to them, but
-  cannot create a season or open User administration.
-
-A user may have several assignments at once. For example, a state coordinator
-may also be assigned as a regional coordinator or coach.
+State coordinators use the **Administrator** assignment, which grants access
+across seasons and includes user administration. Regional coordinator and coach
+assignments also persist across seasons; scorekeepers are assigned per contest.
+See [persistent access](../architecture/persistent-access.md) for details.
 
 ## Sign in
 
@@ -39,7 +24,7 @@ raw sign-in link in source control or a test report.
 | **Home** | View the current season and contests, advance season stages, archive, and create the next season. |
 | **Schools** | Maintain the statewide school directory. |
 | **Participation** | Invite schools, assign divisions, invite/assign coaches, and open school registration. |
-| **Users** | Invite users and manage assignments, sessions, and account status. System-wide coordinators only. |
+| **Users & access** | Invite users and manage assignments, sessions, and account status. Administrators only. |
 
 ## 1. Set up a season
 
@@ -74,8 +59,8 @@ Open **Schools**.
 4. Use **Mark inactive** to prevent a school from being selected for new work
    while preserving history. Use **Reactivate** to restore it.
 
-The school directory does not store a permanent division. Division is chosen
-for each contest participation.
+The school directory stores the default division. Each contest participation
+snapshots its division so later directory changes preserve contest history.
 
 ## 3. Invite and administer users
 
@@ -142,8 +127,8 @@ school.
 
 For spreadsheet entry, select **Download registration CSV**, edit the complete
 file, use **Preview CSV**, and only then use **Import CSV**. Preview does not
-save changes; import is all-or-nothing. See `docs/registration-csv.md` for the
-column contract.
+save changes; import appends accepted rows and reports skipped rows. See the
+[CSV contract](../registration-csv.md) for details.
 
 ## 6. Advance the contest and score it
 
@@ -173,7 +158,7 @@ If finalized results need correction, enter a reason and select **Reopen for
 correction**. Reopening returns the contest to `scoring`, clears publication,
 and adds an audit event.
 
-Program does not offer `finalized`. Finalize from the scoring page after the
+Finalize from the scoring page after the
 completeness check, then publish separately. Coaches can see regional results
 only after publication.
 
@@ -181,70 +166,28 @@ only after publication.
 
 Open `/qualifications/[seasonId]` to review qualifications.
 
-### Regional placement round
+While regional contests are underway, the provisional list shows automatic
+qualifiers from finalized regionals. On Home, begin qualification review once
+all regionals are finalized.
 
-1. Select a finalized regional contest.
-2. Select **Generate qualification draft**.
-3. Review every category, school, student/team, active/alternate state, and
-   qualification reason.
-4. Select **Publish and freeze this round**.
-
-Generation is repeatable while the round is a draft. Publishing freezes the
-decisions.
-
-### State score-cutoff round
-
-1. Enter separate Division 1 and Division 2 thresholds for Team Contest,
-   Topical Team, and Topical Individual. Leave a field blank for no cutoff.
-2. Select **Preview cutoff additions**. This does not save anything.
-3. Review proposed additions and entries already qualified by placement.
-4. Select **Save cutoff draft**, review the saved count, then select **Publish
-   and freeze cutoffs**.
-
-Project and Knowdown do not receive cutoff additions.
-
-### Manual decisions
-
-Enter the stable Entry ID, optional Student ID, a required reason, and Include
-or Exclude. Review the draft under **Manual review**, then publish it.
-
-**Current implementation note:** The manual-decision form requires internal
-IDs that are not consistently displayed in the browser. Use a downloaded
-qualification/result CSV or a database query to obtain them during initial
-verification.
+1. Review automatic placements and preview score-cutoff additions. Project and
+   Topical Individual use a single cutoff each; Team Contest and Topical Team
+   use division-specific cutoffs. Knowdown has no score cutoff.
+2. For exceptions, choose a named entry under **Manual exceptions**, select
+   include or exclude, and record a reason.
+3. Save the combined draft after cutoff or exception changes and review it.
+4. Select **Publish qualifications and open state contest**. Publication locks
+   the list and opens state registration.
 
 ## 8. Administer the state contest
 
-From **Home**, select **State contest**.
+Open the state contest to see qualified schools grouped by region. Open a
+school's worksheet to review attendance, event choices, and substitutes.
+Coaches use the same school worksheet; see the [coach guide](coach.md#7-prepare-state-registration).
 
-Schools use their state registration worksheets to confirm attendance, choose
-events, and supply substitutes. Coaches can edit during `registration_open`.
-Administrators can withdraw or resume a school after rosters lock, before
-scoring begins.
-
-### Build ad-hoc teams
-
-The state contest overview has independent **Ad Hoc Team Problem** and
-**Ad Hoc Topical** sections. Each uses only its saved signup pool.
-
-1. Select **Build teams** in each section. Teams combine school divisions and
-   have three students where possible. Four remaining students form two pairs.
-   Students on a team must come from different schools. Actual grades are used;
-   varied grades are preferred, but repeated grades are allowed.
-2. Review the team numbers and members. Students who cannot form even a pair
-   with a student from another school remain visibly unassigned.
-3. During registration, select **Regenerate teams** after schools change their
-   signups. Existing teams and numbers are preserved wherever the remaining
-   pool permits. Regeneration does not provide a fresh shuffle or manual moves.
-4. Coaches see their students’ assigned teams with every teammate’s name,
-   school, and actual grade on their school worksheet. Assignments are tentative
-   during registration and while registration changes await regeneration.
-5. Lock rosters and regenerate as necessary before starting scoring. Assignments
-   are then settled. Ad-hoc generation is unavailable once scoring starts.
-
-A registration change immediately removes a student from an assignment they
-have left; staff regeneration fills and rebalances the affected teams. School
-withdrawal also removes its students from both signup pools.
+You can opt in or opt out all undecided schools. Opt in saves their current
+worksheets; already-decided schools are left unchanged. Review Ad Hoc signups
+and generate teams from the pools before locking state rosters.
 
 ### Score and publish
 
@@ -268,7 +211,7 @@ collects finalized contest results and each published qualification round.
 
 Available CSV downloads include:
 
-- school directory from Program;
+- school directory from Schools;
 - participation from Participation;
 - contest results from a results or report page;
 - qualifications from Qualifications or Statewide reports;
@@ -276,33 +219,3 @@ Available CSV downloads include:
 
 Published state results at `/state/<state-contest-id>/results` are public and
 do not require sign-in.
-
-## Verification checklist
-
-- [ ] A system-wide coordinator sees Program, Schools, Participation, and Users.
-- [ ] A season coordinator sees the assigned season but not Users.
-- [ ] Similar school names trigger a duplicate suggestion before creation.
-- [ ] A contest cannot move backward through its stage controls.
-- [ ] Registration edits work only in `registration_open`.
-- [ ] Score save buttons work only in `scoring`.
-- [ ] Finalization is disabled while any result is missing.
-- [ ] Reopening finalized scoring requires a reason and clears publication.
-- [ ] Qualification preview does not persist a cutoff round.
-- [ ] Published qualification rounds are frozen.
-- [ ] A state roster member cannot be added without a valid admission basis.
-- [ ] Public state results return not found before publication and load after it.
-
-## Local verification data
-
-The representative seed includes:
-
-- state coordinator: `coordinator@wsmc.example`;
-- season: `season-2026`;
-- Region 1: `region-1-2026`, contest `contest-region-1` (finalized);
-- Region 2: `region-2-2026`, contest `contest-region-2`
-  (`registration_open`);
-- state contest: `contest-state-2026` (`registration_open`).
-
-The seeded state coordinator is system-wide and has no regional or coach
-assignments. Use `regional@wsmc.example` and `regional2@wsmc.example` to
-verify distinct regional-only access boundaries.
