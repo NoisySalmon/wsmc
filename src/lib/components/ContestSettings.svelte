@@ -8,7 +8,7 @@
 {#if canManage && contest.lifecycle !== 'finalized'}
 	<section aria-label="Contest settings">
 		<form use:enhance method="POST" action="?/updateDate"><label>Contest date <input type="date" name="startsAt" value={contestDateInput(contest.startsAt)} /></label>{#if contest.kind === 'regional'}<label>Knowdown students per school <input class="limit" type="number" name="knowdownLimit" min="1" step="1" required value={contest.knowdownLimit} /></label>{/if}<button type="submit">{contest.kind === 'regional' ? 'Save settings' : 'Save date'}</button></form>
-		{#if next[contest.lifecycle]}<form use:enhance method="POST" action="?/advanceLifecycle"><input type="hidden" name="lifecycle" value={next[contest.lifecycle]} /><button type="submit">{labels[contest.lifecycle]}</button></form>{/if}
+		{#if next[contest.lifecycle] && !(contest.kind === 'state' && contest.lifecycle === 'setup')}<form use:enhance method="POST" action="?/advanceLifecycle"><input type="hidden" name="lifecycle" value={next[contest.lifecycle]} /><button type="submit">{labels[contest.lifecycle]}</button></form>{/if}
 	</section>
 {:else}<p>Contest date: {contestDate(contest.startsAt)}{#if contest.kind === 'regional'} · Knowdown: up to {contest.knowdownLimit} students per school{/if}</p>{/if}
 <style>

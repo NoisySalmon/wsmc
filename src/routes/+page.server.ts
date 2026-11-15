@@ -1,5 +1,5 @@
 import { inArray } from 'drizzle-orm';
-import { error, fail } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
 import { canAdministerUsers, canCoordinateState, canScoreContest } from '$lib/server/auth/capabilities';
 import { createSeason, ProgramError, setSeasonStatus, type SeasonStatus } from '$lib/server/program/service';
 import { getDb, schema } from '$lib/server/db';
@@ -64,9 +64,10 @@ export const actions: Actions = {
 		if (!['regional', 'qualifications', 'state', 'archived'].includes(status)) return fail(400, { error: 'Choose a valid season status.' });
 		try {
 			await setSeasonStatus(getDb(platform.env.DB), seasonId, status as SeasonStatus);
-			return { success: 'Season status updated.' };
 		} catch (cause) {
 			return fail(400, { error: cause instanceof ProgramError ? cause.message : 'Season status could not be updated.' });
 		}
+		if (status === 'qualifications') redirect(303, `/qualifications/${seasonId}`);
+		return { success: 'Season status updated.' };
 	},
 };
