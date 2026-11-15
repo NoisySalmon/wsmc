@@ -215,7 +215,7 @@ collects finalized contest results and each published qualification round.
 Administrators and statewide coordinators can download three ZIPs of CSV
 spreadsheets: **Regionals**, **Qualifications**, and **State contest**. They
 remain available during contests and draft review and for archived seasons.
-Open **Season exports and reports** from Home. Each includes readable names,
+Open **Help → Season exports**. Each includes readable names,
 stable IDs, statuses, instructions, and event sheets for offline score entry.
 The state export includes the complete season's contest and qualification data.
 See [Season exports](../season-exports.md) for contents and offline instructions.

@@ -1,7 +1,7 @@
 # Season exports
 
-Administrators (including statewide coordinators) can open **Season exports and
-reports** from the current or an archived season on Home. Three downloads are
+Administrators (including statewide coordinators) can open **Help** and find
+**Season exports**, with downloads for current and archived seasons. Three downloads are
 available regardless of season, contest, or publication status:
 
 - **Regionals**: all regional contests, schools and contact details, annual
