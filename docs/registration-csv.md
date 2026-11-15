@@ -29,7 +29,9 @@ must retain the template's order. Trailing empty cells may be omitted.
 
 Contest-rule violations, including oversized teams, repeated competing grades,
 and excess Knowdown nominees, do not block import. The resulting registration
-remains invalid until corrected in the worksheet. Preview writes nothing;
+remains invalid until corrected in the worksheet. Upload and review writes nothing. Confirm import adds the reviewed file without
+requiring another upload; the server validates it again against the current roster.
+Preview writes nothing;
 import batches accepted rows atomically. Imports remain restricted to editable,
 open regional registrations. There are no IDs, format-version fields, Project
 columns, or existing student data in the template.

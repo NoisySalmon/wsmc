@@ -74,8 +74,8 @@ or archiving the season.
 1. Download the empty registration CSV template.
 2. Enter student name, grade, Team Contest team number, Topical team number,
    and Knowdown choice. Assign Project teams in the worksheet.
-3. Preview the upload and review additions, duplicates, and skipped rows.
-4. Import accepted rows, then correct any contest-rule warnings in the worksheet.
+3. Choose **Upload and review** and review additions, duplicates, and skipped rows.
+4. Choose **Confirm import** without uploading again, then correct any contest-rule warnings in the worksheet.
 
 Imports append students; they do not update existing students or replace event
 assignments. Duplicate name/grade rows are skipped. See the
@@ -98,11 +98,12 @@ Coaches do not enter regional scores.
 Open `/reports/season/<season-id>` using the link supplied by your coordinator.
 The page contains:
 
-- links to finalized regional results and their CSV downloads;
+- links to finalized regional results;
 - published regional placement qualifications;
 - published state cutoff qualifications;
-- published manual qualification decisions;
-- a qualification CSV download.
+- published manual qualification decisions.
+
+Season-wide downloads are available to administrators and statewide coordinators.
 
 Regional result pages show Project, Team Contest, and Topical Team rankings by
 division; Topical Individual overall and actual-grade rankings by division;

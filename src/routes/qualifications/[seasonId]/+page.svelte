@@ -74,6 +74,7 @@
 <svelte:head><title>{data.season.year} qualifications — WSMC</title></svelte:head>
 <main>
 	<p><a href="/">← Home</a></p><h1>{data.season.year} {provisional ? 'provisional qualifiers' : 'qualifications'}</h1>
+	<p><a href="/reports/qualifications?seasonId={data.season.id}">Download qualifications (ZIP of CSVs)</a> · <a href="/reports/season/{data.season.id}">All season exports and reports</a></p>
 	{#if provisional}
 		<p class="notice">This read-only preview includes automatic qualifiers from finalized regionals only. Draft editing becomes available when the season enters qualification review. Score cutoffs and manual exceptions are not included.</p>
 		<p><strong>{data.planning.finalized} of {data.planning.total} regionals finalized.</strong> <a href="/">Return home to begin qualification review →</a></p>

@@ -63,7 +63,7 @@
 <main>
  <a href={isCoordinator ? `/state/${registration.contest.id}` : '/my-schools'} onclick={leave}>← {isCoordinator ? 'All state schools' : 'My schools'}</a>
  <header><div><p class="eyebrow">MY TEAM / STATE CONTEST</p><h1>{registration.school.schoolName}</h1><p class="intro">Your regional qualifiers, ready for State. Confirm attendance, choose events, and fill out your teams.</p></div><span class="division">Division {registration.school.division}</span></header>
- <nav aria-label="State registration"><a class="active" href="#roster">Who’s doing what?</a><a href="#teams">Review teams</a><a href={`/state/${registration.contest.id}/csv?schoolId=${registration.school.schoolId}`}>Download roster CSV</a></nav>
+ <nav aria-label="State registration"><a class="active" href="#roster">Who’s doing what?</a><a href="#teams">Review teams</a></nav>
  <section class="school-attendance" aria-label="School attendance">
   <strong>{registration.withdrawn ? 'School not attending State' : registration.saved ? 'Registration saved' : 'Attendance undecided'}</strong>
   {#if registration.withdrawn}

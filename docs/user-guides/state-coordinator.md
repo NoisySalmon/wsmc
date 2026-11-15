@@ -125,9 +125,9 @@ team, playing up only, one entry per student per category, Topical Team versus
 Topical Individual exclusivity, and no more than three Knowdown students per
 school.
 
-For spreadsheet entry, select **Download registration CSV**, edit the complete
-file, use **Preview CSV**, and only then use **Import CSV**. Preview does not
-save changes; import appends accepted rows and reports skipped rows. See the
+For spreadsheet entry, select **Download registration CSV template**, fill in
+new students, use **Upload and review**, and then **Confirm import** without
+uploading again. Reviewing does not save changes; import appends accepted rows and reports skipped rows. See the
 [CSV contract](../registration-csv.md) for details.
 
 ## 6. Advance the contest and score it
@@ -200,7 +200,7 @@ and Part 2, using the same ranges as the corresponding school events. Both are
 separate scoring sections; every generated team requires a complete score
 before finalization. Numeric zero counts as entered.
 
-Finalize and publish from scoring. Published state results and the results CSV
+Finalize and publish from scoring. Published state results and the state export
 include two separate ad-hoc ranking boards across divisions, with member names
 and schools. Ad-hoc scores do not enter the school-team ranking boards.
 
@@ -209,13 +209,13 @@ and schools. Ad-hoc scores do not enter the school-team ranking boards.
 Open `/reports/season/[seasonId]` for statewide reports. The page
 collects finalized contest results and each published qualification round.
 
-Available CSV downloads include:
-
-- school directory from Schools;
-- participation from Participation;
-- contest results from a results or report page;
-- qualifications from Qualifications or Statewide reports;
-- state roster from State administration.
+Administrators and statewide coordinators can download three ZIPs of CSV
+spreadsheets: **Regionals**, **Qualifications**, and **State contest**. They
+remain available during contests and draft review and for archived seasons.
+Open **Season exports and reports** from Home. Each includes readable names,
+stable IDs, statuses, instructions, and event sheets for offline score entry.
+The state export includes the complete season's contest and qualification data.
+See [Season exports](../season-exports.md) for contents and offline instructions.
 
 Published state results at `/state/<state-contest-id>/results` are public and
 do not require sign-in.

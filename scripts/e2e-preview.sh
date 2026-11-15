@@ -213,6 +213,9 @@ assert_status GET /scoring/contest-region-1 200 "$coordinator"
 assert_status GET /qualifications/season-2026 200 "$coordinator"
 assert_status GET /state/contest-state-2026 200 "$coordinator"
 assert_status GET /reports/season/season-2026 200 "$coordinator"
+assert_status GET '/reports/regionals?seasonId=season-2026' 200 "$coordinator"
+assert_status GET '/reports/qualifications?seasonId=season-2026' 200 "$coordinator"
+assert_status GET '/reports/state?seasonId=season-2026' 200 "$coordinator"
 assert_status POST '/state/contest-state-2026?/setAttendance' 200 "$coordinator" --data 'schoolId=school-alpha&intent=attending'
 
 # Scores prevent withdrawal even before finalization.
@@ -236,10 +239,10 @@ assert_page_contains GET /results/contest-region-1 "$coordinator" "4th (Alt)"
 assert_page_contains GET /results/contest-region-1 "$coordinator" "Ash Alpha — Alpha"
 assert_page_contains GET /results/contest-region-1 "$coordinator" "Bailey Beta — Beta"
 assert_status GET /results/contest-region-1 403 "$coach"
-assert_status GET '/reports/results?contestId=contest-region-1' 403 "$coach"
+assert_status GET '/reports/regionals?seasonId=season-2026' 403 "$coach"
 assert_status POST '/scoring/contest-region-1?/publish' 200 "$coordinator" --data ''
 assert_status GET /results/contest-region-1 200 "$coach"
-assert_status GET '/reports/results?contestId=contest-region-1' 200 "$coach"
+assert_status GET '/reports/regionals?seasonId=season-2026' 403 "$coach"
 
 # A regional-only coordinator can advance their own registration through roster
 # lock and scoring, then review the missing scores without statewide help.

@@ -29,7 +29,7 @@
   {#if form?.success}<p role="status">{form.success}</p>{/if}
   {#if form?.error}<p role="alert">{form.error}</p>{/if}
   <p>Open a school’s worksheet to review qualifiers, attendance, event choices, and substitutes.</p>
-  <p><a href="/state/{data.contest.id}/csv">Download state roster CSV</a>{#if ['scoring', 'finalized'].includes(data.contest.lifecycle)} · <a href="/scoring/{data.contest.id}">State scoring</a>{/if}{#if data.contest.resultsPublishedAt} · <a href="/state/{data.contest.id}/results">Published results</a>{/if}</p>
+  <p><a href="/reports/season/{data.contest.seasonId}">Season exports and reports</a>{#if ['scoring', 'finalized'].includes(data.contest.lifecycle)} · <a href="/scoring/{data.contest.id}">State scoring</a>{/if}{#if data.contest.resultsPublishedAt} · <a href="/state/{data.contest.id}/results">Published results</a>{/if}</p>
   {#if data.isCoordinator && data.seasonStatus === 'state' && data.contest.lifecycle === 'registration_open'}
    <section class="bulk-attendance" aria-labelledby="bulk-heading">
     <h2 id="bulk-heading">Attendance undecided · {undecidedCount} schools</h2>

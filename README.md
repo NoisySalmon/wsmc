@@ -12,7 +12,7 @@ architecture, and operational procedures.
 
 - **Program administration:** Seasons bootstrapped with the WSMC contest regions 1–10 and Virtual (11), editable regions and contests, school directory, participation, and assignments.
 - **Secure registration:** Passwordless sign-in, annual students, explicit contest rosters, category entries, and mobile workflows.
-- **CSV interoperability:** A school registration template and append-only import, plus formula-safe results, state-roster, and administrative report exports.
+- **CSV interoperability:** A school registration template with upload/review/confirm import, plus three administrator ZIP-of-CSV season snapshots for regional contests, qualifications, and state contests. See [Season exports](docs/season-exports.md).
 - **Contest operations:** Category-aware scoring, optimistic concurrency, finalization, publication, qualification snapshots, state attendance, and substitutions.
 - **Scoped visibility:** Assignment-based authorization and a publication-gated public state results page.
 

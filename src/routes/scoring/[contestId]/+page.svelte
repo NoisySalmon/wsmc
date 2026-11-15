@@ -57,7 +57,7 @@
 <main>
 	<p><a href="/">← Home</a>{#if data.contest.kind === 'regional'} · <a href="/contests/{data.contest.id}">Contest overview</a>{/if}</p>
 	<h1>{data.contest.name}</h1>
-	<p class="subheading">{data.contest.kind} · <ContestStatus status={data.contest.lifecycle} />{#if data.contest.resultsPublishedAt} · published{/if}{#if data.contest.lifecycle === 'finalized'} · {#if data.contest.kind === 'state'}<a href="/state/{data.contest.id}/results">View state results</a>{:else}<a href="/results/{data.contest.id}">View regional results</a>{/if} · <a href="/reports/results?contestId={data.contest.id}">Download results CSV</a>{/if}</p>
+	<p class="subheading">{data.contest.kind} · <ContestStatus status={data.contest.lifecycle} />{#if data.contest.resultsPublishedAt} · published{/if}{#if data.contest.lifecycle === 'finalized'} · {#if data.contest.kind === 'state'}<a href="/state/{data.contest.id}/results">View state results</a>{:else}<a href="/results/{data.contest.id}">View regional results</a>{/if}{/if}</p>
 	{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
 	{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
 

@@ -25,6 +25,7 @@
 		{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
 		{#if current}
 			<section class="card">
+				{#if isAdmin}<p><a href="/reports/season/{current.id}">Season exports and reports →</a></p>{/if}
 				<SeasonOverview season={current} contests={data.contests} regions={data.regions} canOpenState={isAdmin || isCoach} canOpenQualifications={isAdmin}>
 					{#snippet qualificationActions()}
 						{#if current.status === 'regional'}
@@ -51,7 +52,7 @@
 			<form class="create" use:enhance method="POST" action="?/createSeason"><label>Year <input type="number" name="year" min="2000" max="2200" required /></label><button type="submit">Create season</button></form>
 		</section>
 		{:else}<p>No active season.</p>{/if}
-		{#if archived.length}<details><summary>Archived seasons ({archived.length})</summary>{#each archived as season}<section class="card"><SeasonOverview {season} contests={data.contests} regions={data.regions} canOpenState={isAdmin || isCoach} canOpenQualifications={isAdmin} /></section>{/each}</details>{/if}
+		{#if archived.length}<details><summary>Archived seasons ({archived.length})</summary>{#each archived as season}<section class="card">{#if isAdmin}<p><a href="/reports/season/{season.id}">{season.year} exports and reports →</a></p>{/if}<SeasonOverview {season} contests={data.contests} regions={data.regions} canOpenState={isAdmin || isCoach} canOpenQualifications={isAdmin} /></section>{/each}</details>{/if}
 
 	{:else}
 		<p><a href="/login">Sign in</a> to continue.</p>

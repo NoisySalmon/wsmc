@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { error, fail } from '@sveltejs/kit';
+import { error, fail, isHttpError } from '@sveltejs/kit';
 import { canEditRoster, canFinalizeContest } from '$lib/server/auth/capabilities';
 import { getDb, schema } from '$lib/server/db';
 import { importRegistrationCsv, previewRegistrationCsv } from '$lib/server/registration/csv-service';
@@ -34,13 +34,15 @@ async function requireEditable(db: ReturnType<typeof getDb>, contest: { id: stri
 async function csvText(request: Request): Promise<string> {
 	const data = await request.formData();
 	const file = data.get('file');
+	const confirmed = data.get('confirmedCsv');
+	if (typeof confirmed === 'string' && confirmed.length > 0) { if (new TextEncoder().encode(confirmed).length > 1_000_000) throw error(400, 'CSV files must be smaller than 1 MB.'); return confirmed; }
 	if (!(file instanceof File) || file.size === 0) throw error(400, 'Choose a CSV file to upload.');
 	if (file.size > 1_000_000) throw error(400, 'CSV files must be smaller than 1 MB.');
 	return file.text();
 }
 
 function csvFormError(cause: unknown) {
-	return fail(400, { error: cause instanceof Error ? cause.message : 'CSV registration change could not be saved.' });
+	return fail(400, { error: isHttpError(cause) ? cause.body.message : cause instanceof Error ? cause.message : 'CSV registration change could not be saved.' });
 }
 
 export const load: PageServerLoad = async ({ locals, platform, params }) => {
@@ -236,7 +238,7 @@ export const actions: Actions = {
 		if (!locals.principal) throw error(401, 'Sign in required.'); if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const db = getDb(platform.env.DB); const { contest, school } = await scope(db, params.contestId, params.schoolId);
 		if (!canEditRoster(locals.principal, contest.id, school.id, contest.seasonId)) throw error(403, 'You cannot edit this registration.');
-		try { await requireEditable(db, contest, null); const preview = await previewRegistrationCsv(db, contest.id, school.id, await csvText(request)); return { csvSummary: preview, csvErrors: preview.errors.slice(0, 20), success: 'Preview generated. No changes have been saved.' }; } catch (cause) { return csvFormError(cause); }
+		try { await requireEditable(db, contest, null); const upload = await csvText(request); const preview = await previewRegistrationCsv(db, contest.id, school.id, upload); return { csvUpload: upload, csvSummary: preview, csvErrors: preview.errors.slice(0, 20), success: 'Preview generated. No changes have been saved.' }; } catch (cause) { return csvFormError(cause); }
 	},
 	importCsv: async ({ locals, platform, params, request }) => {
 		if (!locals.principal) throw error(401, 'Sign in required.'); if (!platform?.env.DB) throw error(503, 'Database unavailable.');

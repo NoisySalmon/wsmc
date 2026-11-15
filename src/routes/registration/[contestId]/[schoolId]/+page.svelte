@@ -619,26 +619,20 @@
 		>
 		<p class="hint">Use positive whole numbers for teams. Blank Team Contest means no event; blank Topical means individual. Knowdown accepts Yes or No (blank means No). Competing grades start at the student’s grade. Set Project teams and correct registration problems in the worksheet. CSV imports are available only while registration is open.</p>
 		<div class="csv-forms">
-			{#each ['previewCsv', 'importCsv'] as action}<form
-					method="POST"
-					action={`?/${action}`}
-					enctype="multipart/form-data"
-					use:enhance
-				>
-					<label
-						>{action === 'previewCsv' ? 'Preview a CSV' : 'Import a CSV'}<input
-							type="file"
-							name="file"
-							accept=".csv,text/csv"
-							required
-						/></label
-					><button disabled={readOnly || dirty || data.contest.lifecycle !== 'registration_open'}
-						>{action === 'previewCsv' ? 'Preview CSV' : 'Import CSV'}</button
-					>
-				</form>{/each}
+			{#if form?.csvUpload}
+				<form method="POST" action="?/importCsv" use:enhance>
+					<input type="hidden" name="confirmedCsv" value={form.csvUpload} />
+					<p>Review the upload summary below before adding students.</p>
+					<button disabled={readOnly || dirty || data.contest.lifecycle !== 'registration_open' || !form.csvSummary?.newStudents}>Confirm import</button>
+				</form>
+			{/if}
+			<form method="POST" action="?/previewCsv" enctype="multipart/form-data" use:enhance>
+				<label>{form?.csvUpload ? 'Choose a different CSV' : 'Roster CSV'}<input type="file" name="file" accept=".csv,text/csv" required /></label>
+				<button disabled={readOnly || dirty || data.contest.lifecycle !== 'registration_open'}>Upload and review</button>
+			</form>
 		</div>
 		{#if form?.csvSummary}<p>
-				{form.csvSummary.newStudents} students to add · {form.csvSummary.duplicateRows} duplicates skipped · {form.csvSummary.skippedRows} incomplete or unreadable rows skipped
+				{form.csvSummary.newStudents} students {form?.csvUpload ? 'to add' : 'added'} · {form.csvSummary.duplicateRows} duplicates skipped · {form.csvSummary.skippedRows} incomplete or unreadable rows skipped
 			</p>{/if}{#if form?.csvErrors?.length}<ul>
 				{#each form.csvErrors as error}<li>
 						Row {error.rowNumber}, {error.field}: {error.message}

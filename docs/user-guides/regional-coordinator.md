@@ -86,7 +86,7 @@ easier to identify in scoring and CSV files.
 
 ### Registration CSV
 
-Download the empty template, enter new students, then preview and import.
+Download the empty template, enter new students, then choose **Upload and review** followed by **Confirm import**.
 Uploads append accepted rows; duplicates and unreadable rows are skipped and
 reported. Correct contest-rule warnings in the worksheet. Imports do not update
 existing students or their assignments and require open, editable registration.
