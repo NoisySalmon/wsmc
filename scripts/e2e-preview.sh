@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Run a disposable authenticated HTTP journey against the built Pages worker.
-# This intentionally uses fixture sessions rather than email delivery so the
-# test remains deterministic and never emits or reuses a real sign-in token.
+# Fixture sessions and the development email adapter keep authentication tests
+# isolated: no real emails are sent and all generated tokens stay disposable.
 
 port="${WSMC_E2E_PORT:-8791}"
 base_url="http://127.0.0.1:${port}"
@@ -35,7 +35,15 @@ d1 --file=scripts/seed.sql
 # qualification records needed by the end-to-end handoff.
 d1 --command="UPDATE contests SET lifecycle = 'scoring' WHERE id = 'contest-region-1'; INSERT INTO users (id, email, display_name, status) VALUES ('user-scorekeeper-2', 'scorekeeper2@wsmc.example', 'Region 2 Scorekeeper', 'active'); INSERT INTO scorekeeper_assignments (user_id, contest_id) VALUES ('user-scorekeeper-2', 'contest-region-2'); INSERT INTO sessions (id, user_id, expires_at, created_at, last_seen_at) VALUES ('e2e-coordinator-session', 'user-coordinator', 4102444800000, 1700000000000, 1700000000000), ('e2e-scorekeeper-session', 'user-scorekeeper', 4102444800000, 1700000000000, 1700000000000), ('e2e-scorekeeper-2-session', 'user-scorekeeper-2', 4102444800000, 1700000000000, 1700000000000), ('e2e-coach-session', 'user-coach-alpha-1', 4102444800000, 1700000000000, 1700000000000), ('e2e-gamma-coach-session', 'user-coach-gamma', 4102444800000, 1700000000000, 1700000000000), ('e2e-regional-session', 'user-regional-coordinator-2', 4102444800000, 1700000000000, 1700000000000);"
 
-npx wrangler pages dev .svelte-kit/cloudflare --d1 DB=5c5a8cb8-f2b9-489a-8a2d-b32a87c70cce --local --persist-to "$persist_dir" --port "$port" >"$persist_dir/server.log" 2>&1 &
+# An explicit env file bypasses .dev.vars and production email credentials.
+cat >"$persist_dir/.env" <<EOF
+ENVIRONMENT=development
+APP_ORIGIN=$base_url
+EMAIL_API_KEY=
+EMAIL_FROM=
+EOF
+
+npx wrangler pages dev .svelte-kit/cloudflare --env-file "$persist_dir/.env" --d1 DB=5c5a8cb8-f2b9-489a-8a2d-b32a87c70cce --local --persist-to "$persist_dir" --port "$port" >"$persist_dir/server.log" 2>&1 &
 server_pid=$!
 
 ready=0

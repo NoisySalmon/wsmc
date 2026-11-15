@@ -6,7 +6,7 @@
 
 <main>
 	<h1>Sign in to WSMC</h1>
-	<p>Enter your invited email address and we’ll send a one-time sign-in link.</p>
+	<p>Enter the email address registered with WSMC and we’ll send a one-time sign-in link.</p>
 	<form method="POST">
 		<label for="email">Email address</label>
 		<input id="email" name="email" type="email" autocomplete="email" required />

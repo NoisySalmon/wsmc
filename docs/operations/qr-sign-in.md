@@ -13,14 +13,13 @@ service is required. The QR image is generated inside the app.
 3. Select **Show sign-in QR** beside the person. The panel identifies the
    account by name and email. Check both before showing it.
 4. Have that person scan the code with their phone camera and open its link.
-   They receive the usual app session and their existing assignments. A pending
+   They press **Sign in** and receive the usual app session and their existing assignments. A pending
    account becomes active; no invitation email needs to be opened first.
 5. Select **Close and revoke code** when finished. If the code was already
    used, closing it does not sign the person out.
 
 Codes expire after five minutes and can be used once. Generating a code
-replaces that person's earlier unused sign-in links and codes, including
-emailed invitations. It does not revoke their existing sessions. If the panel
+replaces that person's earlier unused QR codes. Emailed links remain usable. It does not revoke their existing sessions. If the panel
 is lost by navigating away, the code still expires; generate another code to
 replace it. The panel's countdown does not indicate whether someone has scanned
 it. A sign-in link is available under the QR as a fallback for cameras that
@@ -47,9 +46,8 @@ sign-in credential.
 The code signs into the person's entire account, including any additional
 coach/scorekeeper assignments; it does not create a contest-limited session.
 It never creates an account or adds permissions. Add the person and their
-assignment first if they are not listed. Email delivery failure during an
-invitation may leave a pending account already created: reload and check the
-list before retrying.
+assignment first if they are not listed. Adding a person does not send email.
+Use **Send sign-in email** separately when desired.
 
 Administrators can use **Revoke links/sessions** to invalidate outstanding
 codes and sessions, or disable the account. Regional coordinators use the

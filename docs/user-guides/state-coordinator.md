@@ -8,9 +8,9 @@ See [persistent access](../architecture/persistent-access.md) for details.
 ## Sign in
 
 1. Open `/login` in the deployed WSMC site.
-2. Enter the exact email address on your invitation.
-3. Open the sign-in link sent by email. The link expires after 20 minutes and
-   works only once.
+2. Enter the email address registered with WSMC.
+3. Open the sign-in link sent by email. The link expires after 24 hours and
+   works only once. Press **Sign in** on the confirmation page.
 4. Use **Sign out** in the top navigation when finished.
 
 For local development, the email adapter prints the sign-in link in the server
@@ -62,7 +62,7 @@ Open **Schools**.
 The school directory stores the default division. Each contest participation
 snapshots its division so later directory changes preserve contest history.
 
-## 3. Invite and administer users
+## 3. Add and administer users
 
 Open **Users & access**. This page is available only to an administrator.
 
@@ -72,8 +72,11 @@ Open **Users & access**. This page is available only to an administrator.
    - **Regional coordinator** and a region, across seasons;
    - **School coach** and a school, across seasons;
    - **Scorekeeper** and an individual contest.
-3. Select **Add person**. Existing accounts receive access without an email or
-   changes to their name or sign-in links; new accounts receive an invitation.
+3. Select **Add person**. Access is added without sending email. Existing names
+   and sign-in links are preserved.
+4. When needed, select **Send sign-in email**. People can also request their
+   own link from the sign-in page. Links last 24 hours; the first successful
+   sign-in activates a pending account.
 
 Removing persistent access affects every season. Replacing a coordinator never
 changes the account attributed to past actions. Grants and removals are audited.

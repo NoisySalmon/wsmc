@@ -19,7 +19,7 @@
 
 	<section>
 		<h2>Add person</h2>
-		<p>Enter an email and choose access. Existing accounts receive the assignment without an email; new accounts receive a sign-in invitation.</p>
+		<p>Enter an email and choose access. Adding access does not send email. People can request a sign-in link themselves, or you can send one below.</p>
 		<form method="POST" action="?/add">
 			<label>Email <input type="email" name="email" autocomplete="email" required /></label>
 			<label>Name (required for new accounts) <input type="text" name="displayName" autocomplete="name" /></label>
@@ -61,7 +61,7 @@
 					<div><strong>{user.displayName || user.email}</strong><span>{user.email}</span><span class="status {user.status}">{user.status}</span></div>
 					<div class="actions">
 						{#if user.status !== 'disabled'}<form method="POST" action="?/qr"><input type="hidden" name="userId" value={user.id} /><button type="submit">Show sign-in QR</button></form>{/if}
-						{#if user.status === 'pending'}<form method="POST" action="?/resend"><input type="hidden" name="userId" value={user.id} /><button type="submit">Resend invitation</button></form>{/if}
+						{#if user.status !== 'disabled'}<form method="POST" action="?/sendEmail"><input type="hidden" name="userId" value={user.id} /><button type="submit">Send sign-in email</button></form>{/if}
 						<form method="POST" action="?/revoke"><input type="hidden" name="userId" value={user.id} /><button type="submit">Revoke links/sessions</button></form>
 						{#if user.status === 'disabled'}
 							<form method="POST" action="?/enable"><input type="hidden" name="userId" value={user.id} /><button type="submit">Enable</button></form>

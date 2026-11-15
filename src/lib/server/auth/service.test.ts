@@ -1,163 +1,115 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { Miniflare } from 'miniflare';
+import { readFileSync, readdirSync } from 'node:fs';
+import { getDb } from '$lib/server/db';
 import { sha256 } from './crypto';
-import { addPerson, AuthError, consumeSignInToken, isSignInTokenUsable, issueSignInToken, loadPrincipal, removeAssignment, setUserStatus } from './service';
+import { addPerson, consumeSignInToken, issueSignInToken, loadPrincipal, removeAssignment, sendSignInLink, setUserStatus } from './service';
+import { allowAuthRequest } from './rate-limit';
+import { issueQrSignIn } from './qr';
 
-const base = { revokedAt: null, usedAt: null, expiresAt: 2000 };
+let worker: Miniflare;
+let d1: D1Database;
+let db: ReturnType<typeof getDb>;
+const now = Date.now();
+const userId = 'user-coach-gamma';
+const admin = { id: 'user-coordinator', email: 'coordinator@wsmc.example', displayName: 'Admin', isAdmin: true, regionalContestIds: [], coachAssignments: [], scorekeeperContestIds: [] };
 
-describe('sign-in token policy', () => {
-	it('accepts only an unused, unrevoked, unexpired token', () => {
-		expect(isSignInTokenUsable(base, 1000)).toBe(true);
-		expect(isSignInTokenUsable({ ...base, usedAt: 1000 }, 1000)).toBe(false);
-		expect(isSignInTokenUsable({ ...base, revokedAt: 1000 }, 1000)).toBe(false);
-		expect(isSignInTokenUsable(base, 2000)).toBe(false);
-	});
+beforeAll(async () => {
+	worker = new Miniflare({ modules: true, script: 'export default { fetch() { return new Response("test"); } }', compatibilityDate: '2026-03-10', d1Databases: ['DB'] });
+	d1 = await worker.getD1Database('DB') as unknown as D1Database;
+	for (const file of readdirSync('drizzle').filter(name => name.endsWith('.sql')).sort()) {
+		for (const statement of readFileSync(`drizzle/${file}`, 'utf8').split('--> statement-breakpoint').map(s => s.trim()).filter(Boolean)) await d1.prepare(statement).run();
+	}
+	for (const statement of readFileSync('scripts/seed.sql', 'utf8').split(';').map(s => s.trim()).filter(Boolean)) await d1.prepare(statement).run();
+	db = getDb(d1);
+});
+afterAll(async () => { await worker?.dispose(); });
+beforeEach(async () => {
+	await d1.batch([
+		d1.prepare('DELETE FROM sign_in_tokens'), d1.prepare('DELETE FROM sessions'), d1.prepare('DELETE FROM auth_request_limits'),
+		d1.prepare("UPDATE users SET status = 'active' WHERE id = ?").bind(userId),
+	]);
+});
 
-	it('stores only a hash when issuing a token', async () => {
-		let inserted: Record<string, unknown> | undefined;
-		const db = { insert: () => ({ values: async (values: Record<string, unknown>) => { inserted = values; } }) };
-		const result = await issueSignInToken(db as never, { userId: 'user-1', now: 1000, ttlMs: 5000 });
-		expect(inserted?.userId).toBe('user-1');
-		expect(inserted?.tokenHash).toBe(await sha256(result.rawToken));
-		expect(inserted?.tokenHash).not.toBe(result.rawToken);
-		expect(inserted?.expiresAt).toBe(6000);
-	});
-
-	it('consumes a token once and creates a long-lived session', async () => {
-		const rawToken = 'raw-token-for-test';
-		const selectResults = [
-			[{ id: 'token-1', userId: 'user-1', tokenHash: await sha256(rawToken), purpose: 'sign_in', expiresAt: 2000, usedAt: null, revokedAt: null, createdAt: 1000 }],
-			[{ id: 'user-1', email: 'coach@example.com', displayName: 'Coach', status: 'active' }],
-		];
-		const inserted: Record<string, unknown>[] = [];
-		const db = {
-			select: () => ({ from: () => ({ where: async () => selectResults.shift() ?? [] }) }),
-			update: () => ({ set: () => ({ where: () => ({ returning: async () => [{ id: 'token-1' }] }) }) }),
-			insert: () => ({ values: async (values: Record<string, unknown>) => { inserted.push(values); } }),
-		};
-		const session = await consumeSignInToken(db as never, rawToken, 1500);
-		expect(session.userId).toBe('user-1');
-		expect(inserted[0]?.userId).toBe('user-1');
-		expect(inserted[0]?.expiresAt).toBe(1500 + 30 * 24 * 60 * 60 * 1000);
-
-		const replayDb = {
-			select: () => ({ from: () => ({ where: async () => [{ id: 'token-1', userId: 'user-1', tokenHash: await sha256(rawToken), purpose: 'sign_in', expiresAt: 2000, usedAt: 1500, revokedAt: null, createdAt: 1000 }] }) }),
-		};
-		await expect(consumeSignInToken(replayDb as never, rawToken, 1600)).rejects.toBeInstanceOf(AuthError);
-	});
-
-	it('rejects expired and disabled-account tokens before creating sessions', async () => {
-		const expiredDb = {
-			select: () => ({ from: () => ({ where: async () => [{ id: 'token-1', userId: 'user-1', expiresAt: 1000, usedAt: null, revokedAt: null }] }) }),
-		};
-		await expect(consumeSignInToken(expiredDb as never, 'expired', 1000)).rejects.toMatchObject({ code: 'invalid_token' });
-
-		const disabledRows = [
-			[{ id: 'token-1', userId: 'user-1', expiresAt: 3000, usedAt: null, revokedAt: null }],
-			[{ id: 'user-1', status: 'disabled' }],
-		];
-		const disabledDb = {
-			select: () => ({ from: () => ({ where: async () => disabledRows.shift() ?? [] }) }),
-		};
-		await expect(consumeSignInToken(disabledDb as never, 'disabled', 1000)).rejects.toMatchObject({ code: 'user_disabled' });
-	});
-
-	it('disables a user and revokes outstanding access', async () => {
-		const calls: string[] = [];
-		const db = {
-			update: () => ({
-				set: (values: Record<string, unknown>) => {
-					if (values.status === 'disabled') calls.push('disable');
-					return { where: async () => { calls.push('update'); } };
-				},
-			}),
-		};
-		await setUserStatus(db as never, 'user-1', 'disabled', 3000);
-		expect(calls).toEqual(['disable', 'update', 'update', 'update']);
-	});
-
-	it('invites once and preserves multiple assignments without exposing a token', async () => {
-		const inserted: Record<string, unknown>[] = [];
-		const sent: { to: string; url: string }[] = [];
-		const db = {
-			batch: async (queries: unknown[]) => Promise.all(queries),
-			select: () => ({ from: () => ({ where: async () => [] }) }),
-			insert: () => ({
-				select: async () => undefined,
-				values: (values: Record<string, unknown>) => {
-					inserted.push(values);
-					return {
-						returning: async () => [{ ...values }],
-						onConflictDoNothing: async () => undefined,
-					};
-				},
-			}),
-			update: () => ({ set: () => ({ where: async () => undefined }) }),
-		};
-		const provider = { sendSignInLink: async (message: { to: string; url: string }) => { sent.push(message); } };
-		const result = await addPerson(db as never, provider, {
-			email: ' COACH@Example.COM ',
-			displayName: 'Coach',
-			origin: 'https://wsmc.example', actorUserId: 'admin-1',
-			assignments: [
-				{ kind: 'coach', schoolId: 'school-alpha' },
-				{ kind: 'scorekeeper', contestId: 'contest-region-1' },
-			],
-		});
-		expect(result.user.email).toBe('coach@example.com');
-		expect(inserted.filter((row) => row.userId === result.user.id)).toHaveLength(3);
-		expect(sent[0]?.to).toBe('coach@example.com');
-		expect(result.invited).toBe(true);
-		expect(sent).toHaveLength(1);
-		expect(sent[0]?.url).toMatch(/^https:\/\/wsmc\.example\/auth\/callback\//);
-		expect(inserted.find((row) => row.purpose === 'invite')?.tokenHash).toBe(await sha256(sent[0]!.url.split('/').at(-1)!));
-	});
-
-	it('adds access to a pending account without replacing its invitation or name', async () => {
-		const user = { id: 'pending-user', email: 'pending@example.com', displayName: 'Original name', status: 'pending' };
-		const inserted: Record<string, unknown>[] = [];
-		const db = {
-			batch: async (queries: unknown[]) => Promise.all(queries),
-			select: () => ({ from: () => ({ where: async () => [user] }) }),
-			insert: () => ({ select: async () => undefined, values: (values: Record<string, unknown>) => ({ onConflictDoNothing: async () => { inserted.push(values); } }) }),
-			update: () => { throw new Error('Adding access must not update account details or revoke tokens.'); },
-		};
-		const provider = { sendSignInLink: async () => { throw new Error('Adding access must not send email.'); } };
-		const result = await addPerson(db as never, provider, {
-			email: ' PENDING@example.com ', displayName: 'Replacement name', origin: 'https://wsmc.example', actorUserId: 'admin-1',
-			assignments: [{ kind: 'scorekeeper', contestId: 'contest-2' }],
-		});
-		expect(result).toMatchObject({ invited: false, user: { displayName: 'Original name', status: 'pending' } });
-		expect(inserted).toEqual([expect.objectContaining({ userId: user.id, contestId: 'contest-2' })]);
-	});
-
-	it('loads overlapping and multi-school assignments into one principal', async () => {
-		const rows = [
-			[{ session: { id: 'session-1' }, user: { id: 'user-1', email: 'coach@example.com', displayName: 'Coach' } }],
-			[{ userId: 'user-1' }],
-			[{ contestId: 'contest-region-1' }],
-			[{ schoolId: 'school-alpha' }, { schoolId: 'school-beta' }],
-			[{ contestId: 'contest-region-1' }],
-		];
-		const db = {
-			select: () => ({
-				from: () => ({
-					innerJoin: () => ({ innerJoin: () => ({ where: async () => rows.shift() ?? [] }), where: async () => rows.shift() ?? [] }),
-					where: async () => rows.shift() ?? [],
-				}),
-			}),
-			update: () => ({ set: () => ({ where: async () => undefined }) }),
-		};
-		const principal = await loadPrincipal(db as never, 'session-1', 1000);
+describe('passwordless account access in D1', () => {
+	it('creates accounts and multiple assignments silently, preserving existing names and access', async () => {
+		const created = await addPerson(db, { email: ' NEW@Example.COM ', displayName: 'New Coach', actorUserId: admin.id, assignments: [{ kind: 'coach', schoolId: 'school-alpha' }, { kind: 'scorekeeper', contestId: 'contest-region-1' }] });
+		expect(created.user).toMatchObject({ email: 'new@example.com', status: 'pending' });
+		expect((await d1.prepare('SELECT * FROM sign_in_tokens').all()).results).toHaveLength(0);
+		const existing = await addPerson(db, { email: 'new@example.com', displayName: 'Replacement', actorUserId: admin.id, assignments: [{ kind: 'coach', schoolId: 'school-beta' }, { kind: 'statewide' }, { kind: 'regional', regionNumber: 1 }] });
+		expect(existing.user.displayName).toBe('New Coach');
+		const token = await issueSignInToken(db, { userId: created.user.id, now });
+		const session = await consumeSignInToken(db, token.rawToken, now + 1);
+		const principal = await loadPrincipal(db, session.sessionId, now + 2);
+		expect(principal?.coachAssignments.map(row => row.schoolId).sort()).toEqual(['school-alpha', 'school-beta']);
+		expect(principal?.scorekeeperContestIds).toEqual(['contest-region-1']);
 		expect(principal?.isAdmin).toBe(true);
 		expect(principal?.regionalContestIds).toEqual(['contest-region-1']);
-		expect(principal?.coachAssignments).toEqual([{ schoolId: 'school-alpha' }, { schoolId: 'school-beta' }]);
-		expect(principal?.scorekeeperContestIds).toEqual(['contest-region-1']);
+		await removeAssignment(db, { kind: 'coach', schoolId: 'school-alpha', userId: created.user.id }, admin.id);
+		expect((await loadPrincipal(db, session.sessionId, now + 3))?.coachAssignments).toEqual([{ schoolId: 'school-beta' }]);
 	});
 
-	it('removes a scoped assignment without affecting another assignment type', async () => {
-		const deleted: unknown[] = [];
-		const db = { batch: async (queries: unknown[]) => Promise.all(queries), insert: () => ({ select: async () => undefined }), delete: (table: unknown) => ({ where: async (condition: unknown) => { deleted.push({ table, condition }); } }) };
-		await removeAssignment(db as never, { kind: 'regional', userId: 'user-1', regionNumber: 1 }, 'admin-1');
-		expect(deleted).toHaveLength(1);
+	it('sends 24-hour hashed email links, throttles concurrent sends, and preserves delayed mail and QR codes', async () => {
+		const messages: { to: string; url: string; expiresAt: number }[] = [];
+		const provider = { sendSignInLink: async (message: typeof messages[number]) => { messages.push(message); } };
+		const input = { userId, email: 'gamma@example.com', origin: 'https://wsmc.example', now };
+		const requests = await Promise.allSettled([sendSignInLink(db, provider, input), sendSignInLink(db, provider, input)]);
+		expect(requests.filter(r => r.status === 'fulfilled')).toHaveLength(1);
+		expect(messages).toHaveLength(1);
+		expect(messages[0].expiresAt).toBe(now + 86_400_000);
+		const rawToken = messages[0].url.split('/').at(-1)!;
+		expect(await d1.prepare('SELECT token_hash FROM sign_in_tokens').first('token_hash')).toBe(await sha256(rawToken));
+		const qr = await issueQrSignIn(db, admin, { userId, origin: input.origin });
+		await sendSignInLink(db, provider, { ...input, now: now + 60_000 });
+		expect(await d1.prepare('SELECT COUNT(*) AS n FROM sign_in_tokens WHERE used_at IS NULL AND revoked_at IS NULL').first('n')).toBe(3);
+		await consumeSignInToken(db, rawToken, now + 60_001);
+		await expect(consumeSignInToken(db, messages[1].url.split('/').at(-1)!, now + 60_002)).rejects.toMatchObject({ code: 'invalid_token' });
+		// Email use does not invalidate the independently issued QR.
+		await expect(consumeSignInToken(db, qr.signInUrl.split('/').at(-1)!, now + 60_003)).resolves.toMatchObject({ userId });
+	});
+
+	it('bounds outstanding email links to three and makes parallel sibling consumption single-use', async () => {
+		const tokens = [];
+		for (let i = 0; i < 4; i++) tokens.push(await issueSignInToken(db, { userId, now: now + i }));
+		await expect(consumeSignInToken(db, tokens[0].rawToken, now + 10)).rejects.toMatchObject({ code: 'invalid_token' });
+		const results = await Promise.allSettled(tokens.slice(1, 3).map(token => consumeSignInToken(db, token.rawToken, now + 10)));
+		expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1);
+		expect(await d1.prepare('SELECT COUNT(*) AS n FROM sessions').first('n')).toBe(1);
+		await expect(consumeSignInToken(db, tokens[3].rawToken, now + 11)).rejects.toMatchObject({ code: 'invalid_token' });
+	});
+
+	it('enforces expiry, activates pending accounts, and revokes tokens and sessions when disabled', async () => {
+		await d1.prepare("UPDATE users SET status = 'pending' WHERE id = ?").bind(userId).run();
+		const expired = await issueSignInToken(db, { userId, now: now - 86_400_000 });
+		await expect(consumeSignInToken(db, expired.rawToken, now)).rejects.toMatchObject({ code: 'invalid_token' });
+		const token = await issueSignInToken(db, { userId, now });
+		const session = await consumeSignInToken(db, token.rawToken, now + 1);
+		expect(session.expiresAt).toBe(now + 1 + 30 * 86_400_000);
+		expect(await d1.prepare('SELECT status FROM users WHERE id = ?').bind(userId).first('status')).toBe('active');
+		await expect(consumeSignInToken(db, token.rawToken, now + 2)).rejects.toMatchObject({ code: 'invalid_token' });
+		const unused = await issueSignInToken(db, { userId, now: now + 3 });
+		await setUserStatus(db, userId, 'disabled', now + 4);
+		expect(await loadPrincipal(db, session.sessionId, now + 5)).toBeNull();
+		await expect(consumeSignInToken(db, unused.rawToken, now + 5)).rejects.toMatchObject({ code: 'invalid_token' });
+		await expect(addPerson(db, { email: 'coach@gamma.example', actorUserId: admin.id, assignments: [] })).rejects.toMatchObject({ code: 'user_disabled' });
+		const disabledToken = await issueSignInToken(db, { userId, now: now + 6 });
+		await expect(consumeSignInToken(db, disabledToken.rawToken, now + 7)).rejects.toMatchObject({ code: 'user_disabled' });
+	});
+
+	it('cleans up failed deliveries without invalidating an earlier usable email', async () => {
+		const first = await issueSignInToken(db, { userId, now });
+		await expect(sendSignInLink(db, { sendSignInLink: async () => { throw new Error('Unavailable'); } }, { userId, email: 'gamma@example.com', origin: 'https://wsmc.example', now: now + 1 })).rejects.toThrow('Unavailable');
+		expect(await d1.prepare('SELECT COUNT(*) AS n FROM sign_in_tokens WHERE revoked_at IS NULL').first('n')).toBe(1);
+		await expect(consumeSignInToken(db, first.rawToken, now + 2)).resolves.toMatchObject({ userId });
+	});
+
+	it('limits public requests by shared IP, resets after ten minutes, and keeps identities independent', async () => {
+		const requests = await Promise.all(Array.from({ length: 61 }, () => allowAuthRequest(db, 'ip', '192.0.2.1', now)));
+		expect(requests.filter(Boolean)).toHaveLength(60);
+		expect(await allowAuthRequest(db, 'ip', '192.0.2.2', now)).toBe(true);
+		expect(await allowAuthRequest(db, 'ip', '192.0.2.1', now + 599_999)).toBe(false);
+		expect(await allowAuthRequest(db, 'ip', '192.0.2.1', now + 600_000)).toBe(true);
+		const keys = (await d1.prepare('SELECT key FROM auth_request_limits').all<{ key: string }>()).results;
+		expect(keys.every(row => !row.key.includes('192.0.2.'))).toBe(true);
 	});
 });

@@ -31,7 +31,7 @@ export class ResendEmailProvider implements EmailProvider {
 					from: this.from,
 					to: [message.to],
 					subject: 'Your WSMC sign-in link',
-					text: `Sign in to WSMC: ${message.url}\n\nThis link expires at ${new Date(message.expiresAt).toISOString()}.`,
+					text: `Sign in to WSMC: ${message.url}\n\nThis link works once and expires in 24 hours, on ${new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', dateStyle: 'long', timeStyle: 'short' }).format(message.expiresAt)} Pacific time.\n\nIf you did not request this email, you can ignore it.`,
 				}),
 			});
 		} catch (error) {

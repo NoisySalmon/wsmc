@@ -10,8 +10,8 @@ administration access.
 ## Sign in
 
 1. Open `/login` in the WSMC site.
-2. Enter the exact email address used for your invitation.
-3. Open the emailed one-time link within 20 minutes. It can be used only once.
+2. Enter the email address registered with WSMC.
+3. Open the emailed one-time link within 24 hours. It can be used only once. Press **Sign in** on the confirmation page.
 4. Select **Sign out** when finished.
 
 For local development, the server terminal prints the link when no production

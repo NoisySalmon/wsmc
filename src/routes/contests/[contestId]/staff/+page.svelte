@@ -7,7 +7,7 @@
 <main>
 	<p><a href="/contests/{data.contest.id}">← {data.contest.name}</a></p>
 	<h1>People · {data.contest.name}</h1>
-	<p>Add people by email. Existing accounts receive access without an email; new accounts receive a sign-in invitation. Disabled accounts must be re-enabled by an administrator.</p>
+	<p>Add people by email. Adding access does not send email. People can request a sign-in link themselves, or you can send one below. Disabled accounts must be re-enabled by an administrator.</p>
 	{#if data.contest.archived}<p>This season is archived. These lists show current coordinator and coach access. Manage access from the current season or Users &amp; access.</p>{/if}
 	{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}{#if form?.success}<p class="success" role="status">{form.success}</p>{/if}
 
@@ -26,7 +26,7 @@
 		<li><div><strong>{person.displayName || person.email}</strong><span>{person.email} · {person.status}</span></div>
 		{#if manageable && !data.contest.archived}<div class="actions">
 			{#if person.canGenerateQr}<form method="POST" action="?/qr"><input type="hidden" name="userId" value={person.userId} /><button type="submit">Show sign-in QR</button></form>{/if}
-			{#if person.status === 'pending'}<form method="POST" action="?/resend"><input type="hidden" name="role" value={role} /><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="userId" value={person.userId} /><button class="quiet" type="submit">Resend invitation</button></form>{/if}
+			{#if person.status !== 'disabled'}<form method="POST" action="?/sendEmail"><input type="hidden" name="role" value={role} /><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="userId" value={person.userId} /><button class="quiet" type="submit">Send sign-in email</button></form>{/if}
 			{#if role === 'scorekeeper' || data.canRemovePersistentAccess}<form method="POST" action="?/remove"><input type="hidden" name="role" value={role} /><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="userId" value={person.userId} /><button class="quiet" type="submit">{role === 'scorekeeper' ? 'Remove from this contest' : 'Remove access'}</button></form>{/if}
 		</div>{/if}</li>
 	{/snippet}

@@ -18,11 +18,18 @@ export const signInTokens = sqliteTable('sign_in_tokens', {
 	userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
 	tokenHash: text('token_hash').notNull().unique(),
 	purpose: text('purpose', { enum: ['invite', 'sign_in'] }).notNull(),
+	channel: text('channel', { enum: ['email', 'qr'] }).notNull().default('email'),
 	expiresAt: integer('expires_at').notNull(),
 	usedAt: integer('used_at'),
 	revokedAt: integer('revoked_at'),
 	createdAt: integer('created_at').notNull().default(timestamp()),
 }, (table) => [index('sign_in_tokens_user_idx').on(table.userId), check('sign_in_tokens_expiry_check', sql`${table.expiresAt} > ${table.createdAt}`)]);
+
+export const authRequestLimits = sqliteTable('auth_request_limits', {
+	key: text('key').primaryKey(),
+	count: integer('count').notNull(),
+	expiresAt: integer('expires_at').notNull(),
+}, (table) => [index('auth_request_limits_expiry_idx').on(table.expiresAt)]);
 
 export const sessions = sqliteTable('sessions', {
 	id: text('id').primaryKey(),

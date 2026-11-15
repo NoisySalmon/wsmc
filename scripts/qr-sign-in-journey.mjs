@@ -29,7 +29,14 @@ async function action(path, name, session, values, expected = 200) {
 	}
 }
 async function consume(qr, expected) {
-	const response = await fetch(qr.signInUrl, { redirect: 'manual' });
+	// Email scanners and browser prefetching must never consume the link.
+	for (const method of ['GET', 'HEAD']) {
+		const preview = await fetch(qr.signInUrl, { method, redirect: 'manual' });
+		assert.equal(preview.status, 200);
+		assert.equal(preview.headers.get('set-cookie'), null);
+		assert.equal(preview.headers.get('cache-control'), 'no-store');
+	}
+	const response = await fetch(qr.signInUrl, { method: 'POST', headers: { Origin: base, Accept: 'text/html' }, body: new URLSearchParams(), redirect: 'manual' });
 	assert.equal(response.status, expected);
 	if (expected === 303) {
 		const cookie = response.headers.get('set-cookie');
@@ -38,6 +45,39 @@ async function consume(qr, expected) {
 		assert.equal(home.status, 200, 'Scanned coach can use their assigned account');
 	}
 }
+
+// Account creation is silent. Explicit email actions work for pending and active
+// users, with one shared cooldown across administrators and public requests.
+await action(adminPath, 'add', admin, { email: 'new-signin@example.com', displayName: 'New Sign-in User', role: 'scorekeeper', contestId: 'contest-region-2' });
+const newUser = sql("SELECT id, status FROM users WHERE email = 'new-signin@example.com';")[0];
+assert.equal(newUser.status, 'pending');
+assert.equal(sql(`SELECT COUNT(*) AS n FROM sign_in_tokens WHERE user_id = '${newUser.id}';`)[0].n, 0);
+await action(adminPath, 'sendEmail', admin, { userId: newUser.id });
+const emailToken = sql(`SELECT id, channel, expires_at - created_at AS ttl FROM sign_in_tokens WHERE user_id = '${newUser.id}';`)[0];
+assert.equal(emailToken.channel, 'email');
+assert.equal(emailToken.ttl, 86400000);
+await action(adminPath, 'sendEmail', admin, { userId: newUser.id }, 429);
+const publicRequest = async (email) => {
+	const response = await fetch(`${base}/login`, { method: 'POST', headers: { Origin: base, Accept: 'application/json', 'x-sveltekit-action': 'true' }, body: new URLSearchParams({ email }) });
+	const result = await response.json();
+	assert.equal(result.status ?? response.status, 200);
+	return parse(result.data);
+};
+assert.deepEqual(await publicRequest('new-signin@example.com'), await publicRequest('unknown-signin@example.com'));
+assert.equal(sql(`SELECT COUNT(*) AS n FROM sign_in_tokens WHERE user_id = '${newUser.id}';`)[0].n, 1);
+// Expire the cooldown in the disposable fixture instead of waiting in real time.
+sql("DELETE FROM auth_request_limits WHERE key LIKE 'email:%';");
+await publicRequest('new-signin@example.com');
+assert.equal(sql(`SELECT COUNT(*) AS n FROM sign_in_tokens WHERE user_id = '${newUser.id}';`)[0].n, 2, 'Pending users can request their own email');
+sql("UPDATE auth_request_limits SET count = 60 WHERE key LIKE 'ip:%';");
+const limited = await fetch(`${base}/login`, { method: 'POST', headers: { Origin: base, Accept: 'text/html' }, body: new URLSearchParams({ email: 'unknown-signin@example.com' }) });
+assert.equal(limited.status, 429);
+assert.equal(limited.headers.get('retry-after'), '600');
+sql("DELETE FROM auth_request_limits WHERE key LIKE 'ip:%';");
+await action(staffPath, 'sendEmail', regional, { userId: 'user-coach-gamma', role: 'coach', schoolId: 'school-gamma' });
+await action(staffPath, 'sendEmail', regional, { userId: 'user-coach-gamma', role: 'coach', schoolId: 'school-gamma' }, 429);
+await action(staffPath, 'sendEmail', regional, { userId: 'user-coach-alpha-1', role: 'scorekeeper' }, 403);
+await action(adminPath, 'sendEmail', regional, { userId: newUser.id }, 403);
 
 sql("INSERT INTO sessions (id, user_id, expires_at, created_at, last_seen_at) VALUES ('qr-scorekeeper-session', 'user-scorekeeper-2', 4102444800000, 1700000000000, 1700000000000);");
 
@@ -99,6 +139,7 @@ if (process.env.WSMC_VERIFY_QR_IMAGE === '1') {
 	const decoded = execFileSync('zbarimg', ['--quiet', '--raw', pngPath], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 	assert.equal(decoded, first.signInUrl, 'A separate decoder reads the actual QR credential');
 }
+assert.equal(sql("SELECT COUNT(*) AS n FROM sign_in_tokens WHERE user_id = 'user-coach-gamma' AND channel = 'email' AND revoked_at IS NULL;")[0].n, 1, 'Showing a QR preserves email links');
 await consume(first, 303);
 await consume(first, 400);
 assert.equal(sql("SELECT status FROM users WHERE id = 'user-coach-gamma';")[0].status, 'active');
@@ -127,4 +168,4 @@ const audit = sql("SELECT actor_user_id, details_json FROM audit_events WHERE ac
 assert(audit.some(row => row.actor_user_id === 'user-regional-coordinator-2'));
 assert(audit.some(row => row.actor_user_id === 'user-coordinator'));
 assert(audit.every(row => !row.details_json.includes('auth/callback') && !row.details_json.includes(rawToken)));
-console.log('QR sign-in journey passed: authorization, activation, replay, expiry, replacement, revocation, disabled users, and local encoding.');
+console.log('Email and QR sign-in journey passed: silent creation, explicit emails, shared cooldown, public IP throttling, scanner-safe confirmation, authorization, activation, replay, expiry, replacement, revocation, disabled users, and local encoding.');

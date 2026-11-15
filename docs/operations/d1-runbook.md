@@ -82,7 +82,11 @@ finalization. Migration `0013` requires one qualification round per kind and
 season; it intentionally fails if competing rounds already exist, so inspect
 and reconcile duplicates rather than deleting decisions automatically.
 Existing unpublished qualification drafts must be saved and reviewed again
-after this upgrade; published qualifications remain intact.
+after this upgrade; published qualifications remain intact. Migration `0014` adds
+email/QR delivery channels and shared request throttling. It classifies existing
+five-minute tokens as QR codes and preserves their expiry, usage, and revocation
+state. Apply it before deploying the updated sign-in flow; no additional
+Cloudflare dashboard configuration or bindings are required.
 
 Verify coordinator access, email environment values and encrypted credentials,
 Knowdown outcomes, and publication state against the migrated database before

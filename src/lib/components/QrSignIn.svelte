@@ -14,13 +14,13 @@
 	<p>{qr.email}</p>
 	{#if remaining > 0}
 		<img src={qr.image} alt="Single-use sign-in QR code for {qr.email}" width="320" height="320" />
-		<p>Ask this person to scan with their phone camera and open the link.</p>
+		<p>Ask this person to scan with their phone camera and open the link, then press Sign in.</p>
 		<details><summary>Sign-in link if the camera cannot scan</summary><label>Single-use sign-in link <input readonly value={qr.signInUrl} /></label></details>
 		<p>Expires in {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}. It can be used once.</p>
 	{:else}
 		<p role="status">This code has expired. Generate a new code if needed.</p>
 	{/if}
-	<p>Anyone who scans this code can sign in as this person. Show it only to them. Earlier unused sign-in links and codes have been replaced.</p>
+	<p>Anyone who scans this code can sign in as this person. Show it only to them. Earlier unused QR codes have been replaced. Emailed links remain usable.</p>
 	<form method="POST" action="?/revokeQr">
 		<input type="hidden" name="userId" value={qr.userId} />
 		<input type="hidden" name="tokenId" value={qr.tokenId} />

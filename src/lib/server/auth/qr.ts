@@ -2,7 +2,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import qrcode from 'qrcode-generator';
 import { getDb, schema, type Database } from '$lib/server/db';
 import { canAdministerUsers, type Principal } from './capabilities';
-import { AuthError, issueSignInToken, revokeUserTokens } from './service';
+import { AuthError, issueSignInToken } from './service';
 import { resolveAppOrigin } from './email';
 import { error, fail, type Actions } from '@sveltejs/kit';
 
@@ -38,8 +38,11 @@ async function authorizeTarget(db: Database, actor: Principal | null, userId: st
 
 export async function issueQrSignIn(db: Database, actor: Principal | null, input: { userId: string; origin: string; contestId?: string }) {
 	const user = await authorizeTarget(db, actor, input.userId, input.contestId);
-	await revokeUserTokens(db, user.id);
-	const token = await issueSignInToken(db, { userId: user.id, ttlMs: QR_TTL_MS });
+	await db.update(schema.signInTokens).set({ revokedAt: Date.now() }).where(and(
+		eq(schema.signInTokens.userId, user.id), eq(schema.signInTokens.channel, 'qr'),
+		isNull(schema.signInTokens.usedAt), isNull(schema.signInTokens.revokedAt),
+	));
+	const token = await issueSignInToken(db, { userId: user.id, ttlMs: QR_TTL_MS, channel: 'qr' });
 	const qr = qrcode(0, 'M');
 	const signInUrl = `${input.origin}/auth/callback/${token.rawToken}`;
 	qr.addData(signInUrl);

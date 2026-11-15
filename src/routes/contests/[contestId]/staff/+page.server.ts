@@ -64,15 +64,15 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 
 export const actions: Actions = {
 	...qrActions('contest'),
-	add: async ({ locals, platform, params, request, url }) => {
+	add: async ({ locals, platform, params, request }) => {
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const db = getDb(platform.env.DB);
 		const contest = await authorizedContest(locals, db, params.contestId);
 		const data = await request.formData();
 		const assignment = await readAssignment(db, locals, contest, data);
 		try {
-			const result = await addPerson(db, createEmailProvider(platform.env), { actorUserId: locals.principal!.id, email: text(data, 'email'), displayName: text(data, 'displayName'), origin: resolveAppOrigin(platform.env, url.origin), assignments: [assignment] });
-			return { success: result.invited ? `Invitation sent to ${result.user.email}.` : `Access added for ${result.user.email}. No email was sent.` };
+			const result = await addPerson(db, { actorUserId: locals.principal!.id, email: text(data, 'email'), displayName: text(data, 'displayName'), assignments: [assignment] });
+			return { success: `Access added for ${result.user.email}. No email was sent.` };
 		} catch (cause) {
 			return fail(400, { error: cause instanceof AuthError ? cause.message : 'Person could not be added.' });
 		}
@@ -89,7 +89,7 @@ export const actions: Actions = {
 		await removeAssignment(db, { ...assignment, userId }, locals.principal!.id);
 		return { success: assignment.kind === 'scorekeeper' ? 'Assignment removed from this contest.' : 'Access removed across seasons.' };
 	},
-	resend: async ({ locals, platform, params, request, url }) => {
+	sendEmail: async ({ locals, platform, params, request, url }) => {
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const db = getDb(platform.env.DB);
 		const contest = await authorizedContest(locals, db, params.contestId);
@@ -103,8 +103,13 @@ export const actions: Actions = {
 				: await db.select().from(schema.scorekeeperAssignments).where(and(eq(schema.scorekeeperAssignments.userId, userId), eq(schema.scorekeeperAssignments.contestId, contest.id)));
 		if (!membership) throw error(403, 'Person is not assigned here.');
 		const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId));
-		if (!user || user.status !== 'pending') return fail(400, { error: 'Choose a pending account.' });
-		await sendSignInLink(db, createEmailProvider(platform.env), { userId, email: user.email, origin: resolveAppOrigin(platform.env, url.origin), purpose: 'invite' });
-		return { success: `Invitation resent to ${user.email}. Earlier outstanding links have been replaced.` };
+		if (!user || user.status === 'disabled') return fail(400, { error: 'Choose an enabled account.' });
+		try {
+			await sendSignInLink(db, createEmailProvider(platform.env), { userId, email: user.email, origin: resolveAppOrigin(platform.env, url.origin) });
+			return { success: `Sign-in email sent to ${user.email}. The link works once and expires in 24 hours.` };
+		} catch (cause) {
+			if (cause instanceof AuthError) return fail(cause.code === 'rate_limited' ? 429 : 400, { error: cause.message });
+			return fail(502, { error: 'Email could not be sent. Please wait one minute and try again.' });
+		}
 	},
 };

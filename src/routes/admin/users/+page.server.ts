@@ -64,34 +64,38 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 
 export const actions: Actions = {
 	...qrActions('admin'),
-	add: async ({ locals, platform, request, url }) => {
+	add: async ({ locals, platform, request }) => {
 		requireUserAdmin(locals);
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const data = await request.formData();
 		try {
 			const email = requiredText(data.get('email'), 'Email');
-			const result = await addPerson(getDb(platform.env.DB), createEmailProvider(platform.env), {
+			const result = await addPerson(getDb(platform.env.DB), {
 				email,
 				actorUserId: locals.principal!.id,
 				displayName: textValue(data.get('displayName')),
 				assignments: [readAssignment(data)],
-				origin: resolveAppOrigin(platform.env, url.origin),
 			});
-			return { success: result.invited ? `Invitation sent to ${result.user.email}.` : `Access added for ${result.user.email}. No email was sent.` };
+			return { success: `Access added for ${result.user.email}. No email was sent.` };
 		} catch (cause) {
 			if (cause instanceof AuthError) return fail(400, { error: cause.message });
 			return fail(400, { error: 'Access could not be added. Check the assignment and try again.' });
 		}
 	},
-	resend: async ({ locals, platform, request, url }) => {
+	sendEmail: async ({ locals, platform, request, url }) => {
 		requireUserAdmin(locals);
 		if (!platform?.env.DB) throw error(503, 'Database unavailable.');
 		const db = getDb(platform.env.DB);
 		const data = await request.formData();
 		const [user] = await db.select().from(schema.users).where(eq(schema.users.id, textValue(data.get('userId'))));
-		if (!user || user.status !== 'pending') return fail(400, { error: 'Choose a pending account.' });
-		await sendSignInLink(db, createEmailProvider(platform.env), { userId: user.id, email: user.email, origin: resolveAppOrigin(platform.env, url.origin), purpose: 'invite' });
-		return { success: `Invitation resent to ${user.email}. Earlier outstanding links have been replaced.` };
+		if (!user || user.status === 'disabled') return fail(400, { error: 'Choose an enabled account.' });
+		try {
+			await sendSignInLink(db, createEmailProvider(platform.env), { userId: user.id, email: user.email, origin: resolveAppOrigin(platform.env, url.origin) });
+			return { success: `Sign-in email sent to ${user.email}. The link works once and expires in 24 hours.` };
+		} catch (cause) {
+			if (cause instanceof AuthError) return fail(cause.code === 'rate_limited' ? 429 : 400, { error: cause.message });
+			return fail(502, { error: 'Email could not be sent. Please wait one minute and try again.' });
+		}
 	},
 	revoke: async ({ locals, platform, request }) => {
 		requireUserAdmin(locals);

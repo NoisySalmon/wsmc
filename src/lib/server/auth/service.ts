@@ -3,10 +3,11 @@ import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
 import { normalizeEmail, randomToken, sha256 } from './crypto';
 import type { EmailProvider } from './email';
+import { allowAuthRequest } from './rate-limit';
 import type { Principal } from './capabilities';
 
 export const SESSION_COOKIE = 'wsmc_session';
-export const SIGN_IN_TOKEN_TTL_MS = 20 * 60 * 1000;
+export const SIGN_IN_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export type InviteAssignment =
@@ -28,20 +29,32 @@ export function isSignInTokenUsable(token: { revokedAt: number | null; usedAt: n
 
 export async function issueSignInToken(
 	db: Database,
-	input: { userId: string; purpose?: 'invite' | 'sign_in'; now?: number; ttlMs?: number },
+	input: { userId: string; purpose?: 'invite' | 'sign_in'; now?: number; ttlMs?: number; channel?: 'email' | 'qr' },
 ) {
 	const now = input.now ?? Date.now();
 	const expiresAt = now + (input.ttlMs ?? SIGN_IN_TOKEN_TTL_MS);
 	const rawToken = randomToken();
 	const id = crypto.randomUUID();
-	await db.insert(schema.signInTokens).values({
+	const insert = db.insert(schema.signInTokens).values({
 		id,
 		userId: input.userId,
 		tokenHash: await sha256(rawToken),
 		purpose: input.purpose ?? 'sign_in',
+		channel: input.channel ?? 'email',
 		expiresAt,
 		createdAt: now,
 	});
+	if (input.channel === 'qr') {
+		await insert;
+	} else {
+		// Retain the newest three email links, so delayed mail remains useful.
+		await db.batch([insert, db.update(schema.signInTokens).set({ revokedAt: now }).where(sql`
+			${schema.signInTokens.id} IN (
+				SELECT id FROM sign_in_tokens WHERE user_id = ${input.userId} AND channel = 'email'
+				AND used_at IS NULL AND revoked_at IS NULL AND expires_at > ${now}
+				ORDER BY created_at DESC, rowid DESC LIMIT -1 OFFSET 3
+			)`)]);
+	}
 	return { id, rawToken, expiresAt };
 }
 
@@ -50,32 +63,17 @@ export async function sendSignInLink(
 	provider: EmailProvider,
 	input: { userId: string; email: string; origin: string; purpose?: 'invite' | 'sign_in'; now?: number },
 ) {
-	await revokeUserTokens(db, input.userId, input.now);
-	const token = await issueSignInToken(db, input);
-	await provider.sendSignInLink({ to: input.email, url: `${input.origin}/auth/callback/${token.rawToken}`, expiresAt: token.expiresAt });
-	return token;
-}
-
-/** Create or update an invited user and attach all requested assignments. */
-export async function inviteUser(
-	db: Database,
-	provider: EmailProvider,
-	input: { email: string; displayName?: string; assignments: InviteAssignment[]; actorUserId: string; origin: string; now?: number },
-) {
-	const email = normalizeEmail(input.email);
-	const now = input.now ?? Date.now();
-	let user = await findUserByEmail(db, email);
-	if (user?.status === 'disabled') throw new AuthError('user_disabled', 'Disabled users cannot be invited until re-enabled.');
-	if (!user) {
-		[user] = await db.insert(schema.users).values({ id: crypto.randomUUID(), email, displayName: input.displayName ?? '', status: 'pending', createdAt: now, updatedAt: now }).returning();
-	} else if (input.displayName && input.displayName !== user.displayName) {
-		[user] = await db.update(schema.users).set({ displayName: input.displayName, updatedAt: now }).where(eq(schema.users.id, user.id)).returning();
+	if (!await allowAuthRequest(db, 'email', input.userId, input.now)) {
+		throw new AuthError('rate_limited', 'A sign-in email was recently requested. Please wait one minute before trying again.');
 	}
-
-	await attachAssignments(db, user.id, input.assignments, now, input.actorUserId);
-
-	const token = await sendSignInLink(db, provider, { userId: user.id, email: user.email, origin: input.origin, purpose: 'invite', now });
-	return { user, token };
+	const token = await issueSignInToken(db, input);
+	try {
+		await provider.sendSignInLink({ to: input.email, url: `${input.origin}/auth/callback/${token.rawToken}`, expiresAt: token.expiresAt });
+	} catch (cause) {
+		await db.update(schema.signInTokens).set({ revokedAt: Date.now() }).where(eq(schema.signInTokens.id, token.id));
+		throw cause;
+	}
+	return token;
 }
 
 /** Add permissions to an existing account without sending or invalidating a sign-in link. */
@@ -90,21 +88,22 @@ export async function addUserAssignments(
 	return { user };
 }
 
-/** Add access by email, inviting only people who do not yet have an account. */
+/** Create accounts and grant access without issuing credentials or sending email. */
 export async function addPerson(
 	db: Database,
-	provider: EmailProvider,
-	input: { email: string; displayName?: string; assignments: InviteAssignment[]; actorUserId: string; origin: string },
+	input: { email: string; displayName?: string; assignments: InviteAssignment[]; actorUserId: string },
 ) {
 	if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) throw new AuthError('invalid_request', 'Enter a valid email address.');
 	const existing = await findUserByEmail(db, input.email);
 	if (existing) {
 		const { user } = await addUserAssignments(db, { userId: existing.id, assignments: input.assignments, actorUserId: input.actorUserId });
-		return { user, invited: false };
+		return { user, created: false };
 	}
 	if (!input.displayName?.trim()) throw new AuthError('invalid_request', 'Name is required for a new account.');
-	const { user } = await inviteUser(db, provider, input);
-	return { user, invited: true };
+	const now = Date.now();
+	const [user] = await db.insert(schema.users).values({ id: crypto.randomUUID(), email: normalizeEmail(input.email), displayName: input.displayName.trim(), status: 'pending', createdAt: now, updatedAt: now }).returning();
+	await attachAssignments(db, user.id, input.assignments, now, input.actorUserId);
+	return { user, created: true };
 }
 
 async function attachAssignments(db: Database, userId: string, assignments: InviteAssignment[], now: number, actorUserId: string): Promise<void> {
@@ -137,9 +136,17 @@ export async function consumeSignInToken(db: Database, rawToken: string, now = D
 	const [user] = await db.select().from(schema.users).where(eq(schema.users.id, token.userId));
 	if (!user || user.status === 'disabled') throw new AuthError('user_disabled', 'This account is disabled.');
 
-	const updated = await db.update(schema.signInTokens).set({ usedAt: now }).where(
-		and(eq(schema.signInTokens.id, token.id), isNull(schema.signInTokens.usedAt), isNull(schema.signInTokens.revokedAt)),
+	const claim = db.update(schema.signInTokens).set({ usedAt: now }).where(
+		and(eq(schema.signInTokens.id, token.id), isNull(schema.signInTokens.usedAt), isNull(schema.signInTokens.revokedAt), gt(schema.signInTokens.expiresAt, now)),
 	).returning({ id: schema.signInTokens.id });
+	const [updated] = await db.batch([claim,
+		// Revoke sibling email links atomically with the claim, preventing parallel use.
+		db.update(schema.signInTokens).set({ revokedAt: now }).where(and(
+			eq(schema.signInTokens.userId, user.id), eq(schema.signInTokens.channel, 'email'),
+			isNull(schema.signInTokens.usedAt), isNull(schema.signInTokens.revokedAt),
+			sql`changes() = 1`,
+		)),
+	]);
 	if (updated.length !== 1) throw new AuthError('token_replayed', 'This sign-in link has already been used.');
 
 	const sessionId = randomToken(32);
