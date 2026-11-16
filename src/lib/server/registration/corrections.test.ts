@@ -36,6 +36,38 @@ async function fixture() {
 
 // Real D1 startup, seeding and multi-stage journeys need more than 5s on CI.
 describe('contest-day registration corrections', { timeout: 15_000 }, () => {
+	it('writes only changed regional memberships and leaves unchanged saves at the same scoring revision', async () => {
+		const { db, d1 } = await fixture();
+		// Observe actual storage writes, including redundant replacements with identical values.
+		await d1.exec('CREATE TABLE membership_writes (operation TEXT, entry_id TEXT, student_id TEXT, grade INTEGER)');
+		for (const operation of ['INSERT', 'UPDATE', 'DELETE']) {
+			const row = operation === 'DELETE' ? 'OLD' : 'NEW';
+			await d1.prepare(`CREATE TRIGGER record_membership_${operation} AFTER ${operation} ON entry_members BEGIN INSERT INTO membership_writes VALUES ('${operation}', ${row}.entry_id, ${row}.annual_student_id, ${row}.competing_grade); END`).run();
+		}
+		const revision = () => d1.prepare('SELECT scoring_revision FROM contests WHERE id = ?').bind(scope.contestId).first('scoring_revision');
+		const writes = async () => (await d1.prepare('SELECT * FROM membership_writes ORDER BY operation, entry_id, student_id').all()).results;
+		const before = await revision();
+		await saveContestWorksheet(db, { ...scope, students: students().reverse() });
+		expect(await writes()).toEqual([]);
+		expect(await revision()).toBe(before);
+
+		const teamId = async (number: number) => String((await d1.prepare("SELECT id FROM entries WHERE contest_id = ? AND owner_school_id = ? AND category = 'team_contest' AND entry_number = ?").bind(scope.contestId, scope.schoolId, number).first())!.id);
+		const firstTeam = await teamId(1), secondTeam = await teamId(2);
+		const changed = students().map(row => ({ ...row, teamGrade: row.studentId === 'student-alpha-10' ? 11 : null }));
+		changed[2].team = 2;
+		await saveContestWorksheet(db, { ...scope, students: changed });
+		expect(await writes()).toEqual([
+			{ operation: 'DELETE', entry_id: firstTeam, student_id: 'student-alpha-12', grade: 12 },
+			{ operation: 'INSERT', entry_id: secondTeam, student_id: 'student-alpha-12', grade: 12 },
+			{ operation: 'UPDATE', entry_id: firstTeam, student_id: 'student-alpha-10', grade: 11 },
+		]);
+		expect((await d1.prepare("SELECT entry_id, annual_student_id, competing_grade FROM entry_members WHERE entry_id IN (?, ?) ORDER BY annual_student_id").bind(firstTeam, secondTeam).all()).results).toEqual([
+			{ entry_id: firstTeam, annual_student_id: 'student-alpha-10', competing_grade: 11 },
+			{ entry_id: secondTeam, annual_student_id: 'student-alpha-11', competing_grade: 11 },
+			{ entry_id: secondTeam, annual_student_id: 'student-alpha-12', competing_grade: 12 },
+		]);
+	});
+
 	it('keeps school roster loads and replacements isolated from other participating schools', async () => {
 		const { d1, event } = await fixture();
 		const coach = { ...principal, id: 'user-coach-alpha-1', regionalContestIds: [], coachAssignments: [{ schoolId: scope.schoolId }] };

@@ -572,8 +572,17 @@ export async function saveContestWorksheet(
 	for (const e of removed) operations.push(db.delete(schema.entries).where(eq(schema.entries.id, e.id)));
 	for (const e of planned) {
 		if (!existingIds.includes(e.id)) operations.push(db.insert(schema.entries).values({ id: e.id, contestId: input.contestId, ownerSchoolId: input.schoolId, category: e.category, entryKind: e.entryKind, entryNumber: e.entryNumber, division: participation.division }));
-		else operations.push(db.delete(schema.entryMembers).where(eq(schema.entryMembers.entryId, e.id)));
-		for (const m of e.members) operations.push(db.insert(schema.entryMembers).values({ entryId: e.id, annualStudentId: m.studentId, competingGrade: m.competingGrade }));
+		// Keep unchanged memberships: replacing them spends writes and advances scoring_revision.
+		const priorMembers = new Map(members.filter(m => m.entryId === e.id).map(m => [m.annualStudentId, m]));
+		const wantedIds = new Set(e.members.map(m => m.studentId));
+		for (const prior of priorMembers.values()) {
+			if (!wantedIds.has(prior.annualStudentId)) operations.push(db.delete(schema.entryMembers).where(and(eq(schema.entryMembers.entryId, e.id), eq(schema.entryMembers.annualStudentId, prior.annualStudentId))));
+		}
+		for (const m of e.members) {
+			const prior = priorMembers.get(m.studentId);
+			if (!prior) operations.push(db.insert(schema.entryMembers).values({ entryId: e.id, annualStudentId: m.studentId, competingGrade: m.competingGrade }));
+			else if (prior.competingGrade !== m.competingGrade) operations.push(db.update(schema.entryMembers).set({ competingGrade: m.competingGrade }).where(and(eq(schema.entryMembers.entryId, e.id), eq(schema.entryMembers.annualStudentId, m.studentId))));
+		}
 	}
 	const attendingIds = new Set(attending.map(s => s.studentId));
 	const rosterIds = new Set(roster.map(s => s.annualStudentId));
