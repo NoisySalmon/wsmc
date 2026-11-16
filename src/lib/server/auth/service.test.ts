@@ -3,7 +3,7 @@ import { Miniflare } from 'miniflare';
 import { readFileSync, readdirSync } from 'node:fs';
 import { getDb } from '$lib/server/db';
 import { sha256 } from './crypto';
-import { addPerson, consumeSignInToken, issueSignInToken, loadPrincipal, removeAssignment, sendSignInLink, setUserStatus } from './service';
+import { addPerson, consumeSignInToken, issueSignInToken, loadPrincipal, removeAssignment, revokeSession, sendSignInLink, SESSION_TOUCH_INTERVAL_MS, setUserStatus } from './service';
 import { allowAuthRequest } from './rate-limit';
 import { issueQrSignIn } from './qr';
 
@@ -111,5 +111,21 @@ describe('passwordless account access in D1', () => {
 		expect(await allowAuthRequest(db, 'ip', '192.0.2.1', now + 600_000)).toBe(true);
 		const keys = (await d1.prepare('SELECT key FROM auth_request_limits').all<{ key: string }>()).results;
 		expect(keys.every(row => !row.key.includes('192.0.2.'))).toBe(true);
+	});
+});
+
+describe('per-request principal loading', () => {
+	it('touches a session at most once per interval and rejects revoked or expired sessions', async () => {
+		const token = await issueSignInToken(db, { userId, now });
+		const session = await consumeSignInToken(db, token.rawToken, now + 1);
+		const lastSeen = () => d1.prepare('SELECT last_seen_at FROM sessions WHERE id = ?').bind(session.sessionId).first('last_seen_at');
+		expect(await loadPrincipal(db, session.sessionId, now + 60_000)).toMatchObject({ id: userId, isAdmin: false });
+		expect(await lastSeen()).toBe(now + 1);
+		await loadPrincipal(db, session.sessionId, now + 1 + SESSION_TOUCH_INTERVAL_MS);
+		expect(await lastSeen()).toBe(now + 1 + SESSION_TOUCH_INTERVAL_MS);
+		expect(await loadPrincipal(db, 'unknown-session', now + 2)).toBeNull();
+		expect(await loadPrincipal(db, session.sessionId, session.expiresAt)).toBeNull();
+		await revokeSession(db, session.sessionId, now + 3);
+		expect(await loadPrincipal(db, session.sessionId, now + 4)).toBeNull();
 	});
 });

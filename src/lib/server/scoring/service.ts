@@ -79,8 +79,11 @@ async function requireScoringContest(db: Database, contestId: string, allowFinal
 	return contest;
 }
 
-export async function getScoringSnapshot(db: Database, contestId: string) {
-	const contest = await requireScoringContest(db, contestId, true);
+type ScoringContest = Awaited<ReturnType<typeof requireScoringContest>>;
+
+/** Pass a contest the caller already loaded to avoid reading it again. */
+export async function getScoringSnapshot(db: Database, contestId: string, loaded?: ScoringContest) {
+	const contest = loaded?.id === contestId && ['roster_locked', 'scoring', 'finalized'].includes(loaded.lifecycle) ? loaded : await requireScoringContest(db, contestId, true);
 	const rows = await db.select({
 		entry: schema.entries,
 		result: schema.results,
@@ -214,17 +217,18 @@ export function findDuplicateKnowdownPlaces(rows: { entryId: string; category: s
 	return [...entriesByPlace].filter(([, entryIds]) => entryIds.length > 1).map(([placement, entryIds]) => ({ placement, entryIds }));
 }
 
-export async function getFinalizationReport(db: Database, contestId: string) {
-	const contest = await requireScoringContest(db, contestId, true);
-	const rows = await db.select({ entry: schema.entries, result: schema.results, schoolName: schema.schools.shortName })
-		.from(schema.entries).leftJoin(schema.results, eq(schema.results.entryId, schema.entries.id)).leftJoin(schema.schools, eq(schema.schools.id, schema.entries.ownerSchoolId))
-		.where(and(activeEntry(), eq(schema.entries.contestId, contest.id)));
-	const missing = rows.filter(({ entry, result }) => {
-		if (entry.category === 'topical_team' || entry.category === 'topical_individual') return result?.part1 === null || result?.part1 === undefined || result?.part2 === null || result?.part2 === undefined;
+type ScoringSnapshot = Awaited<ReturnType<typeof getScoringSnapshot>>;
+
+/** Pass the snapshot a page already loaded: the report is derived from the same entries and results. */
+export async function getFinalizationReport(db: Database, contestId: string, loaded?: ScoringSnapshot) {
+	const snapshot = loaded?.contest.id === contestId ? loaded : await getScoringSnapshot(db, contestId);
+	const { contest } = snapshot;
+	const missing = snapshot.entries.filter((entry) => {
+		if (entry.category === 'topical_team' || entry.category === 'topical_individual') return entry.part1 === null || entry.part2 === null;
 		if (entry.category === 'knowdown') return false;
-		return result?.score === null || result?.score === undefined;
-	}).map(({ entry, result, schoolName }) => ({ entryId: entry.id, category: entry.category, entryNumber: entry.entryNumber, division: entry.division, schoolName: schoolName || 'Statewide entry', resultVersion: result?.version ?? 0 }));
-	const duplicateKnowdownPlaces = findDuplicateKnowdownPlaces(rows.map(({ entry, result }) => ({ entryId: entry.id, category: entry.category, placement: result?.placement ?? null, knowdownOutcome: result?.knowdownOutcome ?? null })));
+		return entry.score === null;
+	}).map((entry) => ({ entryId: entry.id, category: entry.category, entryNumber: entry.entryNumber, division: entry.division, schoolName: entry.schoolName, resultVersion: entry.version }));
+	const duplicateKnowdownPlaces = findDuplicateKnowdownPlaces(snapshot.entries.map((entry) => ({ entryId: entry.id, category: entry.category, placement: entry.placement, knowdownOutcome: entry.knowdownOutcome })));
 	const adHocNeedsAttention = contest.kind === 'state' && (await getAdHocDashboard(db, contestId)).some(pool => pool.needsRegeneration);
 	return { contest, missing, duplicateKnowdownPlaces, adHocNeedsAttention, complete: !adHocNeedsAttention && missing.length === 0 && duplicateKnowdownPlaces.length === 0 };
 }

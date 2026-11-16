@@ -303,7 +303,7 @@ export async function createProjectTeam(db: Database, input: { contestId: string
 	const participation = await requireParticipation(db, input.contestId, input.schoolId);
 	const uniqueIds = [...new Set(input.members.map((member) => member.studentId).filter(Boolean))];
 	if (uniqueIds.length === 0) throw new RegistrationError('empty_team', 'Select at least one student for the project team.');
-	if (uniqueIds.length > contest.knowdownLimit) throw new RegistrationError('team_too_large', 'A team may have at most 3 members.');
+	if (uniqueIds.length > 3) throw new RegistrationError('team_too_large', 'A team may have at most 3 members.');
 	const studentsById = await loadStudentGrades(db, contest.seasonId, input.schoolId);
 	const rostered = await loadRosteredIds(db, input.contestId);
 	const seenGrades = new Set<number>();

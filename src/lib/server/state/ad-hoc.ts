@@ -5,7 +5,8 @@ import { planAdHocTeams } from './ad-hoc-planner';
 import { StateError } from './service';
 
 export async function getAdHocDashboard(db: Database, contestId: string, schoolId?: string) {
- const generations = await db.select().from(schema.auditEvents).where(and(eq(schema.auditEvents.contestId, contestId), eq(schema.auditEvents.action, 'ad_hoc_regenerated')));
+ // Seek by entity: the contest index would scan every audit row the contest has ever written.
+ const generations = await db.select().from(schema.auditEvents).where(and(eq(schema.auditEvents.entityType, 'ad_hoc_teams'), inArray(schema.auditEvents.entityId, adHocCategories), eq(schema.auditEvents.contestId, contestId), eq(schema.auditEvents.action, 'ad_hoc_regenerated')));
  const signups = await db.select({ signup: schema.stateAdHocSignups, student: schema.annualStudents, schoolName: schema.schools.name }).from(schema.stateAdHocSignups)
   .innerJoin(schema.annualStudents, eq(schema.annualStudents.id, schema.stateAdHocSignups.annualStudentId))
   .innerJoin(schema.schools, eq(schema.schools.id, schema.stateAdHocSignups.schoolId))

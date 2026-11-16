@@ -35,8 +35,8 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	if (!['roster_locked', 'scoring', 'finalized'].includes(contest.lifecycle)) {
 		throw error(409, 'Scoring is available after registration closes and the roster is locked.');
 	}
-	const snapshot = await getScoringSnapshot(db, params.contestId);
-	const report = await getFinalizationReport(db, params.contestId);
+	const snapshot = await getScoringSnapshot(db, params.contestId, contest);
+	const report = await getFinalizationReport(db, params.contestId, snapshot);
 	return {
 		contest: snapshot.contest,
 		entries: snapshot.entries,

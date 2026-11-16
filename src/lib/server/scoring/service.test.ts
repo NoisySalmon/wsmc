@@ -35,7 +35,9 @@ describe('score validation', () => {
 			return { select: () => ({ from: () => {
 				const current = query++;
 				if (current === 0) return { where: async () => [{ id: 'contest-1', kind: 'regional', seasonId: 'season-1', lifecycle: 'scoring' }] };
-				const joined = { leftJoin: () => joined, where: async () => rows };
+				// The report is derived from the scoring snapshot: entries first, then entry members.
+				const found = current === 1 ? rows : [];
+				const joined = { leftJoin: () => joined, innerJoin: () => joined, where: () => Object.assign(Promise.resolve(found), { orderBy: async () => found }) };
 				return joined;
 			} }) } as never;
 		};

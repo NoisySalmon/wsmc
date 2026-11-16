@@ -96,6 +96,17 @@ print(json.dumps(statements))
  await assert.rejects(saveQualificationDraft(db, input), {code:'locked'});
 
  const dashboard = await getStateDashboard(db, stateId);
+ const { scopeStateDashboard } = await vite.ssrLoadModule('/src/lib/server/state/access.ts');
+ // Database scoping must preserve the coach-visible records of the full dashboard.
+ for (const ids of [[], ...dashboard.qualifiedSchools.map(s => [s.schoolId])]) {
+  const scoped = await getStateDashboard(db, stateId, ids);
+  const expected = scopeStateDashboard(dashboard, new Set(ids));
+  // Query plans may change row order; compare records by value.
+  for (const key of Object.keys(expected)) {
+   const canonical = value => Array.isArray(value) ? value.map(row => JSON.stringify(row)).sort() : value;
+   assert.deepEqual(canonical(scoped[key]), canonical(expected[key]), `Scoped dashboard: ${key}`);
+  }
+ }
  assert(dashboard.qualifiedSchools.length > 1);
  assert(dashboard.qualifiedSchools.every(school => Number.isInteger(school.regionNumber)));
  // Find a fictional fixture with both team and individual qualifications.
@@ -178,6 +189,30 @@ print(json.dumps(statements))
  assert((await attendance('resume',admin,true,undecided)).success);
  assert.equal((await first('SELECT intent FROM state_attendances WHERE contest_id=? AND school_id=?',stateId,undecided)).intent,'undecided');
  assert.equal((await getStateWorksheet(db,stateId,undecided)).saved,false);
+ // Bulk attendance saves every undecided school, skips withdrawn/decided schools,
+ // and is idempotent. Exercise the authorized route against real D1 storage.
+ assert((await attendance('withdraw',admin,true,undecided)).success);
+ const bulkBefore = await getStateDashboard(db, stateId);
+ const decidedSheetBeforeBulk = await rawSheet();
+ const targets = bulkBefore.qualifiedSchools.filter(s => s.schoolId !== undecided && !bulkBefore.attendance.some(a => a.schoolId === s.schoolId && a.intent !== 'undecided'));
+ assert(targets.length > 1);
+ const bulk = () => actions.bulkAttendance({
+  locals:{principal:admin}, platform:{env:{DB:d1}}, params:{contestId:stateId},
+  request:new Request('http://localhost/state/test?/bulkAttendance', {method:'POST',body:new URLSearchParams({intent:'not_attending'})}),
+ });
+ const bulkResult = await bulk();
+ assert.equal(bulkResult.error, undefined);
+ assert.equal(bulkResult.success, `${targets.length} schools opted out.`);
+ for (const target of targets) {
+  const worksheet = await getStateWorksheet(db, stateId, target.schoolId);
+  assert(worksheet.saved);
+  assert(worksheet.rows.every(row => !row.attending));
+  assert.equal(await count('SELECT count(*) n FROM state_roster_members WHERE contest_id=? AND school_id=?', stateId, target.schoolId), 0);
+ }
+ assert.equal((await getStateWorksheet(db,stateId,undecided)).saved,false);
+ assert.equal(await rawSheet(),decidedSheetBeforeBulk);
+ assert.deepEqual(await activeCounts(),active);
+ assert.equal((await bulk()).success, '0 schools opted out.');
  await d1.prepare("UPDATE contests SET lifecycle='roster_locked' WHERE id=?").bind(stateId).run();
  assert.equal((await attendance('withdraw')).status,400);
  assert((await attendance('withdraw',admin)).success);

@@ -1,12 +1,11 @@
 import { getAdHocDashboard, regenerateAdHocTeams } from '$lib/server/state/ad-hoc';
 import type { AdHocCategory } from '$lib/ad-hoc';
-import { changeStateSchoolAttendance, getStateWorksheet, saveStateWorksheet } from '$lib/server/state/worksheet';
+import { bulkSetStateAttendance, changeStateSchoolAttendance, getStateWorksheet, saveStateWorksheet } from '$lib/server/state/worksheet';
 import { error, fail } from '@sveltejs/kit';
 import { canCoordinateState, canCoachSchool } from '$lib/server/auth/capabilities';
 import { getDb } from '$lib/server/db';
 import { addStateEntryMember, addStateRosterMember, createStateEntry, createStateTeamForBerth, getStateDashboard, removeStateEntryMember, removeStateRosterMember, setStateAttendance, StateError } from '$lib/server/state/service';
 import { contestAction } from '$lib/server/program/contest-actions';
-import { scopeStateDashboard } from '$lib/server/state/access';
 import type { Actions, PageServerLoad } from './$types';
 
 function text(data: FormData, name: string) { return String(data.get(name) ?? '').trim(); }
@@ -16,17 +15,19 @@ function failure(cause: unknown) { return fail(400, { error: cause instanceof St
 export const load: PageServerLoad = async ({ locals, platform, params, url }) => {
 	if (!locals.principal) throw error(401, 'Sign in required.');
 	if (!platform?.env.DB) throw error(503, 'Database unavailable.');
-	const dashboard = await getStateDashboard(getDb(platform.env.DB), params.contestId);
+	const db = getDb(platform.env.DB);
+	const requested = url.searchParams.get('schoolId');
+	const coachSchoolIds = new Set(locals.principal.coachAssignments.map((assignment) => assignment.schoolId));
+	// A school view only needs that school's rows; only the administrator overview reads the whole contest.
+	const dashboard = await getStateDashboard(db, params.contestId, locals.principal.isAdmin ? (requested ? [requested] : undefined) : [...coachSchoolIds]);
 	if (canCoordinateState(locals.principal, dashboard.contest.seasonId)) {
-		const schoolId = url.searchParams.get('schoolId');
-		if (schoolId && !dashboard.qualifiedSchools.some(school => school.schoolId === schoolId)) throw error(404, 'Qualified school not found.');
-		return { ...(schoolId ? scopeStateDashboard(dashboard, new Set([schoolId])) : dashboard), canManageContest: dashboard.seasonStatus !== 'archived', isCoordinator: true, schoolView: Boolean(schoolId), adHoc: await getAdHocDashboard(getDb(platform.env.DB), params.contestId, schoolId ?? undefined), registration: schoolId ? await getStateWorksheet(getDb(platform.env.DB), params.contestId, schoolId) : null };
+		if (requested && !dashboard.qualifiedSchools.some(school => school.schoolId === requested)) throw error(404, 'Qualified school not found.');
+		return { ...dashboard, canManageContest: dashboard.seasonStatus !== 'archived', isCoordinator: true, schoolView: Boolean(requested), adHoc: await getAdHocDashboard(db, params.contestId, requested ?? undefined), registration: requested ? await getStateWorksheet(db, params.contestId, requested, dashboard) : null };
 	}
-	const schoolIds = new Set(locals.principal.coachAssignments.map((assignment) => assignment.schoolId));
-	if (!dashboard.qualifiedSchools.some((school) => schoolIds.has(school.schoolId))) throw error(403, 'You cannot view this state contest.');
-	const schoolId = url.searchParams.get('schoolId') ?? dashboard.qualifiedSchools.find(s => schoolIds.has(s.schoolId))?.schoolId;
-	if (!schoolId || !schoolIds.has(schoolId)) throw error(403, 'You cannot view this school registration.');
-	return { ...scopeStateDashboard(dashboard, schoolIds), canManageContest: false, isCoordinator: false, schoolView: true, adHoc: await getAdHocDashboard(getDb(platform.env.DB), params.contestId, schoolId), registration: await getStateWorksheet(getDb(platform.env.DB), params.contestId, schoolId) };
+	if (!dashboard.qualifiedSchools.some((school) => coachSchoolIds.has(school.schoolId))) throw error(403, 'You cannot view this state contest.');
+	const schoolId = requested ?? dashboard.qualifiedSchools.find(s => coachSchoolIds.has(s.schoolId))?.schoolId;
+	if (!schoolId || !coachSchoolIds.has(schoolId)) throw error(403, 'You cannot view this school registration.');
+	return { ...dashboard, canManageContest: false, isCoordinator: false, schoolView: true, adHoc: await getAdHocDashboard(db, params.contestId, schoolId), registration: await getStateWorksheet(db, params.contestId, schoolId, dashboard) };
 };
 
 export const actions: Actions = {
@@ -50,21 +51,7 @@ export const actions: Actions = {
   const db = getDb(platform.env.DB);
   const dashboard = await getStateDashboard(db, params.contestId);
   if (dashboard.seasonStatus !== 'state' || dashboard.contest.lifecycle !== 'registration_open') return fail(400, { error: 'State registration is closed.' });
-  const schools = dashboard.qualifiedSchools.filter(school => {
-   const attendance = dashboard.attendance.find(a => a.schoolId === school.schoolId);
-   return (!attendance || attendance.intent === 'undecided') && !dashboard.participations.some(p => p.participation.schoolId === school.schoolId && p.participation.withdrawnAt != null);
-  });
-  let updated = 0;
-  const errors: string[] = [];
-  for (const school of schools) {
-   try {
-    const sheet = await getStateWorksheet(db, params.contestId, school.schoolId, dashboard);
-    await saveStateWorksheet(db, { contestId: params.contestId, schoolId: school.schoolId, rows: sheet.rows.map(row => intent === 'attending' ? row : { ...row, attending: false }), actorUserId: locals.principal.id }, dashboard);
-    updated++;
-   } catch (cause) {
-    errors.push(`${school.schoolName}: ${cause instanceof StateError ? cause.message : 'Registration could not be saved.'}`);
-   }
-  }
+  const { updated, errors } = await bulkSetStateAttendance(db, { contestId: params.contestId, intent, actorUserId: locals.principal.id }, dashboard);
   return { success: `${updated} ${updated === 1 ? 'school' : 'schools'} ${intent === 'attending' ? 'opted in' : 'opted out'}.`, ...(errors.length ? { error: errors.join(' ') } : {}) };
  },
  changeSchoolAttendance: async ({ locals, platform, params, request }) => {

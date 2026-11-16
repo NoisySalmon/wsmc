@@ -54,7 +54,7 @@ export const regions = sqliteTable('regions', {
 	seasonId: text('season_id').notNull().references(() => seasons.id, { onDelete: 'cascade' }),
 	number: integer('number').notNull(),
 	name: text('name').notNull().default(''),
-}, (table) => [uniqueIndex('regions_season_number_uq').on(table.seasonId, table.number), check('regions_number_check', sql`${table.number} > 0`)]);
+}, (table) => [uniqueIndex('regions_season_number_uq').on(table.seasonId, table.number), index('regions_number_idx').on(table.number), check('regions_number_check', sql`${table.number} > 0`)]);
 
 export const contests = sqliteTable('contests', {
 	id: text('id').primaryKey(),
@@ -73,6 +73,7 @@ export const contests = sqliteTable('contests', {
 	uniqueIndex('contests_season_region_kind_uq').on(table.seasonId, table.regionId, table.kind),
 	uniqueIndex('contests_season_state_uq').on(table.seasonId).where(sql`${table.kind} = 'state'`),
 	index('contests_season_lifecycle_idx').on(table.seasonId, table.lifecycle),
+	index('contests_region_idx').on(table.regionId),
 	check('contests_kind_check', sql`${table.kind} IN ('regional', 'state')`),
 	check('contests_lifecycle_check', sql`${table.lifecycle} IN ('setup', 'registration_open', 'roster_locked', 'scoring', 'finalized')`),
 	check('contests_state_region_check', sql`(${table.kind} = 'state' AND ${table.regionId} IS NULL) OR (${table.kind} = 'regional' AND ${table.regionId} IS NOT NULL)`),
@@ -128,7 +129,7 @@ export const schoolParticipations = sqliteTable('school_participations', {
 	invitationStatus: text('invitation_status', { enum: ['pending', 'invited', 'accepted', 'declined'] }).notNull().default('pending'),
 	createdAt: integer('created_at').notNull().default(timestamp()),
 	updatedAt: integer('updated_at').notNull().default(timestamp()),
-}, (table) => [uniqueIndex('school_participations_contest_school_uq').on(table.contestId, table.schoolId), uniqueIndex('school_participations_id_contest_uq').on(table.id, table.contestId), index('school_participations_contest_division_idx').on(table.contestId, table.division), check('school_participations_division_check', sql`${table.division} IN (1, 2)`), check('school_participations_invitation_status_check', sql`${table.invitationStatus} IN ('pending', 'invited', 'accepted', 'declined')`)]);
+}, (table) => [uniqueIndex('school_participations_contest_school_uq').on(table.contestId, table.schoolId), uniqueIndex('school_participations_id_contest_uq').on(table.id, table.contestId), index('school_participations_contest_division_idx').on(table.contestId, table.division), index('school_participations_school_idx').on(table.schoolId), check('school_participations_division_check', sql`${table.division} IN (1, 2)`), check('school_participations_invitation_status_check', sql`${table.invitationStatus} IN ('pending', 'invited', 'accepted', 'declined')`)]);
 
 // ── Annual people and contest roster ─────────────────────
 export const annualStudents = sqliteTable('annual_students', {
@@ -149,6 +150,7 @@ export const contestRosterMembers = sqliteTable('contest_roster_members', {
 }, (table) => [
 	primaryKey({ columns: [table.contestId, table.annualStudentId] }),
 	index('contest_roster_participation_idx').on(table.participationId),
+	index('contest_roster_student_idx').on(table.annualStudentId),
 	foreignKey({ columns: [table.participationId, table.contestId], foreignColumns: [schoolParticipations.id, schoolParticipations.contestId], name: 'contest_roster_participation_contest_fk' }),
 ]);
 
@@ -163,7 +165,7 @@ export const entries = sqliteTable('entries', {
 	division: integer('division').notNull(),
 	createdAt: integer('created_at').notNull().default(timestamp()),
 	updatedAt: integer('updated_at').notNull().default(timestamp()),
-}, (table) => [index('entries_contest_category_division_idx').on(table.contestId, table.category, table.division), uniqueIndex('entries_contest_category_owner_number_uq').on(table.contestId, table.category, table.ownerSchoolId, table.entryNumber), check('entries_division_check', sql`${table.division} IN (1, 2)`), check('entries_category_check', sql`${table.category} IN ('project', 'team_contest', 'topical_team', 'topical_individual', 'knowdown')`), check('entries_kind_check', sql`${table.entryKind} IN ('team', 'individual')`)]);
+}, (table) => [index('entries_contest_category_division_idx').on(table.contestId, table.category, table.division), index('entries_owner_contest_idx').on(table.ownerSchoolId, table.contestId), uniqueIndex('entries_contest_category_owner_number_uq').on(table.contestId, table.category, table.ownerSchoolId, table.entryNumber), check('entries_division_check', sql`${table.division} IN (1, 2)`), check('entries_category_check', sql`${table.category} IN ('project', 'team_contest', 'topical_team', 'topical_individual', 'knowdown')`), check('entries_kind_check', sql`${table.entryKind} IN ('team', 'individual')`)]);
 
 export const entryMembers = sqliteTable('entry_members', {
 	entryId: text('entry_id').notNull().references(() => entries.id, { onDelete: 'cascade' }),
@@ -206,7 +208,7 @@ export const qualifications = sqliteTable('qualifications', {
 	studentId: text('student_id').references(() => annualStudents.id, { onDelete: 'restrict' }),
 	active: integer('active', { mode: 'boolean' }).notNull().default(true),
 	createdAt: integer('created_at').notNull().default(timestamp()),
-}, (table) => [index('qualifications_season_student_idx').on(table.seasonId, table.studentId), uniqueIndex('qualifications_round_entry_uq').on(table.roundId, table.entryId)]);
+}, (table) => [index('qualifications_season_student_idx').on(table.seasonId, table.studentId), index('qualifications_entry_idx').on(table.entryId), uniqueIndex('qualifications_round_entry_uq').on(table.roundId, table.entryId)]);
 
 export const qualificationReasons = sqliteTable('qualification_reasons', {
 	id: text('id').primaryKey(),
@@ -235,7 +237,7 @@ export const stateTeamBerths = sqliteTable('state_team_berths', {
 	schoolId: text('school_id').notNull().references(() => schools.id, { onDelete: 'restrict' }),
 	category: text('category', { enum: ['project', 'team_contest', 'topical_team'] }).notNull(),
 	createdAt: integer('created_at').notNull().default(timestamp()),
-});
+}, (table) => [index('state_team_berths_state_entry_idx').on(table.stateEntryId)]);
 
 export const stateRosterMembers = sqliteTable('state_roster_members', {
 	contestId: text('contest_id').notNull().references(() => contests.id, { onDelete: 'cascade' }),
@@ -245,7 +247,7 @@ export const stateRosterMembers = sqliteTable('state_roster_members', {
 	qualificationId: text('qualification_id').references(() => qualifications.id, { onDelete: 'set null' }),
 	stateEntryId: text('state_entry_id').references(() => entries.id, { onDelete: 'set null' }),
 	createdAt: integer('created_at').notNull().default(timestamp()),
-}, (table) => [primaryKey({ columns: [table.contestId, table.annualStudentId] }), index('state_roster_school_idx').on(table.contestId, table.schoolId)]);
+}, (table) => [primaryKey({ columns: [table.contestId, table.annualStudentId] }), index('state_roster_school_idx').on(table.contestId, table.schoolId), index('state_roster_state_entry_idx').on(table.stateEntryId)]);
 
 // ── Operations ────────────────────────────────────────────
 export const imports = sqliteTable('imports', {

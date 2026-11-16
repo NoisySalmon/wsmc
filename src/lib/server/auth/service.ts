@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import type { Database } from '$lib/server/db';
 import { schema } from '$lib/server/db';
 import { normalizeEmail, randomToken, sha256 } from './crypto';
@@ -212,27 +212,36 @@ export async function removeAssignment(db: Database, assignment: AssignmentKey, 
 	await db.batch([revoke, assignmentAudit(db, assignment.userId, assignment, actorUserId, 'assignment_revoked', Date.now())]);
 }
 
+/** Sessions are touched at most this often: a write on every request would spend the D1 daily write allowance on bookkeeping. */
+export const SESSION_TOUCH_INTERVAL_MS = 60 * 60 * 1000;
+
+/** Runs on every request. One D1 round trip resolves the session and all four assignment kinds. */
 export async function loadPrincipal(db: Database, sessionId: string | undefined, now = Date.now()): Promise<Principal | null> {
 	if (!sessionId) return null;
-	const [session] = await db.select({ session: schema.sessions, user: schema.users }).from(schema.sessions)
+	// Each assignment lookup re-derives the user from the session, so the whole principal fits one batch.
+	const sessionUser = db.select({ userId: schema.sessions.userId }).from(schema.sessions)
 		.innerJoin(schema.users, eq(schema.users.id, schema.sessions.userId))
 		.where(and(eq(schema.sessions.id, sessionId), isNull(schema.sessions.revokedAt), gt(schema.sessions.expiresAt, now), eq(schema.users.status, 'active')));
-	if (!session) return null;
-	await db.update(schema.sessions).set({ lastSeenAt: now }).where(eq(schema.sessions.id, sessionId));
-
-	const [statewide, regional, coach, scorekeeper] = await Promise.all([
-		db.select({ userId: schema.statewideAssignments.userId }).from(schema.statewideAssignments).where(eq(schema.statewideAssignments.userId, session.user.id)),
+	const [[session], statewide, regional, coach, scorekeeper] = await db.batch([
+		db.select({ id: schema.users.id, email: schema.users.email, displayName: schema.users.displayName, lastSeenAt: schema.sessions.lastSeenAt }).from(schema.sessions)
+			.innerJoin(schema.users, eq(schema.users.id, schema.sessions.userId))
+			.where(and(eq(schema.sessions.id, sessionId), isNull(schema.sessions.revokedAt), gt(schema.sessions.expiresAt, now), eq(schema.users.status, 'active'))),
+		db.select({ userId: schema.statewideAssignments.userId }).from(schema.statewideAssignments).where(inArray(schema.statewideAssignments.userId, sessionUser)),
 		db.select({ contestId: schema.contests.id }).from(schema.regionalCoordinatorAssignments)
 			.innerJoin(schema.regions, eq(schema.regions.number, schema.regionalCoordinatorAssignments.regionNumber))
 			.innerJoin(schema.contests, and(eq(schema.contests.regionId, schema.regions.id), eq(schema.contests.kind, 'regional')))
-			.where(eq(schema.regionalCoordinatorAssignments.userId, session.user.id)),
-		db.select({ schoolId: schema.coachAssignments.schoolId }).from(schema.coachAssignments).where(eq(schema.coachAssignments.userId, session.user.id)),
-		db.select({ contestId: schema.scorekeeperAssignments.contestId }).from(schema.scorekeeperAssignments).where(eq(schema.scorekeeperAssignments.userId, session.user.id)),
+			.where(inArray(schema.regionalCoordinatorAssignments.userId, sessionUser)),
+		db.select({ schoolId: schema.coachAssignments.schoolId }).from(schema.coachAssignments).where(inArray(schema.coachAssignments.userId, sessionUser)),
+		db.select({ contestId: schema.scorekeeperAssignments.contestId }).from(schema.scorekeeperAssignments).where(inArray(schema.scorekeeperAssignments.userId, sessionUser)),
 	]);
+	if (!session) return null;
+	if (now - session.lastSeenAt >= SESSION_TOUCH_INTERVAL_MS) {
+		await db.update(schema.sessions).set({ lastSeenAt: now }).where(eq(schema.sessions.id, sessionId));
+	}
 	return {
-		id: session.user.id,
-		email: session.user.email,
-		displayName: session.user.displayName,
+		id: session.id,
+		email: session.email,
+		displayName: session.displayName,
 		isAdmin: statewide.length > 0,
 		regionalContestIds: regional.map((assignment) => assignment.contestId),
 		coachAssignments: coach,
