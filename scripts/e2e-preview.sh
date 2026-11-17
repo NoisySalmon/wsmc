@@ -220,6 +220,7 @@ assert_status GET /scoring/contest-region-2 409 "$coordinator"
 assert_status GET /scoring/contest-region-1 200 "$coordinator"
 assert_status GET /qualifications/season-2026 200 "$coordinator"
 assert_status GET /state/contest-state-2026 200 "$coordinator"
+assert_status POST '/state/contest-state-2026?/bulkAttendance' 404 "$coordinator" --data 'intent=attending'
 assert_status GET /reports/season/season-2026 200 "$coordinator"
 assert_status GET '/reports/regionals?seasonId=season-2026' 200 "$coordinator"
 assert_status GET '/reports/qualifications?seasonId=season-2026' 200 "$coordinator"

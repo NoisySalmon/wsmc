@@ -8,6 +8,9 @@ with SvelteKit, Drizzle ORM, and Cloudflare D1.
 See the [documentation index](docs/README.md) for user guides, product rules,
 architecture, and operational procedures.
 
+See the [script index](docs/operations/scripts.md) for development, seed,
+fast-forward, verification, and database restoration commands.
+
 ## Features
 
 - **Program administration:** Seasons bootstrapped with the WSMC contest regions 1–10 and Virtual (11), editable regions and contests, school directory, participation, and assignments.

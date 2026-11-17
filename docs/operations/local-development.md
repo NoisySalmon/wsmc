@@ -1,5 +1,8 @@
 # Local development and demo preview
 
+See the [script index](scripts.md) for the full command catalog, including
+fast-forward helpers and local snapshot restoration.
+
 ## Recommended: persistent local development
 
 Run `npm run dev` and open `http://127.0.0.1:5173`. Existing showcase data

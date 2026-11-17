@@ -1,6 +1,6 @@
 import { getAdHocDashboard, regenerateAdHocTeams } from '$lib/server/state/ad-hoc';
 import type { AdHocCategory } from '$lib/ad-hoc';
-import { bulkSetStateAttendance, changeStateSchoolAttendance, getStateWorksheet, saveStateWorksheet } from '$lib/server/state/worksheet';
+import { changeStateSchoolAttendance, getStateWorksheet, saveStateWorksheet } from '$lib/server/state/worksheet';
 import { error, fail } from '@sveltejs/kit';
 import { canCoordinateState, canCoachSchool } from '$lib/server/auth/capabilities';
 import { getDb } from '$lib/server/db';
@@ -41,18 +41,6 @@ export const actions: Actions = {
    const result = await regenerateAdHocTeams(db, { contestId: params.contestId, category: text(await request.formData(), 'category') as AdHocCategory, actorUserId: locals.principal.id });
    return { success: `${result.teams} ad-hoc teams saved.${result.unassigned ? ` ${result.unassigned} students remain unassigned: there are not enough students from other schools to form pairs.` : ''}` };
   } catch (cause) { return failure(cause); }
- },
- bulkAttendance: async ({ locals, platform, params, request }) => {
-  if (!locals.principal) throw error(401, 'Sign in required.');
-  if (!locals.principal.isAdmin) throw error(403, 'Only state coordinators can update all schools.');
-  if (!platform?.env.DB) throw error(503, 'Database unavailable.');
-  const intent = text(await request.formData(), 'intent');
-  if (intent !== 'attending' && intent !== 'not_attending') return fail(400, { error: 'Choose attending or not attending.' });
-  const db = getDb(platform.env.DB);
-  const dashboard = await getStateDashboard(db, params.contestId);
-  if (dashboard.seasonStatus !== 'state' || dashboard.contest.lifecycle !== 'registration_open') return fail(400, { error: 'State registration is closed.' });
-  const { updated, errors } = await bulkSetStateAttendance(db, { contestId: params.contestId, intent, actorUserId: locals.principal.id }, dashboard);
-  return { success: `${updated} ${updated === 1 ? 'school' : 'schools'} ${intent === 'attending' ? 'opted in' : 'opted out'}.`, ...(errors.length ? { error: errors.join(' ') } : {}) };
  },
  changeSchoolAttendance: async ({ locals, platform, params, request }) => {
   if (!locals.principal) throw error(401, 'Sign in required.');

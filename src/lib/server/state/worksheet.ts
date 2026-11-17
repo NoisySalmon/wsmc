@@ -229,11 +229,11 @@ export async function changeStateSchoolAttendance(db: Database, input: { contest
 const BULK_BATCH_STATEMENTS = 400;
 
 /**
- * Opt every undecided school in or out. The free plan allows 50 D1 queries per request, so this
- * reads what every school needs in four contest-wide queries and writes in a few batches,
- * rather than issuing a handful of queries per school.
+ * CLI helper: opt every undecided school in or out, reading shared data once
+ * and keeping each school's writes in one atomic batch.
  */
 export async function bulkSetStateAttendance(db: Database, input: { contestId: string; intent: 'attending' | 'not_attending'; actorUserId: string }, dashboard: StateDashboard) {
+ if (dashboard.seasonStatus !== 'state' || dashboard.contest.lifecycle !== 'registration_open') throw new StateError('locked', 'State registration is closed.');
  const schools = dashboard.qualifiedSchools.filter(school => {
   const attendance = dashboard.attendance.find(a => a.schoolId === school.schoolId);
   return (!attendance || attendance.intent === 'undecided') && !dashboard.participations.some(p => p.participation.schoolId === school.schoolId && p.participation.withdrawnAt != null);

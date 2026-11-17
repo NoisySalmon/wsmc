@@ -111,6 +111,12 @@ npm run demo:regionals -- --exclude contest-region-2
 # After demonstrating Region 2, finish all remaining regional work.
 npm run demo:regionals
 
+# During open state registration, save the current worksheets of undecided schools.
+npm run demo:attendance -- --intent attending
+
+# Or mark students at undecided schools not attending.
+npm run demo:attendance -- --intent not_attending
+
 # Optional shortcut/rehearsal: continue all the way to published state results.
 npm run demo:complete
 
@@ -132,6 +138,16 @@ retaining original team members and choosing default ad-hoc participation. Saved
 worksheets and withdrawals are preserved. It generates pending ad-hoc teams,
 locks rosters, fills scores, finalizes and publishes state results. The season
 remains in the state stage so results can be demonstrated; it is not archived.
+
+`demo:attendance` requires the season's state stage and open state registration.
+It changes only schools whose attendance is undecided and skips withdrawn schools.
+Opt-in saves each school's current worksheet, including default qualifiers and events;
+opt-out saves the worksheet with every student marked not attending. Existing event
+choices are retained. It does not advance the season or lock rosters. The state
+contest is selected automatically; `--contest CONTEST_ID` can name it explicitly.
+The command reports the number of schools changed and exits unsuccessfully if any
+school could not be saved; successful schools remain saved. Bulk attendance is
+available only through this local CLI, not through a web action.
 
 All helpers can be repeated; finalized results are preserved. `--seed TEXT`
 changes the deterministic generated scores for blanks only (default `2026`).

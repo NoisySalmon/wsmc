@@ -11,6 +11,7 @@
 
 ## Development and operations
 
+- [Script and CLI command index](operations/scripts.md)
 - [Local development and demo scenarios](operations/local-development.md)
 - [Showcase provenance and demo controls](operations/showcase-data.md)
 - [D1 deployment, migrations, backup, and recovery](operations/d1-runbook.md)

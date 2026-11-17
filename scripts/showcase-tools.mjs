@@ -7,22 +7,27 @@ import { getPlatformProxy } from 'wrangler';
 
 const { values, positionals } = parseArgs({ allowPositionals: true, options: {
   contest: { type: 'string' }, exclude: { type: 'string', multiple: true, default: [] },
-  seed: { type: 'string', default: '2026' }, 'persist-to': { type: 'string' }, help: { type: 'boolean' }
+  seed: { type: 'string', default: '2026' }, intent: { type: 'string' }, 'persist-to': { type: 'string' }, help: { type: 'boolean' }
 } });
 const [command] = positionals;
 if (values.help) {
   console.log(`Usage: node scripts/showcase-tools.mjs scores --contest CONTEST_ID [--seed TEXT]
        node scripts/showcase-tools.mjs regionals [--exclude CONTEST_ID ...] [--seed TEXT]
        node scripts/showcase-tools.mjs complete [--seed TEXT]
+       node scripts/showcase-tools.mjs attendance --intent attending|not_attending [--contest CONTEST_ID]
 All commands: [--persist-to DIRECTORY] (same directory as seed:showcase).
 Local showcase only. Scores fills blanks; regionals completes and publishes regionals;
 complete continues through qualification publication, state registration and state results.
+Attendance saves undecided schools' current state worksheets, or marks their students
+not attending. Requires open state registration; decided and withdrawn schools are skipped.
 Existing scores and finalized contests are preserved. No remote option exists.`);
   process.exit(0);
 }
-if (!['scores', 'regionals', 'complete'].includes(command) || positionals.length !== 1) throw new Error('Choose scores, regionals or complete; use --help.');
+if (!['scores', 'regionals', 'complete', 'attendance'].includes(command) || positionals.length !== 1) throw new Error('Choose scores, regionals, complete or attendance; use --help.');
 if (command === 'scores' && !values.contest) throw new Error('scores requires --contest CONTEST_ID.');
-if (command !== 'scores' && values.contest) throw new Error('--contest is only supported by scores.');
+if (!['scores', 'attendance'].includes(command) && values.contest) throw new Error('--contest is only supported by scores and attendance.');
+if (command === 'attendance' && !['attending', 'not_attending'].includes(values.intent)) throw new Error('attendance requires --intent attending or --intent not_attending.');
+if (command !== 'attendance' && values.intent) throw new Error('--intent is only supported by attendance.');
 if (command !== 'regionals' && values.exclude.length) throw new Error('--exclude is only supported by regionals.');
 const seasonId = 'season-2026', actorUserId = 'user-coordinator';
 const proxy = await getPlatformProxy({ remoteBindings: false, ...(values['persist-to'] ? { persist: { path: resolve(values['persist-to'], 'v3') } } : {}) });
@@ -122,6 +127,17 @@ try {
     }
   }
   if (command === 'scores') await fillScores(values.contest);
+  else if (command === 'attendance') {
+    const state = await first("SELECT id FROM contests WHERE season_id=? AND kind='state'", seasonId);
+    const contestId = values.contest ?? state?.id;
+    if (!state || contestId !== state.id) throw new Error(`Unknown showcase state contest: ${contestId}`);
+    const { getStateDashboard } = await load('state/service');
+    const { bulkSetStateAttendance } = await load('state/worksheet');
+    const dashboard = await getStateDashboard(db, contestId);
+    const { updated, errors } = await bulkSetStateAttendance(db, { ...context(contestId), intent: values.intent }, dashboard);
+    console.log(`${contestId}: ${updated} ${updated === 1 ? 'school' : 'schools'} opted ${values.intent === 'attending' ? 'in' : 'out'}.`);
+    if (errors.length) { for (const error of errors) console.error(error); process.exitCode = 1; }
+  }
   else {
     await regionals();
     if (command === 'complete') {

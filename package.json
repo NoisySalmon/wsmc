@@ -26,6 +26,7 @@
 		"demo:scores": "node scripts/showcase-tools.mjs scores",
 		"demo:regionals": "node scripts/showcase-tools.mjs regionals",
 		"demo:complete": "node scripts/showcase-tools.mjs complete",
+		"demo:attendance": "node scripts/showcase-tools.mjs attendance",
 		"test:showcase": "node scripts/test-showcase-tools.mjs"
 	},
 	"devDependencies": {
